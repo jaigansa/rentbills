@@ -158,9 +158,37 @@ export async function checkAuth(passedSession = null) {
     if (badgeEl) badgeEl.title = `${activeUser.username} (${activeUser.role})`;
     if (avatarTxt) avatarTxt.textContent = (activeUser.username || 'A').charAt(0).toUpperCase();
 
+    // Handle Auditor Banner Element
+    let auditorBanner = document.getElementById('auditor-mode-banner');
+    if (activeUser.role === 'AUDITOR') {
+      if (!auditorBanner) {
+        auditorBanner = document.createElement('div');
+        auditorBanner.id = 'auditor-mode-banner';
+        auditorBanner.style.cssText = 'background: linear-gradient(90deg, #0f172a, #1e293b); color: #38bdf8; border-bottom: 1px solid rgba(56, 189, 248, 0.25); padding: 8px 16px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; z-index: 999;';
+        auditorBanner.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="eye"></i>
+            <span>🔍 Financial Auditor View — Read-Only Mode Active (Data modifications disabled)</span>
+          </div>
+          <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Auditor Mode</span>
+        `;
+        const appView = document.getElementById('app-view');
+        if (appView) appView.parentNode.insertBefore(auditorBanner, appView);
+      }
+      auditorBanner.style.display = 'flex';
+    } else if (auditorBanner) {
+      auditorBanner.style.display = 'none';
+    }
+
     if (activeUser.role === 'TENANT') {
       document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
       document.querySelectorAll('.tenant-only').forEach(el => el.style.display = '');
+    } else if (activeUser.role === 'AUDITOR') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tenant-only').forEach(el => el.style.display = 'none');
+    } else if (activeUser.role === 'STAFF') {
+      document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('.tenant-only').forEach(el => el.style.display = 'none');
     } else {
       document.querySelectorAll('.admin-only').forEach(el => el.style.display = '');
       document.querySelectorAll('.tenant-only').forEach(el => el.style.display = 'none');
@@ -174,6 +202,8 @@ export async function checkAuth(passedSession = null) {
     let savedPage = localStorage.getItem('rentbill_active_page') || 'page-dashboard';
     if (activeUser.role === 'TENANT' && (savedPage === 'page-properties' || savedPage === 'page-expenses' || savedPage === 'page-settings')) {
       savedPage = 'page-dashboard';
+    } else if (activeUser.role === 'STAFF' && savedPage === 'page-dashboard') {
+      savedPage = 'page-maintenance';
     }
 
     // Activate the targeted page DOM section explicitly

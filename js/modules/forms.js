@@ -16,7 +16,17 @@ import { saveTenantCredentials, submitTenantPasswordForm, loadTenantLoginsSettin
 
 export function setupFormSubmitHandlers() {
   const supabaseClient = getSupabaseClient();
-  const currentUser = getCurrentUser();
+  
+  // Guard: Intercept all form submissions for AUDITOR role (Read-Only Safety Shield)
+  document.addEventListener('submit', (e) => {
+    const user = getCurrentUser();
+    if (user && user.role === 'AUDITOR' && e.target.id !== 'login-form') {
+      e.preventDefault();
+      e.stopPropagation();
+      alert('🔒 Financial Auditor View — Read-Only Mode Active. Data modifications are disabled.');
+      return false;
+    }
+  }, true);
 
   // 1. LOGIN FORM SUBMIT HANDLER
   const loginForm = document.getElementById('login-form');

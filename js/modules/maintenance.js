@@ -176,7 +176,9 @@ function renderMaintenanceRows(tasks) {
   }
 
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser && currentUser.role !== 'TENANT';
+  const isAdmin = currentUser && currentUser.role === 'ADMIN';
+  const isAuditor = currentUser && currentUser.role === 'AUDITOR';
+  const canUpdateStatus = currentUser && !isAuditor;
 
   tbody.innerHTML = tasks.map(t => {
     const renterObj = cachedRentersList.find(r => String(r.id) === String(t.renter_id));
@@ -219,24 +221,26 @@ function renderMaintenanceRows(tasks) {
         <td>${scheduledDateDisplay}</td>
         <td>${costDisplay}</td>
         <td>
-          <div class="dropdown" style="position: relative; display: inline-block;">
-            <button class="btn btn-secondary btn-sm" onclick="toggleDropdown(event, 'maint-drop-${t.id}')">
-              <i data-lucide="more-vertical"></i>
-            </button>
-            <div id="maint-drop-${t.id}" class="dropdown-menu" style="display: none; position: absolute; right: 0; z-index: 100; min-width: 160px;">
-              <button class="dropdown-item" onclick="triggerUpdateMaintenanceStatus(${t.id})">
-                <i data-lucide="check-circle-2"></i> Update Status & Cost
+          ${canUpdateStatus ? `
+            <div class="dropdown" style="position: relative; display: inline-block;">
+              <button class="btn btn-secondary btn-sm" onclick="toggleDropdown(event, 'maint-drop-${t.id}')">
+                <i data-lucide="more-vertical"></i>
               </button>
-              ${isAdmin ? `
-                <button class="dropdown-item" onclick="triggerEditMaintenance(${t.id})">
-                  <i data-lucide="edit-3"></i> Edit Task
+              <div id="maint-drop-${t.id}" class="dropdown-menu" style="display: none; position: absolute; right: 0; z-index: 100; min-width: 160px;">
+                <button class="dropdown-item" onclick="triggerUpdateMaintenanceStatus(${t.id})">
+                  <i data-lucide="check-circle-2"></i> Update Status & Cost
                 </button>
-                <button class="dropdown-item danger" onclick="triggerDeleteMaintenance(${t.id})">
-                  <i data-lucide="trash-2"></i> Delete Work Order
-                </button>
-              ` : ''}
+                ${isAdmin ? `
+                  <button class="dropdown-item" onclick="triggerEditMaintenance(${t.id})">
+                    <i data-lucide="edit-3"></i> Edit Task
+                  </button>
+                  <button class="dropdown-item danger" onclick="triggerDeleteMaintenance(${t.id})">
+                    <i data-lucide="trash-2"></i> Delete Work Order
+                  </button>
+                ` : ''}
+              </div>
             </div>
-          </div>
+          ` : '<span style="color: var(--text-muted); font-size: 12px;">Read-Only</span>'}
         </td>
       </tr>
     `;
