@@ -134,16 +134,16 @@ export function renderTenantLoginsTable(tenants) {
     const mobileDisplay = t.mobile_number || '-';
 
     tr.innerHTML = `
-      <td data-label="Tenant Name">
+      <td data-label="Tenant & Unit">
         <strong>${escapeStr(t.renter_name)}</strong>
         <div style="font-size: 11px; color: var(--text-muted);">${escapeStr(t.property_name)} • ${escapeStr(t.unit_name)}</div>
       </td>
-      <td data-label="Login Email / Identifier">
+      <td data-label="Mobile">${escapeStr(mobileDisplay)}</td>
+      <td data-label="Login Email">
         <code style="font-size: 12px; background: var(--bg-input); padding: 2px 6px; border-radius: 4px;">${escapeStr(emailDisplay)}</code>
       </td>
-      <td data-label="Mobile Number">${escapeStr(mobileDisplay)}</td>
-      <td data-label="Portal Status">${statusBadge}</td>
-      <td data-label="Last Sign In">${lastLogin}</td>
+      <td data-label="Portal Access">${statusBadge}</td>
+      <td data-label="Last Activity">${lastLogin}</td>
       <td data-label="Actions">
         <div class="dropdown">
           <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>

@@ -1023,7 +1023,7 @@ GRANT EXECUTE ON FUNCTION public.tenant_link_own_lease() TO authenticated;
 DO $$
 DECLARE
   v_admin_id UUID := gen_random_uuid();
-  v_admin_email TEXT := 'admin@rentbill.com'; -- Change to your preferred admin email
+  v_admin_email TEXT := 'admin@jai.com'; -- Change to your preferred admin email
   v_admin_password TEXT := 'Admin@123';    -- Change to your preferred admin password
   v_encrypted_pw TEXT;
 BEGIN
