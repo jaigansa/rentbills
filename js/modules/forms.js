@@ -307,7 +307,7 @@ export function setupFormSubmitHandlers() {
         
         let tenantPassword = (document.getElementById('tenant-password')?.value || '').trim();
         if (!tenantPassword || tenantPassword.length < 6) {
-          tenantPassword = 'Tenant@123';
+          tenantPassword = (cleanMobileDigits && cleanMobileDigits.length >= 6) ? cleanMobileDigits.slice(-10) : 'Tenant@123';
         }
 
         try {

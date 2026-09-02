@@ -225,11 +225,12 @@ export function triggerTenantPasswordModal(renterId, name, email = '', mobile = 
   setVal('tp-renter-id', renterId);
   setVal('tp-user-id', userId || '');
   setText('tp-tenant-name', name || 'Tenant');
-  setText('tp-tenant-mobile', mobile || '-');
-
-  const defaultEmail = email || (name ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@rentbill.local` : '');
+  const cleanMobile = (mobile || '').replace(/[^0-9]/g, '');
+  const defaultEmail = email || (cleanMobile ? `tenant_${cleanMobile.slice(-10)}@rentbill.local` : (name ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@rentbill.local` : ''));
   setVal('tp-tenant-email', defaultEmail);
-  setVal('tp-tenant-password', 'Tenant@123');
+
+  const defaultPassword = (cleanMobile && cleanMobile.length >= 6) ? cleanMobile.slice(-10) : 'Tenant@123';
+  setVal('tp-tenant-password', defaultPassword);
 
   const titleEl = document.getElementById('tp-modal-title');
   if (titleEl) {
