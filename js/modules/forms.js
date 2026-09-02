@@ -34,8 +34,11 @@ export function setupFormSubmitHandlers() {
           refreshLucideIcons();
         }
         if (errorDiv) {
-          errorDiv.textContent = msg;
-          errorDiv.style.display = 'block';
+          const errText = document.getElementById('login-error-text');
+          if (errText) errText.textContent = msg;
+          else errorDiv.textContent = msg;
+          errorDiv.style.display = 'flex';
+          refreshLucideIcons();
         }
       }
 

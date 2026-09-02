@@ -22,29 +22,86 @@
 
   <!-- 1. AUTHENTICATION VIEW -->
   <div id="auth-view" class="auth-container" style="display: none;">
+    <!-- Top Floating Actions (Theme & Language) -->
+    <div class="auth-top-actions">
+      <button class="btn btn-secondary btn-icon-only" onclick="toggleTheme()" title="Toggle Theme (Dark / Light)">
+        <i data-lucide="moon" id="login-theme-icon"></i>
+      </button>
+      <button id="login-lang-btn" class="btn btn-secondary btn-icon-only" onclick="document.getElementById('lang-switch-btn').click()" title="Switch Language">
+        <i data-lucide="globe"></i>
+      </button>
+    </div>
+
     <div class="auth-card">
-      <div class="auth-logo" id="i18n-login-title">RentBill Pro</div>
-      <div class="auth-subtitle" id="i18n-login-subtitle">Property & Rental Management System</div>
-      <form id="login-form">
-        <div class="form-group">
-          <label for="login-email" id="i18n-label-email">Email Address</label>
-          <input type="email" id="login-email" class="form-control" placeholder="name@example.com" required autocomplete="email">
+      <div class="auth-header">
+        <div class="auth-brand-badge">
+          <i data-lucide="building-2"></i>
         </div>
-        <div class="form-group">
-          <label for="login-password" id="i18n-label-password">Password</label>
-          <div style="display: flex; gap: 8px;">
-            <input type="password" id="login-password" class="form-control" placeholder="Enter password" required autocomplete="current-password" style="flex: 1;">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLoginPasswordMask()" title="Show/Hide Password" style="padding: 0 10px;">👁️</button>
+        <h1 class="auth-logo" id="i18n-login-title">RentBill Pro</h1>
+        <p class="auth-subtitle" id="i18n-login-subtitle">Smart Property & Rental Management System</p>
+      </div>
+
+      <form id="login-form">
+        <!-- Email Input Group -->
+        <div class="form-group auth-input-group">
+          <label for="login-email" id="i18n-label-email">Email Address</label>
+          <div class="input-icon-wrapper">
+            <i data-lucide="mail" class="input-leading-icon"></i>
+            <input type="email" id="login-email" class="form-control" placeholder="admin@rentbill.com" required autocomplete="email">
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" id="i18n-btn-login">Login</button>
-      </form>
-      <div id="login-error" style="color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 14px; display: none;"></div>
-      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; text-align: center;">
-        <button type="button" class="btn btn-secondary" style="width: 100%; justify-content: center; gap: 8px; font-size: 13px; font-weight: 500;" onclick="showSetupConfigModal()">
-          <i data-lucide="key-round"></i>
-          <span>Configure Supabase API Keys</span>
+
+        <!-- Password Input Group -->
+        <div class="form-group auth-input-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label for="login-password" id="i18n-label-password" style="margin-bottom: 0;">Password</label>
+            <button type="button" onclick="fillAdminCredentials()" style="font-size: 11px; font-weight: 600; color: var(--primary); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
+              ⚡ Fill Admin
+            </button>
+          </div>
+          <div class="input-icon-wrapper">
+            <i data-lucide="lock" class="input-leading-icon"></i>
+            <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+            <button type="button" class="input-trailing-btn" onclick="toggleLoginPasswordMask()" title="Show/Hide Password" aria-label="Toggle Password Visibility">
+              <i data-lucide="eye" id="login-eye-icon"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" class="btn btn-primary auth-submit-btn" id="i18n-btn-login">
+          <span>Sign In</span>
+          <i data-lucide="arrow-right"></i>
         </button>
+      </form>
+
+      <!-- Error Message Banner -->
+      <div id="login-error" class="auth-error-banner" style="display: none;">
+        <i data-lucide="alert-circle"></i>
+        <span id="login-error-text"></span>
+      </div>
+
+      <!-- Quick Admin Hint Card -->
+      <div class="auth-hint-card">
+        <div class="auth-hint-header">
+          <i data-lucide="shield-check"></i>
+          <span>Default Credentials</span>
+        </div>
+        <div class="auth-hint-body">
+          <code>admin@rentbill.com</code> / <code>Admin@123</code>
+        </div>
+      </div>
+
+      <!-- Footer & Configure API Keys -->
+      <div class="auth-footer">
+        <button type="button" class="auth-config-link" onclick="showSetupConfigModal()">
+          <i data-lucide="key-round"></i>
+          <span>Configure Supabase Project Keys</span>
+        </button>
+        <div class="auth-security-badge">
+          <i data-lucide="shield"></i>
+          <span>256-Bit SSL Encrypted • Supabase Cloud</span>
+        </div>
       </div>
     </div>
   </div>

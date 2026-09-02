@@ -19,10 +19,14 @@ export function applyThemeMode(theme) {
 
   if (themeSelect) themeSelect.value = theme;
 
+  const loginThemeIcon = document.getElementById('login-theme-icon');
   if (themeIcon) {
     themeIcon.setAttribute('data-lucide', activeTheme === 'dark' ? 'sun' : 'moon');
-    refreshLucideIcons();
   }
+  if (loginThemeIcon) {
+    loginThemeIcon.setAttribute('data-lucide', activeTheme === 'dark' ? 'sun' : 'moon');
+  }
+  refreshLucideIcons();
 }
 
 export function toggleTheme() {

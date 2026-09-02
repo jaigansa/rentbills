@@ -540,6 +540,21 @@ export function toggleTenantModalPasswordMask() {
 
 export function toggleLoginPasswordMask() {
   const pwInput = document.getElementById('login-password');
+  const eyeIcon = document.getElementById('login-eye-icon');
   if (!pwInput) return;
-  pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+  const isHidden = pwInput.type === 'password';
+  pwInput.type = isHidden ? 'text' : 'password';
+  if (eyeIcon) {
+    eyeIcon.setAttribute('data-lucide', isHidden ? 'eye-off' : 'eye');
+    refreshLucideIcons();
+  }
+}
+
+export function fillAdminCredentials() {
+  const emailEl = document.getElementById('login-email');
+  const pwEl = document.getElementById('login-password');
+  if (emailEl) emailEl.value = 'admin@rentbill.com';
+  if (pwEl) pwEl.value = 'Admin@123';
+  const errorDiv = document.getElementById('login-error');
+  if (errorDiv) errorDiv.style.display = 'none';
 }
