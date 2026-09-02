@@ -366,25 +366,40 @@ export async function openPaymentModal(billId, duePaise) {
     try {
       if (supabaseClient) {
         let query = supabaseClient.from('bills').select('id, uuid, billing_period, net_amount, paid_amount, renter_id, status').is('deleted_at', null).neq('status', 'PAID').neq('status', 'VOID').order('created_at', { ascending: false });
-        if (currentUser && currentUser.role === 'TENANT' && currentUser.renter_id) {
-          query = query.eq('renter_id', currentUser.renter_id);
+        
+        if (currentUser && currentUser.role === 'TENANT') {
+          let tenantRenterId = currentUser.renter_id;
+          if (!tenantRenterId) {
+            try {
+              const { data: myRenter } = await supabaseClient.from('renters').select('id').is('deleted_at', null).limit(1);
+              if (myRenter && myRenter.length > 0) tenantRenterId = myRenter[0].id;
+            } catch (e) {}
+          }
+          if (tenantRenterId) {
+            query = query.eq('renter_id', tenantRenterId);
+          }
         }
+
         const { data: unpaidBills } = await query;
         const { data: renters } = await supabaseClient.from('renters').select('id, name');
         const renterMap = {};
         (renters || []).forEach(r => { renterMap[r.id] = r.name; });
 
-        payBillSelect.innerHTML = '<option value="">Select Unpaid Invoice *</option>';
-        (unpaidBills || []).forEach(b => {
-          const invName = formatInvoiceNumber(b);
-          const tenantName = renterMap[b.renter_id] || `Tenant #${b.renter_id}`;
-          const balancePaise = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
-          const opt = document.createElement('option');
-          opt.value = b.id;
-          opt.textContent = `${invName} — ${tenantName} (${b.billing_period}) — Due: ${formatCurrency(balancePaise)}`;
-          opt.setAttribute('data-due', balancePaise);
-          payBillSelect.appendChild(opt);
-        });
+        if (!unpaidBills || unpaidBills.length === 0) {
+          payBillSelect.innerHTML = '<option value="">No unpaid invoices found (All bills are paid)</option>';
+        } else {
+          payBillSelect.innerHTML = '<option value="">Select Unpaid Invoice *</option>';
+          unpaidBills.forEach(b => {
+            const invName = formatInvoiceNumber(b);
+            const tenantName = renterMap[b.renter_id] || `Tenant #${b.renter_id}`;
+            const balancePaise = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = `${invName} — ${tenantName} (${b.billing_period}) — Due: ${formatCurrency(balancePaise)}`;
+            opt.setAttribute('data-due', balancePaise);
+            payBillSelect.appendChild(opt);
+          });
+        }
       }
     } catch (err) {
       console.warn('Payment modal bill load error', err);
