@@ -192,34 +192,79 @@ SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
-  v_clean TEXT := TRIM(p_identifier);
+  v_clean TEXT := TRIM(COALESCE(p_identifier, ''));
   v_email TEXT;
   v_digits TEXT;
 BEGIN
+  IF v_clean = '' THEN
+    RETURN NULL;
+  END IF;
+
+  -- 1. Direct match in auth.users or renters by email
   IF v_clean LIKE '%@%' THEN
     SELECT email INTO v_email FROM auth.users WHERE LOWER(email) = LOWER(v_clean) LIMIT 1;
-    IF v_email IS NOT NULL THEN RETURN v_email; END IF;
+    IF v_email IS NOT NULL THEN RETURN LOWER(v_email); END IF;
 
     SELECT email INTO v_email FROM public.renters 
     WHERE LOWER(email) = LOWER(v_clean) AND deleted_at IS NULL
     ORDER BY is_active DESC LIMIT 1;
-    IF v_email IS NOT NULL THEN RETURN v_email; END IF;
+    IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN RETURN LOWER(v_email); END IF;
+
+    -- Check if inverted: mobile_number column holds the email
+    SELECT mobile_number INTO v_email FROM public.renters 
+    WHERE LOWER(mobile_number) = LOWER(v_clean) AND deleted_at IS NULL
+    ORDER BY is_active DESC LIMIT 1;
+    IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN RETURN LOWER(v_email); END IF;
   END IF;
 
+  -- 2. Digits match for mobile number
   v_digits := REGEXP_REPLACE(v_clean, '[^0-9]', '', 'g');
   IF LENGTH(v_digits) >= 7 THEN
-    SELECT email INTO v_email FROM public.renters 
-    WHERE REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%'
-      AND email IS NOT NULL AND email != '' AND deleted_at IS NULL
+    -- Match in auth.users by email containing digits or mobile metadata
+    SELECT email INTO v_email FROM auth.users 
+    WHERE (REGEXP_REPLACE(email, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%' OR raw_user_meta_data->>'mobile' LIKE '%' || v_digits || '%')
+    LIMIT 1;
+    IF v_email IS NOT NULL THEN RETURN LOWER(v_email); END IF;
+
+    -- Match in renters table by mobile_number or email digits
+    SELECT 
+      CASE 
+        WHEN email LIKE '%@%' THEN email 
+        WHEN mobile_number LIKE '%@%' THEN mobile_number 
+        ELSE NULL 
+      END INTO v_email
+    FROM public.renters 
+    WHERE (REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%' OR REGEXP_REPLACE(email, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%')
+      AND deleted_at IS NULL
     ORDER BY is_active DESC LIMIT 1;
-    IF v_email IS NOT NULL THEN RETURN v_email; END IF;
+    
+    IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN RETURN LOWER(v_email); END IF;
+
+    -- Fallback check for generated local email
+    SELECT email INTO v_email FROM auth.users 
+    WHERE LOWER(email) = LOWER('tenant_' || v_digits || '@rentbill.local') LIMIT 1;
+    IF v_email IS NOT NULL THEN RETURN LOWER(v_email); END IF;
   END IF;
 
+  -- 3. Match in profiles by username or renters by name
   SELECT u.email INTO v_email FROM auth.users u
   JOIN public.profiles p ON u.id = p.id
   WHERE LOWER(p.username) = LOWER(v_clean) LIMIT 1;
+  IF v_email IS NOT NULL THEN RETURN LOWER(v_email); END IF;
 
-  RETURN COALESCE(v_email, v_clean);
+  SELECT 
+    CASE 
+      WHEN email LIKE '%@%' THEN email 
+      WHEN mobile_number LIKE '%@%' THEN mobile_number 
+      ELSE NULL 
+    END INTO v_email
+  FROM public.renters 
+  WHERE LOWER(name) = LOWER(v_clean) AND deleted_at IS NULL
+  ORDER BY is_active DESC LIMIT 1;
+  
+  IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN RETURN LOWER(v_email); END IF;
+
+  RETURN CASE WHEN v_clean LIKE '%@%' THEN LOWER(v_clean) ELSE NULL END;
 END;
 $$;
 

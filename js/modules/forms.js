@@ -112,14 +112,16 @@ export function setupFormSubmitHandlers() {
           try {
             let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
             if (cleanDigits.length >= 7) {
-              query = query.ilike('mobile_number', `%${cleanDigits.slice(-10)}%`);
+              query = query.or(`mobile_number.ilike."%${cleanDigits.slice(-10)}%",email.ilike."%${cleanDigits.slice(-10)}%"`);
             } else {
               query = query.ilike('name', `%${identifierInput}%`);
             }
             const { data: matchedRenters } = await query.limit(1);
 
-            if (matchedRenters && matchedRenters.length > 0 && matchedRenters[0].email) {
-              emailToLogin = matchedRenters[0].email.toLowerCase();
+            if (matchedRenters && matchedRenters.length > 0) {
+              const r = matchedRenters[0];
+              if (r.email && r.email.includes('@')) emailToLogin = r.email.toLowerCase();
+              else if (r.mobile_number && r.mobile_number.includes('@')) emailToLogin = r.mobile_number.toLowerCase();
             }
           } catch (mErr) {}
         }
