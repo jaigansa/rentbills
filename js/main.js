@@ -62,6 +62,14 @@ import {
 import { loadPaymentsPage, filterPaymentsTable, triggerDeletePayment, printReceipt, printPaidReceipt, triggerApprovePaymentProof, triggerRejectPaymentProof, viewPaymentProofImage } from './modules/payments.js';
 import { loadExpensesPage, triggerDeleteExpense, triggerDeleteWithdrawal } from './modules/expenses.js';
 import {
+  loadMaintenancePage,
+  filterMaintenanceTable,
+  triggerEditMaintenance,
+  triggerUpdateMaintenanceStatus,
+  triggerDeleteMaintenance,
+  exportMaintenanceCSV
+} from './modules/maintenance.js';
+import {
   handleDocFileUpload,
   openAddDocumentModal,
   populateDocEntitySelect,
@@ -198,6 +206,12 @@ window.triggerToggleTenantLoginStatusFromModal = triggerToggleTenantLoginStatusF
 window.triggerApprovePaymentProof = triggerApprovePaymentProof;
 window.triggerRejectPaymentProof = triggerRejectPaymentProof;
 window.viewPaymentProofImage = viewPaymentProofImage;
+window.loadMaintenancePage = loadMaintenancePage;
+window.filterMaintenanceTable = filterMaintenanceTable;
+window.triggerEditMaintenance = triggerEditMaintenance;
+window.triggerUpdateMaintenanceStatus = triggerUpdateMaintenanceStatus;
+window.triggerDeleteMaintenance = triggerDeleteMaintenance;
+window.exportMaintenanceCSV = exportMaintenanceCSV;
 
 // Global Event Listeners
 document.addEventListener('click', (e) => {

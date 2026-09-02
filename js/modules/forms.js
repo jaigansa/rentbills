@@ -11,6 +11,7 @@ import { loadBillsPage, updateLiveBillCalculation } from './bills.js';
 import { loadPaymentsPage } from './payments.js';
 import { loadExpensesPage } from './expenses.js';
 import { loadDocumentsPage } from './documents.js';
+import { submitMaintenanceForm, submitMaintenanceStatusForm } from './maintenance.js';
 import { saveTenantCredentials, submitTenantPasswordForm, loadTenantLoginsSettings } from './tenantAuth.js';
 
 export function setupFormSubmitHandlers() {
@@ -70,13 +71,22 @@ export function setupFormSubmitHandlers() {
         const cleanDigits = identifierInput.replace(/[^0-9]/g, '');
         const cleanName = identifierInput.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // 1. Try public RPC lookup if available
+        // 1. Try public RPC lookup if available (support both function names)
         try {
           const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: identifierInput });
           if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
             emailToLogin = rpcEmail.toLowerCase();
           }
         } catch (e) {}
+
+        if (!emailToLogin.includes('@')) {
+          try {
+            const { data: rpcEmail } = await client.rpc('get_login_email_for_identifier', { p_identifier: identifierInput });
+            if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
+              emailToLogin = rpcEmail.toLowerCase();
+            }
+          } catch (e) {}
+        }
 
         // 2. Try looking up in profiles or renters
         if (!emailToLogin.includes('@')) {
@@ -221,8 +231,15 @@ export function setupFormSubmitHandlers() {
       const unit_id = document.getElementById('tenant-unit-id').value;
       const owner_id = document.getElementById('tenant-owner-id').value || null;
       const name = document.getElementById('tenant-name').value;
-      const mobile_number = document.getElementById('tenant-mobile').value;
-      const email = (document.getElementById('tenant-email')?.value || '').trim().toLowerCase();
+      let mobile_number = (document.getElementById('tenant-mobile')?.value || '').trim();
+      let email = (document.getElementById('tenant-email')?.value || '').trim().toLowerCase();
+
+      // Auto-correct if user accidentally swapped phone and email inputs
+      if (mobile_number.includes('@') && (!email || !email.includes('@'))) {
+        const temp = mobile_number;
+        mobile_number = email;
+        email = temp.toLowerCase();
+      }
       const aadhar_no = document.getElementById('tenant-aadhar').value;
       const base_rent = Math.round(parseFloat(document.getElementById('tenant-rent').value || '0') * 100);
       const advance_amount = Math.round(parseFloat(document.getElementById('tenant-advance').value || '0') * 100);
@@ -878,5 +895,16 @@ export function setupFormSubmitHandlers() {
         showLogin();
       }
     });
+  }
+
+  // MAINTENANCE FORM HANDLERS
+  const formAddMaintenance = document.getElementById('form-add-maintenance');
+  if (formAddMaintenance) {
+    formAddMaintenance.addEventListener('submit', submitMaintenanceForm);
+  }
+
+  const formUpdateMaintenanceStatus = document.getElementById('form-update-maintenance-status');
+  if (formUpdateMaintenanceStatus) {
+    formUpdateMaintenanceStatus.addEventListener('submit', submitMaintenanceStatusForm);
   }
 }

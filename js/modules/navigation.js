@@ -7,6 +7,7 @@ import { loadOwnersPage } from './owners.js';
 import { loadBillsPage } from './bills.js';
 import { loadPaymentsPage } from './payments.js';
 import { loadExpensesPage } from './expenses.js';
+import { loadMaintenancePage } from './maintenance.js';
 import { loadDiagnosticsPage, runDiagnosticsCheck } from './diagnostics.js';
 import { loadSettingsPage } from './backups.js';
 import { openAddDocumentModal } from './documents.js';
@@ -61,6 +62,7 @@ export function setupNavigation() {
         case 'page-owners': loadOwnersPage(); break;
         case 'page-bills': loadBillsPage(); break;
         case 'page-payments': loadPaymentsPage(); break;
+        case 'page-maintenance': loadMaintenancePage(); break;
         case 'page-expenses': loadExpensesPage(); break;
         case 'page-diagnostics': loadDiagnosticsPage(); break;
         case 'page-settings': loadSettingsPage(); break;

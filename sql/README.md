@@ -25,6 +25,8 @@ Run the SQL files in numerical order:
 | **[`07_rls_security_policies.sql`](07_rls_security_policies.sql)** | Security & Privacy | Enables Row-Level Security (RLS), `is_admin()`, and tenant isolation |
 | **[`08_tenant_auth_rpcs.sql`](08_tenant_auth_rpcs.sql)** | Auth RPCs | Adds admin tenant account creation, password resets & universal login |
 | **[`09_default_admin.sql`](09_default_admin.sql)** | Admin Account | Creates the default Administrator account (`admin@rentbill.com` / `Admin@123`) |
+| **[`12_maintenance_tasks.sql`](12_maintenance_tasks.sql)** | Work Orders | Maintenance & repair tasks, work order tracking, and technician assignments |
+| **[`13_robust_update.sql`](13_robust_update.sql)** | Update Migration | 100% safe, idempotent update migration for existing Supabase databases |
 
 ---
 
@@ -32,4 +34,7 @@ Run the SQL files in numerical order:
 
 | File | Purpose | When to use |
 | :--- | :--- | :--- |
-| **[`10_clear_all_data.sql`](10_clear_all_data.sql)** | Safe Reset | Wipes all test properties/bills/tenants and resets ID sequences back to `1` without deleting tables or your Admin login |
+| **[`10_clear_all_data.sql`](10_clear_all_data.sql)** | Data Reset | Wipes all test properties/bills/tenants and resets ID sequences back to `1` without deleting tables or your Admin login |
+| **[`11_reset_database.sql`](11_reset_database.sql)** | Full DB Teardown | Drops all tables, triggers, policies, and RPC functions in `public` schema for a complete database reset back to a clean state |
+| **[`13_robust_update.sql`](13_robust_update.sql)** | Safe DB Migration | Run in Supabase SQL Editor to safely upgrade your existing database to the latest schema without losing data |
+

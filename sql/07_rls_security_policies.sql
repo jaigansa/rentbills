@@ -26,18 +26,7 @@ BEGIN
 
   SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
 
-  -- If explicitly ADMIN role in profiles
-  IF v_role = 'ADMIN' THEN
-    RETURN TRUE;
-  END IF;
-
-  -- If no ADMIN exists anywhere in profiles, auto-promote first registered user
-  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE role = 'ADMIN') THEN
-    UPDATE public.profiles SET role = 'ADMIN' WHERE id = auth.uid();
-    RETURN TRUE;
-  END IF;
-
-  RETURN FALSE;
+  RETURN COALESCE(v_role = 'ADMIN', FALSE);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -79,7 +68,14 @@ CREATE POLICY "Tenants view assigned unit" ON public.units FOR SELECT TO authent
 -- 6. RENTERS POLICIES
 CREATE POLICY "Admins full access to renters" ON public.renters FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Tenants view own lease" ON public.renters FOR SELECT TO authenticated USING (
-  (user_id = auth.uid() OR (email IS NOT NULL AND LOWER(email) = LOWER(auth.email())))
+  (
+    user_id = auth.uid() 
+    OR (email IS NOT NULL AND LOWER(TRIM(email)) = LOWER(TRIM(auth.email())))
+    OR (
+      LENGTH(REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g')) >= 7
+      AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g') || '%'
+    )
+  )
   AND deleted_at IS NULL
 );
 
@@ -88,8 +84,15 @@ CREATE POLICY "Admins full access to bills" ON public.bills FOR ALL TO authentic
 CREATE POLICY "Tenants view own bills" ON public.bills FOR SELECT TO authenticated USING (
   renter_id IN (
     SELECT id FROM public.renters 
-    WHERE (user_id = auth.uid() OR (email IS NOT NULL AND LOWER(email) = LOWER(auth.email())))
-      AND deleted_at IS NULL
+    WHERE (
+      user_id = auth.uid() 
+      OR (email IS NOT NULL AND LOWER(TRIM(email)) = LOWER(TRIM(auth.email())))
+      OR (
+        LENGTH(REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g')) >= 7
+        AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g') || '%'
+      )
+    )
+    AND deleted_at IS NULL
   )
   AND deleted_at IS NULL
 );
@@ -99,8 +102,15 @@ CREATE POLICY "Admins full access to payments" ON public.payments FOR ALL TO aut
 CREATE POLICY "Tenants view own payments" ON public.payments FOR SELECT TO authenticated USING (
   renter_id IN (
     SELECT id FROM public.renters 
-    WHERE (user_id = auth.uid() OR (email IS NOT NULL AND LOWER(email) = LOWER(auth.email())))
-      AND deleted_at IS NULL
+    WHERE (
+      user_id = auth.uid() 
+      OR (email IS NOT NULL AND LOWER(TRIM(email)) = LOWER(TRIM(auth.email())))
+      OR (
+        LENGTH(REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g')) >= 7
+        AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g') || '%'
+      )
+    )
+    AND deleted_at IS NULL
   )
   AND deleted_at IS NULL
 );
@@ -108,8 +118,15 @@ CREATE POLICY "Tenants submit payment proof" ON public.payments FOR INSERT TO au
   proof_status = 'PENDING' AND
   renter_id IN (
     SELECT id FROM public.renters 
-    WHERE (user_id = auth.uid() OR (email IS NOT NULL AND LOWER(email) = LOWER(auth.email())))
-      AND deleted_at IS NULL
+    WHERE (
+      user_id = auth.uid() 
+      OR (email IS NOT NULL AND LOWER(TRIM(email)) = LOWER(TRIM(auth.email())))
+      OR (
+        LENGTH(REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g')) >= 7
+        AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || REGEXP_REPLACE(COALESCE(auth.email(), ''), '[^0-9]', '', 'g') || '%'
+      )
+    )
+    AND deleted_at IS NULL
   )
 );
 

@@ -25,12 +25,16 @@ BEGIN
       NOW(), NOW(), 'authenticated', 'authenticated'
     );
 
-    INSERT INTO auth.identities (
-      id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
-    ) VALUES (
-      gen_random_uuid()::text, v_admin_id, jsonb_build_object('sub', v_admin_id::text, 'email', v_admin_email),
-      'email', v_admin_email, NOW(), NOW(), NOW()
-    );
+    BEGIN
+      INSERT INTO auth.identities (
+        id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(), v_admin_id, jsonb_build_object('sub', v_admin_id::text, 'email', v_admin_email),
+        'email', v_admin_email, NOW(), NOW(), NOW()
+      );
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
 
     INSERT INTO public.profiles (id, username, email, role)
     VALUES (v_admin_id, 'Admin', v_admin_email, 'ADMIN')

@@ -17,6 +17,7 @@ export async function loadLayout() {
     'layout/pages/properties.html',
     'layout/pages/bills.html',
     'layout/pages/payments.html',
+    'layout/pages/maintenance.html',
     'layout/pages/finances.html',
     'layout/pages/settings.html'
   ];

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.expenses (
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     notes TEXT,
     owner_name TEXT,
-    created_by UUID REFERENCES public.profiles(id),
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.owner_withdrawals (
     amount BIGINT NOT NULL,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     notes TEXT,
-    created_by UUID REFERENCES public.profiles(id),
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS public.documents (
     file_url TEXT,
     expiry_date DATE,
     notes TEXT,
-    created_by UUID REFERENCES public.profiles(id),
+    created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ

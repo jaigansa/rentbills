@@ -247,10 +247,18 @@ export async function triggerEditTenant(tenantId) {
     if (selOwner) selOwner.value = t.owner_id;
   }
 
+  let mobileVal = t.mobile_number || '';
+  let emailVal = t.email || '';
+  if (mobileVal.includes('@') && (!emailVal || !emailVal.includes('@'))) {
+    const temp = mobileVal;
+    mobileVal = emailVal;
+    emailVal = temp;
+  }
+
   document.getElementById('tenant-name').value = t.name || '';
-  document.getElementById('tenant-mobile').value = t.mobile_number || '';
+  document.getElementById('tenant-mobile').value = mobileVal;
   const emailEl = document.getElementById('tenant-email');
-  if (emailEl) emailEl.value = t.email || '';
+  if (emailEl) emailEl.value = emailVal;
   document.getElementById('tenant-aadhar').value = t.aadhar_no || '';
   document.getElementById('tenant-rent').value = (t.base_rent || 0) / 100;
   document.getElementById('tenant-advance').value = (t.advance_amount || 0) / 100;

@@ -4,6 +4,8 @@
 
 -- 1. Resolve user identifier (email, mobile, username) for universal login
 DROP FUNCTION IF EXISTS public.get_login_email_for_identifier(TEXT);
+DROP FUNCTION IF EXISTS public.resolve_login_email(TEXT);
+
 CREATE OR REPLACE FUNCTION public.get_login_email_for_identifier(p_identifier TEXT)
 RETURNS TEXT
 LANGUAGE plpgsql
@@ -32,7 +34,7 @@ BEGIN
   v_digits := REGEXP_REPLACE(v_clean, '[^0-9]', '', 'g');
   IF LENGTH(v_digits) >= 7 THEN
     SELECT email INTO v_email FROM public.renters 
-    WHERE REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') = v_digits 
+    WHERE REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%'
       AND email IS NOT NULL AND email != '' 
       AND deleted_at IS NULL
     ORDER BY is_active DESC, updated_at DESC
@@ -55,6 +57,17 @@ BEGIN
   END IF;
 
   RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.resolve_login_email(p_identifier TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+BEGIN
+  RETURN public.get_login_email_for_identifier(p_identifier);
 END;
 $$;
 
@@ -87,8 +100,14 @@ BEGIN
   SELECT 
     r.id AS renter_id,
     r.name AS renter_name,
-    r.mobile_number,
-    r.email,
+    CASE 
+      WHEN r.mobile_number LIKE '%@%' AND (r.email IS NULL OR r.email NOT LIKE '%@%') THEN r.email
+      ELSE r.mobile_number 
+    END AS mobile_number,
+    CASE 
+      WHEN r.mobile_number LIKE '%@%' AND (r.email IS NULL OR r.email NOT LIKE '%@%') THEN r.mobile_number
+      ELSE r.email 
+    END AS email,
     u.unit_name,
     p.name AS property_name,
     r.user_id,
@@ -145,6 +164,7 @@ BEGIN
     UPDATE auth.users
     SET encrypted_password = v_encrypted_pw,
         email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+        confirmed_at = COALESCE(confirmed_at, NOW()),
         updated_at = NOW()
     WHERE id = v_user_id;
 
@@ -159,10 +179,10 @@ BEGIN
     v_user_id := gen_random_uuid();
 
     INSERT INTO auth.users (
-      id, instance_id, email, encrypted_password, email_confirmed_at,
+      id, instance_id, email, encrypted_password, email_confirmed_at, confirmed_at,
       raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud
     ) VALUES (
-      v_user_id, '00000000-0000-0000-0000-000000000000', p_email, v_encrypted_pw, NOW(),
+      v_user_id, '00000000-0000-0000-0000-000000000000', p_email, v_encrypted_pw, NOW(), NOW(),
       jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
       jsonb_build_object('role', 'TENANT', 'username', v_username),
       NOW(), NOW(), 'authenticated', 'authenticated'
@@ -172,7 +192,7 @@ BEGIN
       INSERT INTO auth.identities (
         id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
       ) VALUES (
-        gen_random_uuid()::text, v_user_id, jsonb_build_object('sub', v_user_id::text, 'email', p_email),
+        gen_random_uuid(), v_user_id, jsonb_build_object('sub', v_user_id::text, 'email', p_email),
         'email', p_email, NOW(), NOW(), NOW()
       );
     EXCEPTION WHEN OTHERS THEN
@@ -256,9 +276,31 @@ BEGIN
   END IF;
 
   IF v_uid IS NOT NULL THEN
+    -- Nullify foreign key references across business tables before deletion
+    UPDATE public.renters SET user_id = NULL WHERE user_id = v_uid;
+    UPDATE public.bills SET voided_by = NULL WHERE voided_by = v_uid;
+    UPDATE public.payments SET verified_by = NULL WHERE verified_by = v_uid;
+    UPDATE public.payments SET reversed_by = NULL WHERE reversed_by = v_uid;
+    UPDATE public.expenses SET created_by = NULL WHERE created_by = v_uid;
+    UPDATE public.owner_withdrawals SET created_by = NULL WHERE created_by = v_uid;
+    UPDATE public.documents SET created_by = NULL WHERE created_by = v_uid;
+
+    -- Delete auth identities & session data
+    BEGIN
+      DELETE FROM auth.mfa_amr_claims WHERE session_id IN (SELECT id FROM auth.sessions WHERE user_id = v_uid);
+      DELETE FROM auth.mfa_factors WHERE user_id = v_uid;
+      DELETE FROM auth.sessions WHERE user_id = v_uid;
+      DELETE FROM auth.refresh_tokens WHERE session_id IN (SELECT id FROM auth.sessions WHERE user_id = v_uid);
+      DELETE FROM auth.identities WHERE user_id = v_uid;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+
     DELETE FROM public.profiles WHERE id = v_uid;
-    DELETE FROM auth.identities WHERE user_id = v_uid;
-    DELETE FROM auth.users WHERE id = v_uid;
+
+    BEGIN
+      DELETE FROM auth.users WHERE id = v_uid;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
   END IF;
 
   RETURN jsonb_build_object('success', true, 'message', 'Tenant login account deleted successfully');
@@ -315,15 +357,25 @@ AS $$
 DECLARE
   v_uid UUID := auth.uid();
   v_email TEXT := auth.email();
+  v_digits TEXT;
+  v_prof_email TEXT;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthenticated');
   END IF;
 
+  SELECT email INTO v_prof_email FROM public.profiles WHERE id = v_uid;
+  v_digits := REGEXP_REPLACE(COALESCE(v_email, ''), '[^0-9]', '', 'g');
+
   UPDATE public.renters
   SET user_id = v_uid, updated_at = NOW()
-  WHERE (LOWER(email) = LOWER(v_email) OR user_id = v_uid)
-    AND deleted_at IS NULL;
+  WHERE deleted_at IS NULL
+    AND (
+      user_id = v_uid
+      OR (v_email IS NOT NULL AND v_email != '' AND LOWER(TRIM(email)) = LOWER(TRIM(v_email)))
+      OR (v_prof_email IS NOT NULL AND v_prof_email != '' AND LOWER(TRIM(email)) = LOWER(TRIM(v_prof_email)))
+      OR (LENGTH(v_digits) >= 7 AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%')
+    );
 
   RETURN jsonb_build_object('success', true);
 END;
@@ -332,6 +384,7 @@ $$;
 -- 8. Execution Grants
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.get_login_email_for_identifier(TEXT) TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.resolve_login_email(TEXT) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.admin_list_tenants_with_auth() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_reset_tenant_password(UUID, TEXT) TO authenticated;

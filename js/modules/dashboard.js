@@ -22,7 +22,13 @@ export async function loadDashboard() {
       let myBillsList = [];
 
       try {
-        const { data: rData } = await supabaseClient.from('renters').select('*').is('deleted_at', null);
+        let { data: rData } = await supabaseClient.from('renters').select('*').is('deleted_at', null);
+        
+        if ((!rData || rData.length === 0) && currentUser.renter_id) {
+          const { data: fbData } = await supabaseClient.from('renters').select('*').eq('id', currentUser.renter_id).is('deleted_at', null);
+          rData = fbData || [];
+        }
+
         myRentersList = rData || [];
       } catch (e) {
         console.warn('Tenant lease fetch warning:', e);

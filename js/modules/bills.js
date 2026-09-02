@@ -105,8 +105,10 @@ export async function loadBillsPage() {
     let bills = [];
     try {
       let query = supabaseClient.from('bills').select('*').is('deleted_at', null).order('created_at', { ascending: false });
-      if (currentUser && currentUser.role === 'TENANT' && currentUser.renter_id) {
-        query = query.eq('renter_id', currentUser.renter_id);
+      if (currentUser && currentUser.role === 'TENANT') {
+        if (currentUser.renter_id) {
+          query = query.eq('renter_id', currentUser.renter_id);
+        }
       }
       const { data: bData } = await query;
       bills = bData || [];

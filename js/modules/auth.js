@@ -5,6 +5,7 @@ import { loadTranslations } from '../core/i18n.js';
 import { loadDashboard } from './dashboard.js';
 import { loadBillsPage } from './bills.js';
 import { loadPaymentsPage } from './payments.js';
+import { loadMaintenancePage } from './maintenance.js';
 import { loadPropertiesPage } from './properties.js';
 import { setupRealtimeSubscriptions, teardownRealtimeSubscriptions } from './realtime.js';
 
@@ -88,17 +89,56 @@ export async function checkAuth(passedSession = null) {
         } catch (lErr) {}
 
         try {
-          const { data: renterRec } = await supabaseClient
-            .from('renters')
-            .select('id, name')
-            .or(`user_id.eq.${session.user.id},email.ilike.${session.user.email}`)
-            .maybeSingle();
+          const safeEmail = (session.user.email || '').replace(/"/g, '').toLowerCase().trim();
+          const cleanDigits = safeEmail.replace(/[^0-9]/g, '');
 
-          if (renterRec) {
-            userObj.renter_id = renterRec.id;
-            if (renterRec.name) userObj.username = renterRec.name;
+          let renterRecs = [];
+          
+          // 1. Try user_id or email match
+          if (safeEmail.includes('@')) {
+            const { data: d1 } = await supabaseClient
+              .from('renters')
+              .select('id, name')
+              .or(`user_id.eq.${session.user.id},email.ilike."${safeEmail}"`)
+              .is('deleted_at', null)
+              .limit(1);
+            renterRecs = d1 || [];
           }
-        } catch (rErr) {}
+
+          // 2. Try mobile digits match if user_id/email yielded no results
+          if ((!renterRecs || renterRecs.length === 0) && cleanDigits.length >= 7) {
+            const { data: d2 } = await supabaseClient
+              .from('renters')
+              .select('id, name')
+              .or(`user_id.eq.${session.user.id},mobile_number.ilike."%${cleanDigits.slice(-10)}%"`)
+              .is('deleted_at', null)
+              .limit(1);
+            renterRecs = d2 || [];
+          }
+
+          // 3. Fallback to direct user_id match
+          if (!renterRecs || renterRecs.length === 0) {
+            const { data: d3 } = await supabaseClient
+              .from('renters')
+              .select('id, name')
+              .eq('user_id', session.user.id)
+              .is('deleted_at', null)
+              .limit(1);
+            renterRecs = d3 || [];
+          }
+
+          if (renterRecs && renterRecs.length > 0) {
+            userObj.renter_id = renterRecs[0].id;
+            if (renterRecs[0].name) userObj.username = renterRecs[0].name;
+
+            // Auto-link user_id on renter record if missing
+            try {
+              await supabaseClient.from('renters').update({ user_id: session.user.id }).eq('id', renterRecs[0].id);
+            } catch (uErr) {}
+          }
+        } catch (rErr) {
+          console.warn('Tenant lease resolution notice:', rErr);
+        }
       }
 
       setCurrentUser(userObj);
@@ -154,6 +194,7 @@ export async function checkAuth(passedSession = null) {
     switch (savedPage) {
       case 'page-bills': loadBillsPage(); break;
       case 'page-payments': loadPaymentsPage(); break;
+      case 'page-maintenance': loadMaintenancePage(); break;
       case 'page-properties':
         if (activeUser.role !== 'TENANT') loadPropertiesPage();
         else loadDashboard();

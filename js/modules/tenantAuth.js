@@ -51,15 +51,23 @@ export async function loadTenantLoginsSettings() {
       });
 
       tenantsWithAuth = (renters || []).map(r => {
+        let mobile = r.mobile_number || '';
+        let email = r.email || '';
+        if (mobile.includes('@') && (!email || !email.includes('@'))) {
+          const temp = mobile;
+          mobile = email;
+          email = temp;
+        }
+
         const u = unitMap[r.unit_id];
         const propName = u ? propMap[u.property_id] : '-';
-        const matchedProfile = (r.user_id && profileIdMap[r.user_id]) || (r.email && profileEmailMap[r.email.toLowerCase()]);
+        const matchedProfile = (r.user_id && profileIdMap[r.user_id]) || (email && profileEmailMap[email.toLowerCase()]);
         
         return {
           renter_id: r.id,
           renter_name: r.name,
-          mobile_number: r.mobile_number,
-          email: r.email,
+          mobile_number: mobile,
+          email: email,
           unit_name: u ? u.unit_name : (r.unit_id ? `Unit #${r.unit_id}` : '-'),
           property_name: propName || '-',
           user_id: r.user_id || (matchedProfile ? matchedProfile.id : null),
@@ -99,6 +107,16 @@ export function renderTenantLoginsTable(tenants) {
   }
 
   tenants.forEach(t => {
+    let email = t.email || '';
+    let mobile = t.mobile_number || '';
+    if (mobile.includes('@') && (!email || !email.includes('@'))) {
+      const temp = mobile;
+      mobile = email;
+      email = temp;
+    }
+    t.email = email;
+    t.mobile_number = mobile;
+
     const tr = document.createElement('tr');
     
     let statusBadge = '<span class="badge badge-warning">No Account</span>';
@@ -193,6 +211,13 @@ export function filterTenantLoginsTable() {
 export function triggerTenantPasswordModal(renterId, name, email = '', mobile = '', userId = '', hasAccount = false, isDisabled = false) {
   const modal = document.getElementById('modal-tenant-password');
   if (!modal) return;
+
+  // Auto-correct if email and mobile are swapped
+  if ((mobile || '').includes('@') && (!email || !email.includes('@'))) {
+    const temp = mobile;
+    mobile = email;
+    email = temp;
+  }
 
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
@@ -319,9 +344,16 @@ export async function triggerDeleteTenantLogin(renterId, renterName, userId = ''
 
     if (rpcErr) {
       if (renterId) {
-        await supabaseClient.from('renters').update({ user_id: null }).eq('id', renterId);
+        try { await supabaseClient.from('renters').update({ user_id: null }).eq('id', renterId); } catch (e) {}
       }
       if (targetUserId) {
+        try { await supabaseClient.from('renters').update({ user_id: null }).eq('user_id', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('bills').update({ voided_by: null }).eq('voided_by', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('payments').update({ verified_by: null }).eq('verified_by', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('payments').update({ reversed_by: null }).eq('reversed_by', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('expenses').update({ created_by: null }).eq('created_by', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('owner_withdrawals').update({ created_by: null }).eq('created_by', targetUserId); } catch (e) {}
+        try { await supabaseClient.from('documents').update({ created_by: null }).eq('created_by', targetUserId); } catch (e) {}
         try {
           await supabaseClient.from('profiles').delete().eq('id', targetUserId);
         } catch (pErr) {}
@@ -482,6 +514,12 @@ export async function saveAndShareTenantWhatsApp() {
  * Copy tenant login credentials to clipboard
  */
 export function copyTenantCredentials(name, email, mobile, password = '') {
+  if ((mobile || '').includes('@') && (!email || !email.includes('@'))) {
+    const temp = mobile;
+    mobile = email;
+    email = temp;
+  }
+
   const portalUrl = window.location.origin + window.location.pathname;
   let text = `🏠 *RentBill Pro — Resident Tenant Portal*\n`;
   text += `Hello ${name || 'Resident'},\n\nHere are your tenant portal login credentials:\n`;
@@ -512,6 +550,12 @@ export function copyTenantCredentialsFromRow(name, email, mobile) {
  * Share credentials on WhatsApp
  */
 export function shareTenantCredentialsWhatsApp(name, email, mobile, password = '') {
+  if ((mobile || '').includes('@') && (!email || !email.includes('@'))) {
+    const temp = mobile;
+    mobile = email;
+    email = temp;
+  }
+
   const cleanMobile = (mobile || '').replace(/[^0-9]/g, '');
   const portalUrl = window.location.origin + window.location.pathname;
   

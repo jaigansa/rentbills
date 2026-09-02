@@ -1,239 +1,108 @@
-# 🏢 RentBill Pro — Enterprise Setup & Deployment Guide
+# 🏢 RentBill Pro — Complete Supabase Setup & Deployment Guide
 
-Welcome to **RentBill Pro**, an enterprise-grade property management, tenant directory, lease document vault, and POS utility bill receipt generator.
-
----
-
-## ⚡ Quick Start
-
-### Option A: Running with Go Web Server (Embedded Binary)
-
-RentBill Pro includes a zero-dependency Go web server that embeds static frontend assets (`index.html`, `css/`, `js/`).
-
-```bash
-# 1. Clone or navigate to codebase directory
-cd /home/jaigansa/Projects/rentbill
-
-# 2. Build executable binary
-go build -o rentbill .
-
-# 3. Run application server
-./rentbill
-```
-
-* Open your browser at **`http://localhost:8080`**.
+Welcome to **RentBill Pro**. This guide provides step-by-step instructions to set up your **Supabase Cloud Database**, Authentication, Storage Buckets, and connect your web application.
 
 ---
 
-### Option B: Running with Any Static Web Server
+## ⚡ Quick Setup Overview
 
-Because RentBill Pro is engineered as a modern, decoupled Single Page Application (SPA), you can host `index.html` on any static web server:
-
-```bash
-# Using Python 3 Built-in HTTP Server
-python3 -m http.server 8000
-
-# Or using Nginx / Caddy / Vercel / Netlify / GitHub Pages
-```
-
----
-
-## ☁️ Supabase Cloud Database Setup
-
-RentBill Pro supports **Dual-Mode Operation**:
-1. **Local Demo Mode**: Works out-of-the-box using browser LocalStorage when cloud authentication is offline.
-2. **Supabase Cloud Mode**: Syncs all property, tenant, bill, document, payment, and expense records with Supabase.
-
-### 🔑 Configuring Supabase Credentials
-
-1. Open **RentBill Pro** in your browser.
-2. On the Login Screen or Navigation Bar, click **Configure Supabase Keys**.
-3. Input your **Supabase Project URL** (e.g. `https://your-project.supabase.co`) and **Anon API Key**.
+| Step | Action | Description |
+| :--- | :--- | :--- |
+| **Step 1** | Create Supabase Project | Create a project at [supabase.com](https://supabase.com) |
+| **Step 2** | Run Master SQL Script | Run [`sql/00_master_schema.sql`](sql/00_master_schema.sql) in SQL Editor |
+| **Step 3** | Verify Storage Bucket | Ensure the `proofs` bucket is created & set to Public |
+| **Step 4** | Configure Auth Settings | Enable Email Auth provider and disable email confirmation if needed |
+| **Step 5** | Connect Web App | Enter Supabase URL & Anon Key into the RentBill Pro web interface |
+| **Step 6** | Log In & Test | Sign in as Admin (`admin@rentbill.com` / `Admin@123`) |
 
 ---
 
-## 🗄️ Production SQL Migration Script (100% Audited)
+## 🚀 Step 1: Create a Supabase Project
 
-Run the following SQL migration script in your **Supabase Dashboard $\rightarrow$ SQL Editor**:
-
-```sql
--- ==========================================
--- 🏢 RENTBILL PRO PRODUCTION SQL MIGRATION (100% AUDITED)
--- ==========================================
-
--- 1. Property Buildings Table
-CREATE TABLE IF NOT EXISTS public.properties (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    name TEXT NOT NULL,
-    address TEXT,
-    owner_name TEXT,
-    status TEXT DEFAULT 'Active'
-);
-
--- 2. Rental Units & Apartments Table
-CREATE TABLE IF NOT EXISTS public.units (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    property_id BIGINT REFERENCES public.properties(id) ON DELETE SET NULL,
-    unit_name TEXT NOT NULL,
-    floor TEXT,
-    rent_amount NUMERIC(10,2) DEFAULT 0,
-    status TEXT DEFAULT 'VACANT'
-);
-
--- 3. Active Tenants Directory Table
-CREATE TABLE IF NOT EXISTS public.renters (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    unit_id BIGINT REFERENCES public.units(id) ON DELETE SET NULL,
-    name TEXT NOT NULL,
-    mobile_number TEXT,
-    rent_amount NUMERIC(10,2) DEFAULT 0,
-    deposit_amount NUMERIC(10,2) DEFAULT 0,
-    arrears NUMERIC(10,2) DEFAULT 0,
-    pending_arrears NUMERIC(10,2) DEFAULT 0,
-    lease_end_date DATE,
-    is_active BOOLEAN DEFAULT TRUE,
-    status TEXT DEFAULT 'Occupied'
-);
-
--- 4. Property Owners Directory Table
-CREATE TABLE IF NOT EXISTS public.owners (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    name TEXT NOT NULL,
-    mobile_number TEXT,
-    email TEXT,
-    upi_id TEXT,
-    bank_name TEXT,
-    account_number TEXT,
-    ifsc_code TEXT
-);
-
--- 5. Digital Documents Vault Table
-CREATE TABLE IF NOT EXISTS public.documents (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    title TEXT NOT NULL,
-    category TEXT DEFAULT 'OTHER',
-    entity_type TEXT,
-    entity_id TEXT,
-    expiry_date DATE,
-    file_url TEXT,
-    notes TEXT
-);
-
--- 6. Property Maintenance Expenses Table
-CREATE TABLE IF NOT EXISTS public.expenses (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    property_id BIGINT REFERENCES public.properties(id) ON DELETE SET NULL,
-    category TEXT NOT NULL,
-    amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    date DATE DEFAULT CURRENT_DATE,
-    expense_date DATE DEFAULT CURRENT_DATE,
-    description TEXT,
-    notes TEXT
-);
-
--- 7. Owner Withdrawals Table
-CREATE TABLE IF NOT EXISTS public.owner_withdrawals (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    owner_name TEXT NOT NULL,
-    amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    date DATE DEFAULT CURRENT_DATE,
-    withdrawal_date DATE DEFAULT CURRENT_DATE,
-    notes TEXT
-);
-
--- 8. Monthly Utility & Rent Bills Table
-CREATE TABLE IF NOT EXISTS public.bills (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    renter_id BIGINT REFERENCES public.renters(id) ON DELETE CASCADE,
-    bill_month TEXT NOT NULL,
-    previous_meter_reading NUMERIC(10,2) DEFAULT 0,
-    current_meter_reading NUMERIC(10,2) DEFAULT 0,
-    meter_units_consumed NUMERIC(10,2) DEFAULT 0,
-    rent_amount NUMERIC(10,2) DEFAULT 0,
-    electricity_amount NUMERIC(10,2) DEFAULT 0,
-    water_amount NUMERIC(10,2) DEFAULT 0,
-    net_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    paid_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    status TEXT DEFAULT 'UNPAID',
-    proof_status TEXT DEFAULT 'PENDING'
-);
-
--- 9. Payment Transactions Table
-CREATE TABLE IF NOT EXISTS public.payments (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ DEFAULT NULL,
-    bill_id BIGINT REFERENCES public.bills(id) ON DELETE CASCADE,
-    renter_id BIGINT REFERENCES public.renters(id) ON DELETE CASCADE,
-    amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-    payment_method TEXT DEFAULT 'CASH',
-    transaction_ref TEXT,
-    notes TEXT
-);
-
--- ==========================================
--- ⚡ PERFORMANCE INDEXING
--- ==========================================
-CREATE INDEX IF NOT EXISTS idx_units_property ON public.units(property_id);
-CREATE INDEX IF NOT EXISTS idx_renters_unit ON public.renters(unit_id);
-CREATE INDEX IF NOT EXISTS idx_bills_renter ON public.bills(renter_id);
-CREATE INDEX IF NOT EXISTS idx_payments_bill ON public.payments(bill_id);
-CREATE INDEX IF NOT EXISTS idx_documents_cat ON public.documents(category);
-
--- ==========================================
--- 🔒 ROW LEVEL SECURITY (RLS) POLICIES
--- ==========================================
-ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.units ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.renters ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.owners ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.expenses ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.owner_withdrawals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bills ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Full access properties" ON public.properties FOR ALL USING (true);
-CREATE POLICY "Full access units" ON public.units FOR ALL USING (true);
-CREATE POLICY "Full access renters" ON public.renters FOR ALL USING (true);
-CREATE POLICY "Full access owners" ON public.owners FOR ALL USING (true);
-CREATE POLICY "Full access documents" ON public.documents FOR ALL USING (true);
-CREATE POLICY "Full access expenses" ON public.expenses FOR ALL USING (true);
-CREATE POLICY "Full access owner_withdrawals" ON public.owner_withdrawals FOR ALL USING (true);
-CREATE POLICY "Full access bills" ON public.bills FOR ALL USING (true);
-CREATE POLICY "Full access payments" ON public.payments FOR ALL USING (true);
-```
+1. Go to [supabase.com](https://supabase.com) and log in or create a free account.
+2. Click **New Project**.
+3. Fill in the project details:
+   - **Name**: `rentbills-pro` (or your preferred name)
+   - **Database Password**: Choose a strong password and save it safely.
+   - **Region**: Choose the region closest to your users.
+4. Click **Create new project** and wait ~2 minutes for provision completion.
 
 ---
 
-## 📄 Storage Bucket Setup (For File Uploads)
+## 🗄️ Step 2: Run Master Database Schema
 
-If you plan to upload document files (PDFs, images) to Supabase Storage:
-1. In Supabase Dashboard, navigate to **Storage** $\rightarrow$ **Buckets**.
-2. Click **Create New Bucket** and name it **`documents`**.
-3. Mark the bucket as **Public**.
+1. Open your Supabase Dashboard.
+2. On the left sidebar, click the **SQL Editor** icon (`< />`).
+3. Click **New Query**.
+4. Open [`sql/00_master_schema.sql`](sql/00_master_schema.sql) in your code editor, copy the entire content, and paste it into the Supabase SQL Editor.
+5. Click **Run** (or press `Ctrl + Enter`).
+
+> [!SUCCESS]
+> **What this script automatically sets up:**
+> - Core extensions (`uuid-ossp`, `pgcrypto`)
+> - User profiles table & auto-trigger `handle_new_user()`
+> - Business tables (`properties`, `units`, `renters`, `owners`, `bills`, `payments`, `expenses`, `owner_withdrawals`, `documents`)
+> - Automated financial triggers (`calculate_bill_amounts()`, `sync_bill_paid_amount()`)
+> - Row Level Security (RLS) policies for Admins and Tenants
+> - Auth RPC functions (`admin_create_tenant_user`, `resolve_login_email`, `get_login_email_for_identifier`, `admin_list_tenants_with_auth`, `admin_delete_tenant_login`, `admin_toggle_tenant_login_status`, `tenant_link_own_lease`)
+> - Default Administrator user (`admin@rentbill.com` / `Admin@123`)
 
 ---
 
-## 🛠️ Features & Thermal Print Engine
+## 📄 Step 3: Storage Bucket Setup (Payment Proofs)
 
-* **Zero-Blank-Page POS Print Engine**: Generates 80mm thermal receipt invoices for rent payments without blank pages or unwanted headers.
-* **Responsive Mobile Cards**: Automatically converts tables to touch-friendly card layouts on mobile devices.
-* **Sticky Modal Footers**: Modal action buttons stay pinned to the bottom of the screen on all device resolutions.
-* **Light / Dark Mode**: Theme toggles seamlessly across all components and table states.
+1. On the left sidebar, navigate to **Storage** $\rightarrow$ **Buckets**.
+2. Verify that the **`proofs`** bucket is present.
+3. If missing:
+   - Click **New Bucket**.
+   - Name: `proofs`.
+   - Toggle **Public Bucket** to **ON**.
+   - Click **Save**.
+
+---
+
+## 🔐 Step 4: Configure Supabase Authentication
+
+1. Go to **Authentication** $\rightarrow$ **Providers** $\rightarrow$ **Email**:
+   - Ensure **Enable Email provider** is turned **ON**.
+2. Go to **Authentication** $\rightarrow$ **URL Configuration**:
+   - Set **Site URL** to your web app location (e.g. `http://localhost:8080` or `https://your-domain.com`).
+3. **Optional (Recommended for Tenant Instant Sign-In)**:
+   - Go to **Authentication** $\rightarrow$ **Auth Providers / Sign Up Restrictions**.
+   - Turn **Confirm email** **OFF** if you want tenant login accounts to activate immediately without email confirmation links.
+
+---
+
+## 🔑 Step 5: Connect App to Supabase
+
+1. In Supabase Dashboard, go to **Project Settings** (gear icon) $\rightarrow$ **API**.
+2. Copy your **Project URL** (e.g. `https://xxxx.supabase.co`) and **Publishable / anon key**.
+3. Open **RentBill Pro** in your browser.
+4. If prompted on startup (or click **Settings** / **Configure Supabase**):
+   - Paste your **Supabase Project URL**.
+   - Paste your **Supabase Anon Key**.
+   - Click **Save & Connect**.
+
+---
+
+## 👤 Step 6: Default Logins & Verification
+
+### Administrator Login:
+- **Email**: `admin@rentbill.com`
+- **Password**: `Admin@123`
+
+### Creating & Testing Tenant Logins:
+1. Log in as Administrator.
+2. Go to **Settings** $\rightarrow$ **Tenant Logins** (or **Tenants Directory** $\rightarrow$ **Login & Password**).
+3. Click **Create Login Account** on any tenant row.
+4. Enter an Email and Password $\rightarrow$ click **Save Account**.
+5. Log out and test signing in with the Tenant's email/mobile and password to verify the Resident Tenant Portal.
+
+---
+
+## 🧹 Database Reset / Maintenance Scripts
+
+| File | Purpose | When to use |
+| :--- | :--- | :--- |
+| **[`sql/10_clear_all_data.sql`](sql/10_clear_all_data.sql)** | Clear Data | Wipes test properties, bills, tenants, and payments while keeping database tables & Admin login intact |
+| **[`sql/11_reset_database.sql`](sql/11_reset_database.sql)** | Full Teardown | Drops all tables, triggers, and RPC functions in `public` schema for a complete fresh database rebuild |

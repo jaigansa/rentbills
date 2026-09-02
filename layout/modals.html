@@ -755,3 +755,115 @@
       </div>
     </div>
   </div>
+
+  <!-- ADD / EDIT MAINTENANCE TASK MODAL -->
+  <div id="modal-add-maintenance" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-maint-title">New Maintenance Request / Task</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-maintenance')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-maintenance">
+        <input type="hidden" id="edit-maint-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Task Title / Subject *</label>
+            <input type="text" id="maint-title" class="form-control" placeholder="e.g. Plumbing Leak in Bathroom / Water Heater Repair" required autocomplete="off">
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Category *</label>
+              <select id="maint-category" class="form-control" required>
+                <option value="PLUMBING">🔧 Plumbing</option>
+                <option value="ELECTRICAL">⚡ Electrical</option>
+                <option value="APPLIANCE">🔌 Appliance</option>
+                <option value="CLEANING">🧹 Cleaning</option>
+                <option value="PAINTING">🎨 Painting</option>
+                <option value="CARPENTRY">🪚 Carpentry</option>
+                <option value="GENERAL">🏢 General</option>
+                <option value="OTHER">❓ Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Priority *</label>
+              <select id="maint-priority" class="form-control" required>
+                <option value="LOW">🔵 Low</option>
+                <option value="MEDIUM" selected>⚡ Medium</option>
+                <option value="HIGH">🔥 High</option>
+                <option value="URGENT">🚨 Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Select Rental Unit / Resident *</label>
+            <select id="maint-renter-id" class="form-control" required></select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;" class="admin-only">
+            <div class="form-group">
+              <label>Assigned Technician / Contact</label>
+              <input type="text" id="maint-assigned-to" class="form-control" placeholder="e.g. Ramesh Plumbing Service (9876543210)">
+            </div>
+            <div class="form-group">
+              <label>Scheduled Date</label>
+              <input type="date" id="maint-scheduled-date" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group admin-only">
+            <label>Estimated Repair Cost (₹)</label>
+            <input type="number" step="0.01" min="0" id="maint-est-cost" class="form-control" placeholder="0.00">
+          </div>
+
+          <div class="form-group">
+            <label>Issue Description & Details</label>
+            <textarea id="maint-description" class="form-control" rows="3" placeholder="Describe the issue, location in the unit, and any urgent notes..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-maintenance')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save Task Request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- UPDATE MAINTENANCE STATUS & COST MODAL -->
+  <div id="modal-update-maintenance-status" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Update Task Status & Repair Cost</h2>
+        <button class="close-btn" onclick="closeModal('modal-update-maintenance-status')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-update-maintenance-status">
+        <input type="hidden" id="status-maint-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Task Status *</label>
+            <select id="maint-update-status" class="form-control" required>
+              <option value="PENDING">⏳ Pending Action</option>
+              <option value="IN_PROGRESS">⚙️ In Progress</option>
+              <option value="COMPLETED">✅ Completed</option>
+              <option value="CANCELLED">❌ Cancelled</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Actual Repair Cost (₹)</label>
+            <input type="number" step="0.01" min="0" id="maint-actual-cost" class="form-control" placeholder="0.00">
+          </div>
+
+          <div class="form-group">
+            <label>Completion Notes & Work Summary</label>
+            <textarea id="maint-completion-notes" class="form-control" rows="3" placeholder="Add resolution notes, parts replaced, technician invoice details..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-update-maintenance-status')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check-circle-2"></i> Update Status</button>
+        </div>
+      </form>
+    </div>
+  </div>
