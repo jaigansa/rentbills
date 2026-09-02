@@ -90,9 +90,10 @@ export async function loadDashboard() {
     let renters = [];
     let units = [];
     let expenses = [];
+    let pendingProofs = 0;
 
     try {
-      const { data: bData } = await supabaseClient.from('bills').select('net_amount, paid_amount, status, proof_status').is('deleted_at', null);
+      const { data: bData } = await supabaseClient.from('bills').select('net_amount, paid_amount, status').is('deleted_at', null);
       bills = bData || [];
       const { data: rData } = await supabaseClient.from('renters').select('id, is_active, pending_arrears').is('deleted_at', null);
       renters = rData || [];
@@ -100,6 +101,8 @@ export async function loadDashboard() {
       units = uData || [];
       const { data: eData } = await supabaseClient.from('expenses').select('amount').is('deleted_at', null);
       expenses = eData || [];
+      const { data: pData } = await supabaseClient.from('payments').select('id').eq('proof_status', 'PENDING').is('deleted_at', null);
+      pendingProofs = (pData || []).length;
     } catch (e) {
       console.warn('Dashboard fetch warning:', e);
     }
@@ -108,12 +111,10 @@ export async function loadDashboard() {
     let totalCollected = 0;
     let totalExpenses = 0;
     let arrearsSum = 0;
-    let pendingProofs = 0;
 
     (bills || []).forEach(b => {
       totalBilled += (b.net_amount || 0);
       totalCollected += (b.paid_amount || 0);
-      if (b.proof_status === 'PENDING') pendingProofs++;
     });
 
     (expenses || []).forEach(e => totalExpenses += (e.amount || 0));

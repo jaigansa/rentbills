@@ -1,5 +1,6 @@
 // RentBill Pro — Property Owners Management & Directory
 import { getSupabaseClient } from '../core/config.js';
+import { safeDelete } from '../core/db.js';
 import { escapeStr, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
 
 export async function populateOwnerSelects() {
@@ -105,7 +106,7 @@ export async function triggerEditOwner(id) {
 export async function triggerDeleteOwner(id, name) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete owner "${name}"?`)) return;
-  const { error } = await supabaseClient.from('owners').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'owners', id);
   if (error) alert('Failed to delete owner: ' + error.message);
   else loadOwnersPage();
 }

@@ -56,16 +56,14 @@
   -webkit-overflow-scrolling: touch;
   margin-bottom: 36px;
   position: relative;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .table-container::-webkit-scrollbar {
-  height: 6px;
-  width: 6px;
-}
-
-.table-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 99px;
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 table {
@@ -450,6 +448,18 @@ tr:has(.dropdown.active) {
   background-color: var(--bg-card);
 }
 
+/* Remove default increment / decrement spin arrows on all number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
 /* ==========================================================================
    Authentication Page Styling (Modern Glassmorphism & Micro-animations)
    ========================================================================== */
@@ -672,6 +682,20 @@ tr:has(.dropdown.active) {
   0%, 100% { transform: translateX(0); }
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
+}
+
+.auth-forgot-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+
+.auth-forgot-link:hover {
+  text-decoration: underline;
+  opacity: 0.85;
 }
 
 .auth-footer {

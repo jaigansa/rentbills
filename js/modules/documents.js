@@ -1,5 +1,6 @@
 // RentBill Pro — Digital Documents Vault & Deeds Storage (Pure Supabase)
 import { getSupabaseClient } from '../core/config.js';
+import { safeDelete } from '../core/db.js';
 import { setUploadedDocBase64, getUploadedDocBase64 } from '../core/state.js';
 import { escapeStr, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
 
@@ -152,7 +153,8 @@ export async function triggerDeleteDocument(id, title) {
   if (!confirm(`Delete document "${title}"?`)) return;
   try {
     if (supabaseClient) {
-      await supabaseClient.from('documents').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+      const { error } = await safeDelete(supabaseClient, 'documents', id);
+      if (error) alert('Delete doc error: ' + error.message);
     }
   } catch (err) {
     alert('Delete doc error: ' + err.message);

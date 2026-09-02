@@ -1,5 +1,6 @@
 // RentBill Pro — Billing Engine, Invoices & WhatsApp Automated Notifications (Pure Supabase)
 import { getSupabaseClient } from '../core/config.js';
+import { safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
 import { formatCurrency, formatInvoiceNumber, escapeStr, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
 import { loadDashboard } from './dashboard.js';
@@ -26,7 +27,7 @@ export function populateBillingPeriods() {
   };
 }
 
-export function syncBillPeriodDates() {
+export function syncBillPeriodDates(force = false) {
   const periodSelect = document.getElementById('bill-period');
   const fromInput = document.getElementById('bill-period-from');
   const toInput = document.getElementById('bill-period-to');
@@ -47,14 +48,16 @@ export function syncBillPeriodDates() {
     if (fromInput) fromInput.value = startIso;
     if (toInput) toInput.value = endIso;
 
-    if (genDateInput && !genDateInput.value) {
+    if (genDateInput && (!genDateInput.value || force)) {
       genDateInput.value = new Date().toISOString().slice(0, 10);
     }
 
     const cfgDueDay = parseInt(localStorage.getItem('rentbill_due_day') || '10', 10) || 10;
     const dueDayClamped = Math.min(cfgDueDay, endDate.getDate());
     const dueIso = `${year}-${String(month).padStart(2, '0')}-${String(dueDayClamped).padStart(2, '0')}`;
-    if (dueDateInput && !dueDateInput.value) dueDateInput.value = dueIso;
+    if (dueDateInput && (!dueDateInput.value || force)) {
+      dueDateInput.value = dueIso;
+    }
   }
 }
 
@@ -237,27 +240,78 @@ export function filterBillsTable() {
 export async function updateLiveBillCalculation() {
   const supabaseClient = getSupabaseClient();
   const renterId = document.getElementById('bill-renter-id')?.value;
-  if (!renterId || !supabaseClient) return;
+
+  if (!renterId || !supabaseClient) {
+    const elNet = document.getElementById('live-calc-net'); if (elNet) elNet.textContent = '₹0.00';
+    const elRent = document.getElementById('live-calc-rent'); if (elRent) elRent.textContent = '₹0.00';
+    const elEb = document.getElementById('live-calc-eb'); if (elEb) elEb.textContent = '₹0.00';
+    const elEbUnits = document.getElementById('live-calc-eb-units'); if (elEbUnits) elEbUnits.textContent = '0';
+    const elWater = document.getElementById('live-calc-water'); if (elWater) elWater.textContent = '₹0.00';
+    const elMaint = document.getElementById('live-calc-maint'); if (elMaint) elMaint.textContent = '₹0.00';
+    const elExtra = document.getElementById('live-calc-extra'); if (elExtra) elExtra.textContent = '₹0.00';
+    const elDiscount = document.getElementById('live-calc-discount'); if (elDiscount) elDiscount.textContent = '₹0.00';
+    return;
+  }
 
   const { data: tenant } = await supabaseClient.from('renters').select('*').eq('id', renterId).single();
   if (!tenant) return;
 
   const { data: lastBills } = await supabaseClient.from('bills')
-    .select('curr_eb_reading, curr_water_reading')
+    .select('curr_eb_reading, curr_water_reading, created_at, bill_date')
     .eq('renter_id', renterId)
     .order('created_at', { ascending: false }).limit(1);
 
-  const prevEb = lastBills && lastBills.length > 0 ? (lastBills[0].curr_eb_reading || tenant.initial_eb || 0) : (tenant.initial_eb || 0);
-  const prevWater = lastBills && lastBills.length > 0 ? (lastBills[0].curr_water_reading || tenant.initial_water || 0) : (tenant.initial_water || 0);
+  let prevEb = tenant.initial_eb || 0;
+  let prevWater = tenant.initial_water || 0;
 
-  const rentRupees = parseFloat(document.getElementById('bill-rent-amount')?.value || '0') || ((tenant.base_rent || 0) / 100);
-  const currEb = parseInt(document.getElementById('bill-eb')?.value || '0', 10);
-  const currWater = parseInt(document.getElementById('bill-water')?.value || '0', 10);
-  const lateRupees = parseFloat(document.getElementById('bill-late')?.value || '0') || 0;
-  const discountRupees = parseFloat(document.getElementById('bill-discount')?.value || '0') || 0;
-  const othersRupees = parseFloat(document.getElementById('bill-others')?.value || '0') || 0;
-  const inputArrears = parseFloat(document.getElementById('bill-arrears')?.value || '0');
-  const arrearsRupees = !isNaN(inputArrears) && inputArrears >= 0 ? inputArrears : ((tenant.pending_arrears || 0) / 100);
+  if (lastBills && lastBills.length > 0) {
+    const lastBill = lastBills[0];
+    const lastBillDate = new Date(lastBill.created_at || lastBill.bill_date || 0);
+
+    const ebResetDate = tenant.eb_reset_at ? new Date(tenant.eb_reset_at) : null;
+    if (!ebResetDate || ebResetDate <= lastBillDate) {
+      prevEb = lastBill.curr_eb_reading ?? tenant.initial_eb ?? 0;
+    }
+
+    const waterResetDate = tenant.water_reset_at ? new Date(tenant.water_reset_at) : null;
+    if (!waterResetDate || waterResetDate <= lastBillDate) {
+      prevWater = lastBill.curr_water_reading ?? tenant.initial_water ?? 0;
+    }
+  }
+
+  // Set dynamic placeholders showing previous meter readings
+  const ebInput = document.getElementById('bill-eb');
+  if (ebInput && !ebInput.value) {
+    ebInput.placeholder = `Prev Reading: ${prevEb}`;
+  }
+  const waterInput = document.getElementById('bill-water');
+  if (waterInput && !waterInput.value) {
+    waterInput.placeholder = tenant.water_calc_mode === 'METERED' ? `Prev Reading: ${prevWater}` : 'Fixed Flat Rate';
+  }
+
+  const rentInputVal = document.getElementById('bill-rent-amount')?.value;
+  const rentRupees = (rentInputVal !== undefined && rentInputVal !== '' && !isNaN(parseFloat(rentInputVal)))
+    ? parseFloat(rentInputVal)
+    : ((tenant.base_rent || 0) / 100);
+
+  const rawEb = document.getElementById('bill-eb')?.value;
+  const currEb = (rawEb !== undefined && rawEb !== '' && !isNaN(parseInt(rawEb, 10)))
+    ? parseInt(rawEb, 10)
+    : prevEb;
+
+  const rawWater = document.getElementById('bill-water')?.value;
+  const currWater = (rawWater !== undefined && rawWater !== '' && !isNaN(parseInt(rawWater, 10)))
+    ? parseInt(rawWater, 10)
+    : prevWater;
+
+  const lateRupees = parseFloat(document.getElementById('bill-late')?.value) || 0;
+  const discountRupees = parseFloat(document.getElementById('bill-discount')?.value) || 0;
+  const othersRupees = parseFloat(document.getElementById('bill-others')?.value) || 0;
+
+  const inputArrears = document.getElementById('bill-arrears')?.value;
+  const arrearsRupees = (inputArrears !== undefined && inputArrears !== '' && !isNaN(parseFloat(inputArrears)))
+    ? parseFloat(inputArrears)
+    : ((tenant.pending_arrears || 0) / 100);
 
   const ebUnits = Math.max(0, currEb - prevEb);
   const ebRupees = (ebUnits * (tenant.eb_unit_price || 0)) / 100;
@@ -362,7 +416,7 @@ export async function voidBill(billId) {
   if (!confirm('Are you sure you want to void this invoice? This will cancel the bill and zero its balance.')) return;
   try {
     if (!supabaseClient) return;
-    const { error } = await supabaseClient.from('bills').update({ status: 'VOID', paid_amount: 0 }).eq('id', billId);
+    const { error } = await safeUpdate(supabaseClient, 'bills', { status: 'VOID', paid_amount: 0 }, 'id', billId);
     if (error) alert('Failed to void invoice: ' + error.message);
     else {
       alert('Invoice successfully marked as VOID');
@@ -379,13 +433,24 @@ export async function triggerDeleteBill(billId) {
   if (!confirm('Are you sure you want to permanently delete this bill invoice?')) return;
   try {
     if (!supabaseClient) return;
-    const { error } = await supabaseClient.from('bills').update({ deleted_at: new Date().toISOString() }).eq('id', billId);
-    if (error) alert('Failed to delete bill: ' + error.message);
-    else {
-      alert('Invoice deleted successfully');
-      loadBillsPage();
-      loadDashboard();
+
+    // Delete or clean up payments linked to this bill
+    await supabaseClient.from('payments').delete().eq('bill_id', billId);
+
+    // Delete bill record directly so unique constraint slot is immediately freed
+    const { error } = await supabaseClient.from('bills').delete().eq('id', billId);
+    if (error) {
+      // Fallback to safeDelete if direct delete is blocked
+      const { error: safeErr } = await safeDelete(supabaseClient, 'bills', billId);
+      if (safeErr) {
+        alert('Failed to delete bill: ' + safeErr.message);
+        return;
+      }
     }
+
+    alert('Invoice deleted successfully');
+    loadBillsPage();
+    loadDashboard();
   } catch (err) {
     alert('Delete bill error: ' + err.message);
   }

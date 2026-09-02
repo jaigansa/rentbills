@@ -1,0 +1,100 @@
+        <!-- 1. DASHBOARD PAGE -->
+        <section id="page-dashboard" class="page-section active">
+          <div class="page-header">
+            <h1 id="i18n-dash-title">Financial Dashboard</h1>
+          </div>
+
+          <!-- Tenant Overview Card (Visible only when role === 'TENANT') -->
+          <div id="tenant-portal-banner" class="tenant-only" style="display: none; margin-bottom: 24px;">
+            <div class="card" style="border-left: 4px solid var(--primary); background: linear-gradient(135deg, var(--card-bg) 0%, rgba(59, 130, 246, 0.05) 100%);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+                <div>
+                  <span class="badge badge-primary" style="margin-bottom: 8px; font-size: 12px;">Resident Tenant Portal</span>
+                  <h2 id="tenant-banner-unit" style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">My Rental Unit</h2>
+                  <p id="tenant-banner-lease" style="color: var(--text-muted); font-size: 13px;">Lease Details & Monthly Invoices</p>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-secondary" onclick="document.querySelector('[data-target=\'page-bills\']').click()"><i data-lucide="receipt"></i> View Invoices</button>
+                  <button class="btn btn-primary" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Current Outstanding Due</div>
+                  <div id="tenant-banner-due" style="font-size: 22px; font-weight: 800; color: var(--danger);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Monthly Base Rent</div>
+                  <div id="tenant-banner-rent" style="font-size: 18px; font-weight: 700; color: var(--text-main);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Advance Deposit</div>
+                  <div id="tenant-banner-advance" style="font-size: 18px; font-weight: 700; color: var(--success);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Payable via UPI</div>
+                  <div id="tenant-banner-upi" style="font-size: 14px; font-weight: 700; color: var(--primary); font-family: monospace;">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-billed">Total Billed</span>
+                <i data-lucide="bar-chart-3" style="color: var(--primary);"></i>
+              </div>
+              <span class="value" id="val-billed">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-collected">Total Collected</span>
+                <i data-lucide="wallet" style="color: var(--success);"></i>
+              </div>
+              <span class="value" id="val-collected" style="color: var(--success);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-outstanding">Outstanding Dues</span>
+                <i data-lucide="clock" style="color: var(--danger);"></i>
+              </div>
+              <span class="value" id="val-outstanding" style="color: var(--danger);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-arrears">Arrears Balance</span>
+                <i data-lucide="alert-triangle" style="color: var(--warning);"></i>
+              </div>
+              <span class="value" id="val-arrears" style="color: var(--warning);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-expenses">Total Expenses</span>
+                <i data-lucide="trending-down" style="color: var(--danger);"></i>
+              </div>
+              <span class="value" id="val-expenses">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-tenants">Active Tenants</span>
+                <i data-lucide="users" style="color: var(--primary);"></i>
+              </div>
+              <span class="value" id="val-tenants">0</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-vacant">Vacant Units</span>
+                <i data-lucide="key" style="color: var(--warning);"></i>
+              </div>
+              <span class="value" id="val-vacant">0</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-maintenance">Pending Proofs</span>
+                <i data-lucide="file-check" style="color: var(--text-muted);"></i>
+              </div>
+              <span class="value" id="val-proofs">0</span>
+            </div>
+          </div>
+        </section>

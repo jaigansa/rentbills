@@ -1,0 +1,153 @@
+        <!-- 2. DOCUMENTS & OPERATIONS HUB -->
+        <section id="page-properties" class="page-section">
+          <div class="page-header">
+            <div>
+              <h1>Documents Hub</h1>
+              <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Centralized records for property buildings, rental units, active tenants, property owners, and digital deeds.</p>
+            </div>
+          </div>
+
+          <!-- Properties Sub-Tabs Bar (Sorted in Logical Top-Down Hierarchy: Owners -> Properties -> Units -> Tenants -> Documents) -->
+          <div class="properties-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; overflow-x: auto;">
+            <button class="btn btn-secondary properties-tab-btn active" onclick="switchPropertiesSubTab('owners', this)"><i data-lucide="user-check"></i> Property Owners</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('properties', this)"><i data-lucide="building"></i> Properties</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('units', this)"><i data-lucide="grid"></i> Rental Units</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('tenants', this)"><i data-lucide="users"></i> Tenants Directory</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('documents', this)"><i data-lucide="file-text"></i> Documents Vault</button>
+          </div>
+
+          <!-- SUB-TAB 1: PROPERTY OWNERS -->
+          <div id="prop-sub-tab-owners" class="properties-sub-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Property Owners Directory</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-owner')"><i data-lucide="user-check"></i> Add Owner</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                    <th>UPI ID</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-owners">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 2: PROPERTIES -->
+          <div id="prop-sub-tab-properties" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Property Buildings</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-property')"><i data-lucide="building-2"></i> Add Property</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th id="i18n-th-pname">Property Name</th>
+                    <th id="i18n-th-paddress">Address</th>
+                    <th id="i18n-th-pstatus">Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-properties">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 3: RENTAL UNITS -->
+          <div id="prop-sub-tab-units" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Rental Units & Apartments</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-unit')"><i data-lucide="plus-circle"></i> Add Unit</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Unit Name</th>
+                    <th>Floor</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-units">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 4: TENANTS DIRECTORY -->
+          <div id="prop-sub-tab-tenants" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Tenant Management Directory</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-tenant')"><i data-lucide="user-plus"></i> Add Tenant</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Unit</th>
+                    <th>Mobile</th>
+                    <th>Monthly Rent</th>
+                    <th>Arrears</th>
+                    <th>Agreement Expiry</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-tenants">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 5: DIGITAL DOCUMENTS VAULT -->
+          <div id="prop-sub-tab-documents" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Digital Documents Vault</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-primary" onclick="openAddDocumentModal()"><i data-lucide="file-plus"></i> Upload Document</button>
+                <select id="doc-filter-category" class="form-control" style="width: auto;" onchange="filterDocumentsTable()">
+                  <option value="ALL">All Categories</option>
+                  <option value="LEASE_AGREEMENT">Lease Agreement</option>
+                  <option value="IDENTITY_PROOF">ID Proof (Aadhaar/PAN)</option>
+                  <option value="PROPERTY_TAX">Property Tax Receipt</option>
+                  <option value="OWNERSHIP_DEED">Ownership Deed</option>
+                  <option value="MAINTENANCE">Maintenance Invoice</option>
+                  <option value="ELECTRICITY_DEED">Electricity Deed</option>
+                  <option value="OTHER">Other Documents</option>
+                </select>
+                <input type="text" id="doc-search-input" class="form-control" placeholder="Search documents..." style="width: 200px;" onkeyup="filterDocumentsTable()" autocomplete="off">
+              </div>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Document Name</th>
+                    <th>Category</th>
+                    <th>Associated Entity</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-documents">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>

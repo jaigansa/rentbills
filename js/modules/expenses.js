@@ -1,5 +1,6 @@
 // RentBill Pro — Operating Expenses & Owner Withdrawals Management
 import { getSupabaseClient } from '../core/config.js';
+import { safeDelete } from '../core/db.js';
 import { formatCurrency, escapeStr, renderEmptyState, refreshLucideIcons } from '../core/ui.js';
 import { populateOwnerSelects } from './owners.js';
 
@@ -76,7 +77,7 @@ export async function loadExpensesPage() {
 export async function triggerDeleteExpense(id, category) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete expense "${category}"?`)) return;
-  const { error } = await supabaseClient.from('expenses').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'expenses', id);
   if (error) alert('Failed to delete expense: ' + error.message);
   else loadExpensesPage();
 }
@@ -84,7 +85,7 @@ export async function triggerDeleteExpense(id, category) {
 export async function triggerDeleteWithdrawal(id, ownerName) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete withdrawal record for "${ownerName}"?`)) return;
-  const { error } = await supabaseClient.from('owner_withdrawals').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'owner_withdrawals', id);
   if (error) alert('Failed to delete withdrawal: ' + error.message);
   else loadExpensesPage();
 }

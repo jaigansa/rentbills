@@ -1,4 +1,5 @@
 // RentBill Pro — Master Modular Application Entry Point
+import { loadLayout } from './core/layout.js';
 import { initSupabaseClient, getSupabaseClient, resetSupabaseConfig } from './core/config.js';
 import { getCurrentUser, setCurrentUser, getCurrentLang, setCurrentLang } from './core/state.js';
 import {
@@ -15,7 +16,7 @@ import {
 } from './core/ui.js';
 import { initTheme, applyThemeMode, toggleTheme, setTheme } from './core/theme.js';
 import { loadTranslations, applyTranslations, toggleLanguage } from './core/i18n.js';
-import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask } from './modules/auth.js';
+import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask, openForgotPasswordModal } from './modules/auth.js';
 import {
   openMobileDrawer,
   closeMobileDrawer,
@@ -58,7 +59,7 @@ import {
   copyInvoiceToClipboard,
   sendOverdueReminderWhatsApp
 } from './modules/bills.js';
-import { loadPaymentsPage, filterPaymentsTable, triggerDeletePayment, printReceipt, triggerApprovePaymentProof, triggerRejectPaymentProof, viewPaymentProofImage } from './modules/payments.js';
+import { loadPaymentsPage, filterPaymentsTable, triggerDeletePayment, printReceipt, printPaidReceipt, triggerApprovePaymentProof, triggerRejectPaymentProof, viewPaymentProofImage } from './modules/payments.js';
 import { loadExpensesPage, triggerDeleteExpense, triggerDeleteWithdrawal } from './modules/expenses.js';
 import {
   handleDocFileUpload,
@@ -117,6 +118,7 @@ window.closeModal = closeModal;
 window.openPaymentModal = openPaymentModal;
 window.voidBill = voidBill;
 window.printReceipt = printReceipt;
+window.printPaidReceipt = printPaidReceipt;
 window.triggerVacateModal = triggerVacateModal;
 window.triggerTransferModal = triggerTransferModal;
 window.submitTransfer = submitTransfer;
@@ -133,6 +135,7 @@ window.saveAppSettings = saveAppSettings;
 window.runDiagnosticsCheck = runDiagnosticsCheck;
 window.clearAppCache = clearAppCache;
 window.showSetupConfigModal = showSetupConfigModal;
+window.openForgotPasswordModal = openForgotPasswordModal;
 window.triggerEditProperty = triggerEditProperty;
 window.triggerDeleteProperty = triggerDeleteProperty;
 window.triggerEditUnit = triggerEditUnit;
@@ -222,7 +225,10 @@ document.addEventListener('click', (e) => {
 });
 
 // Bootstrap Lifecycle Execution
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Asynchronously mount all modular layout templates
+  await loadLayout();
+
   initTheme();
   setupNavigation();
   setupFormSubmitHandlers();
@@ -233,7 +239,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const supabaseClient = getSupabaseClient();
     if (supabaseClient && supabaseClient.auth) {
       supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
+        if (event === 'PASSWORD_RECOVERY') {
+          openModal('modal-reset-recovery-password');
+        } else if (event === 'SIGNED_IN' && session) {
           await checkAuth(session);
         } else if (event === 'SIGNED_OUT') {
           showLogin();

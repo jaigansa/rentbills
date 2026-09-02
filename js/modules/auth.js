@@ -205,3 +205,15 @@ export function toggleKeyMask() {
   if (!input) return;
   input.type = input.type === 'password' ? 'text' : 'password';
 }
+
+export function openForgotPasswordModal() {
+  const loginEmail = document.getElementById('login-email')?.value?.trim();
+  const forgotEmailInput = document.getElementById('forgot-email');
+  if (forgotEmailInput && loginEmail) forgotEmailInput.value = loginEmail;
+  const errorDiv = document.getElementById('forgot-error');
+  const successDiv = document.getElementById('forgot-success');
+  if (errorDiv) errorDiv.style.display = 'none';
+  if (successDiv) successDiv.style.display = 'none';
+  const modal = document.getElementById('modal-forgot-password');
+  if (modal) modal.style.display = 'flex';
+}

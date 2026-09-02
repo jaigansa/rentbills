@@ -353,22 +353,61 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
     throw new Error('Password must be at least 6 characters long.');
   }
 
-  if (renterId) {
-    await supabaseClient.from('renters').update({ email }).eq('id', renterId);
+  let createdUserId = null;
+
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('admin_create_tenant_user', {
+      p_email: email,
+      p_password: password,
+      p_username: name || email.split('@')[0],
+      p_renter_id: renterId ? parseInt(renterId) : null
+    });
+
+    if (!rpcErr && rpcRes && rpcRes.user_id) {
+      createdUserId = rpcRes.user_id;
+    } else {
+      console.warn('RPC admin_create_tenant_user notice, falling back to standard auth:', rpcErr?.message);
+      
+      const { data: authData, error: authErr } = await supabaseClient.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role: 'TENANT',
+            username: name || email.split('@')[0],
+            renter_id: renterId
+          }
+        }
+      });
+
+      if (authErr && !authErr.message.includes('already registered')) {
+        throw authErr;
+      }
+
+      if (authData?.user) {
+        createdUserId = authData.user.id;
+      }
+    }
+  } catch (creationErr) {
+    throw new Error(`Failed to create tenant login: ${creationErr.message}`);
   }
 
-  const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('admin_create_tenant_user', {
-    p_email: email,
-    p_password: password,
-    p_username: name || email.split('@')[0],
-    p_renter_id: renterId ? parseInt(renterId) : null
-  });
-
-  if (rpcErr) {
-    throw new Error(`Database error: ${rpcErr.message}. Make sure sql/00_master_schema.sql has been run in Supabase SQL Editor.`);
+  if (createdUserId && renterId) {
+    try {
+      await supabaseClient.from('renters').update({ user_id: createdUserId, email }).eq('id', renterId);
+      await supabaseClient.from('profiles').upsert([{
+        id: createdUserId,
+        email,
+        username: name || email.split('@')[0],
+        role: 'TENANT',
+        is_disabled: false
+      }]);
+    } catch (linkErr) {
+      console.warn('Profile linkage notice:', linkErr);
+    }
   }
 
-  return { success: true, user_id: rpcRes?.user_id, email };
+  return { success: true, user_id: createdUserId, email };
 }
 
 /**

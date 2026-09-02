@@ -1,0 +1,757 @@
+  <!-- 4. DIALOG MODAL LAYERS -->
+
+  <!-- Add Property Modal -->
+  <div id="modal-add-property" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Property Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-property')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-property">
+        <input type="hidden" id="edit-property-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Property Name *</label>
+            <input type="text" id="prop-name" class="form-control" placeholder="e.g. Royal Residency" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <textarea id="prop-address" class="form-control" placeholder="Complete address"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Agreement Terms</label>
+            <textarea id="prop-terms" class="form-control" placeholder="Default tenancy conditions"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-property')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Unit Modal -->
+  <div id="modal-add-unit" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Rental Unit</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-unit')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-unit">
+        <input type="hidden" id="edit-unit-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Target Property *</label>
+            <select id="unit-property-id" class="form-control" required>
+              <!-- Dynamic list option insertion -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Unit Name/No *</label>
+            <input type="text" id="unit-name" class="form-control" placeholder="e.g. Flat 101" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Floor</label>
+            <input type="text" id="unit-floor" class="form-control" placeholder="e.g. 1st Floor" autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-unit')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Tenant Modal -->
+  <div id="modal-add-tenant" class="modal-overlay">
+    <div class="modal-content" style="max-width: 640px;">
+      <div class="modal-header">
+        <h2>Add Tenant Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-tenant">
+        <input type="hidden" id="edit-tenant-id">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>Target Unit *</label>
+              <select id="tenant-unit-id" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label>Assigned Property Owner</label>
+              <select id="tenant-owner-id" class="form-control">
+                <option value="">Select Property Owner (Optional)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tenant Full Name *</label>
+              <input type="text" id="tenant-name" class="form-control" required autocomplete="name">
+            </div>
+            <div class="form-group">
+              <label>Mobile Number *</label>
+              <input type="text" id="tenant-mobile" class="form-control" required autocomplete="tel">
+            </div>
+            <div class="form-group">
+              <label>Email Address (for Tenant Portal Login) *</label>
+              <input type="email" id="tenant-email" class="form-control" placeholder="tenant@example.com" required autocomplete="email">
+            </div>
+            <div class="form-group">
+              <label>Portal Login Password</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="password" id="tenant-password" class="form-control" placeholder="Min 6 chars to enable login" minlength="6" style="flex: 1;" autocomplete="new-password">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantModalPasswordMask()" title="Show/Hide Password">👁️</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="generateTenantModalPassword()" title="Generate Random Password">🎲</button>
+              </div>
+              <small style="color: var(--text-muted); font-size: 11px;">Set password now (or set later in Tenant Logins)</small>
+            </div>
+            <div class="form-group">
+              <label>Aadhaar Card No</label>
+              <input type="text" id="tenant-aadhar" class="form-control" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Base Rent (₹) *</label>
+              <input type="number" id="tenant-rent" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Advance Deposit Amount (₹) *</label>
+              <input type="number" id="tenant-advance" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Pending Arrears (₹)</label>
+              <input type="number" step="0.01" id="tenant-arrears" class="form-control" value="0" placeholder="Prior unpaid balance" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Maintenance Charge (₹)</label>
+              <input type="number" id="tenant-maint" class="form-control" value="0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Electricity Unit Price (₹ / unit)</label>
+              <input type="number" step="0.01" id="tenant-eb-price" class="form-control" value="8" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Initial EB Meter Reading</label>
+              <input type="number" id="tenant-init-eb" class="form-control" value="0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Water Calculation Mode</label>
+              <select id="tenant-water-mode" class="form-control">
+                <option value="FIXED">FIXED</option>
+                <option value="METERED">METERED</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Water Fixed Charge / Unit Price (₹)</label>
+              <input type="number" id="tenant-water-rate" class="form-control" value="150" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Initial Water Meter Reading</label>
+              <input type="number" id="tenant-init-water" class="form-control" value="0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Agreement Start Date</label>
+              <input type="date" id="tenant-start-date" class="form-control" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Agreement Expiry Date</label>
+              <input type="date" id="tenant-end-date" class="form-control" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Set / Reset Tenant Password Modal -->
+  <div id="modal-tenant-password" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2><i data-lucide="key-round" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Tenant Login & Password</h2>
+        <button class="close-btn" onclick="closeModal('modal-tenant-password')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-tenant-password">
+        <input type="hidden" id="tp-renter-id">
+        <input type="hidden" id="tp-user-id">
+        <div class="modal-body">
+          <div style="background: var(--bg-card-header); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 15px;" id="tp-tenant-name">-</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              <span id="tp-tenant-unit">-</span> • <span id="tp-tenant-mobile">-</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tp-tenant-email">Portal Login Email *</label>
+            <input type="email" id="tp-tenant-email" class="form-control" placeholder="tenant@example.com" required autocomplete="email">
+            <small style="color: var(--text-muted); font-size: 11px;">Tenants can sign in with this email or their registered mobile number</small>
+          </div>
+
+          <div class="form-group">
+            <label for="tp-tenant-password">Portal Password *</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="tp-tenant-password" class="form-control" placeholder="Minimum 6 characters" minlength="6" required style="flex: 1;" autocomplete="new-password">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantPasswordMask()" title="Show/Hide Password" style="padding: 0 10px;">👁️</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateRandomTenantPassword()" title="Generate Random Password">🎲 Random</button>
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px;">Must be at least 6 characters long</small>
+          </div>
+
+          <div class="form-group" style="margin-top: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+              <input type="checkbox" id="tp-copy-clipboard" checked>
+              <span>Copy login credentials to clipboard on save</span>
+            </label>
+          </div>
+
+          <div id="tp-status-msg" style="display: none; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;"></div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-tenant-password')">Cancel</button>
+            <button type="button" id="tp-btn-toggle-status" class="btn btn-secondary" onclick="triggerToggleTenantLoginStatusFromModal()" style="display: none;"><i data-lucide="shield-off"></i> Deactivate Access</button>
+            <button type="button" id="tp-btn-delete-login" class="btn btn-danger" onclick="triggerDeleteTenantLoginFromModal()" style="display: none;"><i data-lucide="user-x"></i> Delete Account</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="saveAndShareTenantWhatsApp()" style="color: #25d366;"><i data-lucide="message-circle"></i> Save & WhatsApp</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save Credentials</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Generate Bill Modal -->
+  <div id="modal-add-bill" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Generate Bill Invoice</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-bill')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-bill">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Tenant *</label>
+            <select id="bill-renter-id" class="form-control" required></select>
+          </div>
+
+          <!-- Billing Cycle & Bill Generated Date -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Billing Month / Cycle *</label>
+              <input type="month" id="bill-period" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Bill Generated Date *</label>
+              <input type="date" id="bill-generated-date" class="form-control" required autocomplete="off">
+            </div>
+          </div>
+
+          <!-- Stay Period Dates (From & To) -->
+          <div style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+              <i data-lucide="calendar" style="width: 14px; height: 14px;"></i> Stay / Rental Period Dates
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="font-size: 12px; margin-bottom: 2px;">Stay From Date *</label>
+                <input type="date" id="bill-period-from" class="form-control" required autocomplete="off">
+              </div>
+              <div>
+                <label style="font-size: 12px; margin-bottom: 2px;">Stay To Date *</label>
+                <input type="date" id="bill-period-to" class="form-control" required autocomplete="off">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Monthly Base Rent (₹) *</label>
+              <input type="number" step="0.01" id="bill-rent-amount" class="form-control" placeholder="Base rent amount" required autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Payment Due Date *</label>
+              <input type="date" id="bill-due-date" class="form-control" required autocomplete="off">
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Current EB Reading</label>
+              <input type="number" id="bill-eb" class="form-control" placeholder="Enter current reading" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Current Water Reading</label>
+              <input type="number" id="bill-water" class="form-control" placeholder="Enter reading (if metered)" autocomplete="off">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Late Fee (₹)</label>
+              <input type="number" id="bill-late" class="form-control" value="0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Discount (₹)</label>
+              <input type="number" id="bill-discount" class="form-control" value="0" autocomplete="off">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Other Miscellaneous charges (₹)</label>
+            <input type="number" id="bill-others" class="form-control" value="0" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Pending Arrears Adjustment (₹)</label>
+            <input type="number" step="0.01" id="bill-arrears" class="form-control" value="0" autocomplete="off">
+          </div>
+          <!-- Live Invoice Calculation Summary Card -->
+          <div class="bill-live-calc-card" style="background: var(--bg-card, #ffffff); border: 1.5px solid var(--border, #cbd5e1); border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-top: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border, #e2e8f0); padding-bottom: 8px;">
+              <span style="display: inline-flex; align-items: center; gap: 6px;">
+                <span style="color: #f59e0b;">⚡</span> Live Invoice Calculation Summary
+              </span>
+              <span id="live-calc-net" style="font-size: 17px; color: var(--primary, #2563eb); font-weight: 800; font-family: 'JetBrains Mono', monospace;">₹0.00</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 12px; color: var(--text-muted);">
+              <div>Base Rent: <strong id="live-calc-rent" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+              <div>Maintenance: <strong id="live-calc-maint" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+              <div>EB Electricity: <strong id="live-calc-eb" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong> (<span id="live-calc-eb-units" style="font-weight: 700; color: var(--text-main);">0</span> units)</div>
+              <div>Water Utility: <strong id="live-calc-water" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+              <div>Arrears / Extra / Fee: <strong id="live-calc-extra" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+              <div>Discount: <strong id="live-calc-discount" style="color: var(--danger, #ef4444); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate Bill</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Record Payment Modal -->
+  <div id="modal-add-payment" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Submit Payment Proof</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-payment')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-payment">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Unpaid Bill Invoice *</label>
+            <select id="pay-bill-id" class="form-control" required>
+              <option value="">Select Invoice / Bill</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Amount (₹) *</label>
+            <input type="number" id="pay-amount" step="0.01" min="0" class="form-control" placeholder="Enter payment amount" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Payment Method *</label>
+            <select id="pay-method" class="form-control" required>
+              <option value="UPI">UPI</option>
+              <option value="CASH">CASH</option>
+              <option value="BANK_TRANSFER">BANK TRANSFER</option>
+              <option value="UNPAID">Mark as Unpaid (No Payment Received)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Transaction Reference / UTR (Optional)</label>
+            <input type="text" id="pay-ref" class="form-control" placeholder="Enter bank reference number (optional)" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Notes / Remarks</label>
+            <input type="text" id="pay-notes" class="form-control" placeholder="Optional payment notes" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Attach Payment Receipt Screenshot / Photo (Optional)</label>
+            <input type="file" id="pay-proof-photo" accept="image/*,.pdf" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-payment')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="pay-submit-btn">Submit Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Payment Proof Screenshot Modal -->
+  <div id="modal-view-proof-image" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px; text-align: center;">
+      <div class="modal-header">
+        <h2>Payment Receipt Screenshot</h2>
+        <button class="close-btn" onclick="closeModal('modal-view-proof-image')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <img id="proof-image-display" src="" alt="Payment Proof" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color); max-height: 400px; object-fit: contain;">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-view-proof-image')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Expense Modal -->
+  <div id="modal-add-expense" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Log Operating Expense</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-expense')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-expense">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Category *</label>
+            <input type="text" id="expense-category" class="form-control" placeholder="e.g. Repairs, Electricity" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Amount (₹) *</label>
+            <input type="number" id="expense-amount" class="form-control" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="expense-date" class="form-control" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="expense-notes" class="form-control" autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-expense')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Withdrawal Modal -->
+  <div id="modal-add-withdrawal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Record Owner Withdrawal</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-withdrawal')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-withdrawal">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Owner Name *</label>
+            <select id="withdrawal-owner-name" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹) *</label>
+            <input type="number" id="withdrawal-amount" class="form-control" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="withdrawal-date" class="form-control" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="withdrawal-notes" class="form-control" autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-withdrawal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record Withdrawal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tenant Vacate Modal -->
+  <div id="modal-vacate-tenant" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Process Tenant Exit Settlement</h2>
+        <button class="close-btn" onclick="closeModal('modal-vacate-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-vacate-tenant">
+        <input type="hidden" id="vacate-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <input type="text" id="vacate-tenant-name-display" class="form-control" readonly autocomplete="off">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Repair Deduction (₹)</label>
+              <input type="number" id="vacate-repair" class="form-control" value="0" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>Other Miscellaneous Deductions (₹)</label>
+              <input type="number" id="vacate-others" class="form-control" value="0" autocomplete="off">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Vacate Date *</label>
+            <input type="date" id="vacate-date" class="form-control" required autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Exit Reason *</label>
+            <input type="text" id="vacate-reason" class="form-control" placeholder="e.g. End of contract" required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-vacate-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Process Exit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tenant Transfer Modal -->
+  <div id="modal-transfer-tenant" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Transfer Tenant to New Unit</h2>
+        <button class="close-btn" onclick="closeModal('modal-transfer-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-transfer-tenant" onsubmit="event.preventDefault(); submitTransfer();">
+        <input type="hidden" id="transfer-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <div id="transfer-renter-name" style="font-weight: 700; font-size: 16px; padding: 6px 0; color: var(--text-main);"></div>
+          </div>
+          <div class="form-group">
+            <label>Select New Vacant Unit *</label>
+            <select id="transfer-new-unit-id" class="form-control" required></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-transfer-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Process Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Meter Reset Modal -->
+  <div id="modal-reset-meter" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Reset Utility EB/Water Meter</h2>
+        <button class="close-btn" onclick="closeModal('modal-reset-meter')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-reset-meter" onsubmit="event.preventDefault(); submitMeterReset();">
+        <input type="hidden" id="reset-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <div id="reset-renter-name" style="font-weight: 700; font-size: 16px; padding: 6px 0; color: var(--text-main);"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Meter Type *</label>
+              <select id="reset-reading-type" class="form-control" required>
+                <option value="EB">Electricity (EB)</option>
+                <option value="WATER">Water</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>New Initial Reading *</label>
+              <input type="number" id="reset-new-reading" class="form-control" value="0" required autocomplete="off">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Reason for Reset *</label>
+            <input type="text" id="reset-reason" class="form-control" placeholder="e.g. Meter replaced due to fault" required autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-reset-meter')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reset Meter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Owner Modal -->
+  <div id="modal-add-owner" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add / Edit Owner Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-owner')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-owner">
+        <input type="hidden" id="edit-owner-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Owner Full Name *</label>
+            <input type="text" id="owner-name" class="form-control" placeholder="e.g. Rajesh Kumar" required autocomplete="name">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Mobile Number</label>
+              <input type="text" id="owner-mobile" class="form-control" placeholder="e.g. 9876543210" autocomplete="tel">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="owner-email" class="form-control" placeholder="e.g. rajesh@example.com" autocomplete="email">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>UPI ID (for tenant payments & withdrawals)</label>
+            <input type="text" id="owner-upi" class="form-control" placeholder="e.g. rajesh@upi" autocomplete="off">
+          </div>
+          <div style="border-top: 1px solid var(--border); margin: 12px 0 8px 0; padding-top: 8px; font-weight: 700; font-size: 13px; color: var(--text-main);">Bank Details (for Direct Tenant Rent Transfers):</div>
+          <div class="form-group">
+            <label>Bank Name</label>
+            <input type="text" id="owner-bank-name" class="form-control" placeholder="e.g. State Bank of India / HDFC Bank" autocomplete="off">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Account Number</label>
+              <input type="text" id="owner-account-no" class="form-control" placeholder="e.g. 50100123456789" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label>IFSC Code</label>
+              <input type="text" id="owner-ifsc" class="form-control" placeholder="e.g. SBIN0001234" autocomplete="off">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-owner')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Document Modal -->
+  <div id="modal-add-document" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Attach / Upload Digital Document</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-document')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-document">
+        <input type="hidden" id="edit-doc-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Document Title *</label>
+            <input type="text" id="doc-title" class="form-control" placeholder="e.g. Flat 101 Lease Agreement 2026.pdf" required autocomplete="off">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Category *</label>
+              <select id="doc-category" class="form-control" required>
+                <option value="LEASE_AGREEMENT">Lease Agreement</option>
+                <option value="IDENTITY_PROOF">ID Proof (Aadhaar/PAN)</option>
+                <option value="PROPERTY_TAX">Property Tax Receipt</option>
+                <option value="OWNERSHIP_DEED">Ownership Deed</option>
+                <option value="MAINTENANCE">Maintenance Invoice</option>
+                <option value="ELECTRICITY_DEED">Electricity Deed</option>
+                <option value="OTHER">Other Document</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Expiry / Renewal Date</label>
+              <input type="date" id="doc-expiry-date" class="form-control" autocomplete="off">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Link To Entity Type</label>
+              <select id="doc-entity-type" class="form-control" onchange="populateDocEntitySelect(this.value)">
+                <option value="GENERAL">General / Unlinked</option>
+                <option value="PROPERTY">Property Building</option>
+                <option value="UNIT">Rental Unit</option>
+                <option value="RENTER">Tenant Profile</option>
+                <option value="OWNER">Property Owner</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Select Specific Entity</label>
+              <select id="doc-entity-id" class="form-control">
+                <option value="">Select Entity</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Attach File (PDF, Image, Doc) or Enter File URL</label>
+            <input type="file" id="doc-file-input" class="form-control" style="margin-bottom: 6px;" onchange="handleDocFileUpload(event)">
+            <input type="text" id="doc-file-url" class="form-control" placeholder="Or enter file URL (https://...)" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Notes / Description</label>
+            <input type="text" id="doc-notes" class="form-control" placeholder="Optional notes or remarks" autocomplete="off">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-document')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- FORGOT PASSWORD MODAL -->
+  <div id="modal-forgot-password" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>Reset Password</h3>
+        <button class="modal-close" onclick="closeModal('modal-forgot-password')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          Enter your registered email address and we will send you a secure password reset link.
+        </p>
+        <form id="form-forgot-password">
+          <div class="form-group">
+            <label for="forgot-email">Email Address or Mobile Number *</label>
+            <div class="input-icon-wrapper">
+              <i data-lucide="mail" class="input-leading-icon"></i>
+              <input type="text" id="forgot-email" class="form-control" placeholder="Email (admin@rentbill.com) or Mobile" required autocomplete="username">
+            </div>
+          </div>
+          <div id="forgot-error" class="auth-error-banner" style="display: none; margin-bottom: 12px;"></div>
+          <div id="forgot-success" style="display: none; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--success); padding: 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; margin-bottom: 12px;">
+            <i data-lucide="check-circle" style="display: inline-block; vertical-align: middle; margin-right: 4px;"></i>
+            <span>Password reset link sent! Please check your email inbox.</span>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-forgot-password')" style="flex: 1; justify-content: center;">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btn-forgot-submit" style="flex: 1; justify-content: center;">Send Reset Link</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASSWORD RECOVERY MODAL (When clicking email link) -->
+  <div id="modal-reset-recovery-password" class="modal-overlay" style="display: none;">
+    <div class="modal-card" style="max-width: 420px;">
+      <div class="modal-header">
+        <h3>Create New Password</h3>
+        <button class="modal-close" onclick="closeModal('modal-reset-recovery-password')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+          Please choose a strong new password for your account.
+        </p>
+        <form id="form-reset-recovery-password">
+          <div class="form-group">
+            <label for="recovery-new-password">New Password *</label>
+            <input type="password" id="recovery-new-password" class="form-control" placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label for="recovery-confirm-password">Confirm Password *</label>
+            <input type="password" id="recovery-confirm-password" class="form-control" placeholder="Confirm new password" required minlength="6" autocomplete="new-password">
+          </div>
+          <div id="recovery-error" class="auth-error-banner" style="display: none; margin-bottom: 12px;"></div>
+          <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Save New Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>

@@ -1,5 +1,6 @@
 // RentBill Pro — Property Buildings, Rental Units & Tenants Directory
 import { getSupabaseClient } from '../core/config.js';
+import { safeUpdate, safeDelete } from '../core/db.js';
 import { formatCurrency, escapeStr, renderEmptyState, openModal, closeModal, refreshLucideIcons } from '../core/ui.js';
 import { loadOwnersPage, populateOwnerSelects } from './owners.js';
 import { loadDocumentsPage } from './documents.js';
@@ -212,7 +213,7 @@ export function triggerEditProperty(id, name, address) {
 export async function triggerDeleteProperty(id, name) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete property "${name}"?`)) return;
-  const { error } = await supabaseClient.from('properties').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'properties', id);
   if (error) alert('Failed to delete property: ' + error.message);
   else loadPropertiesPage();
 }
@@ -228,7 +229,7 @@ export function triggerEditUnit(id, propertyId, unitName, floor) {
 export async function triggerDeleteUnit(id, name) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete unit "${name}"?`)) return;
-  const { error } = await supabaseClient.from('units').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'units', id);
   if (error) alert('Failed to delete unit: ' + error.message);
   else loadPropertiesPage();
 }
@@ -284,7 +285,7 @@ export async function triggerAdjustArrears(tenantId) {
   if (isNaN(newRupees)) { alert('Invalid amount entered'); return; }
 
   const newPaise = Math.round(newRupees * 100);
-  const { error } = await supabaseClient.from('renters').update({ pending_arrears: newPaise }).eq('id', tenantId);
+  const { error } = await safeUpdate(supabaseClient, 'renters', { pending_arrears: newPaise }, 'id', tenantId);
   if (error) alert('Failed to update arrears: ' + error.message);
   else {
     alert(`✅ Pending arrears updated to ₹${newRupees.toFixed(2)} for ${t.name}`);
@@ -295,7 +296,7 @@ export async function triggerAdjustArrears(tenantId) {
 export async function triggerDeleteTenant(id, name) {
   const supabaseClient = getSupabaseClient();
   if (!confirm(`Are you sure you want to delete tenant "${name}"?`)) return;
-  const { error } = await supabaseClient.from('renters').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { error } = await safeDelete(supabaseClient, 'renters', id);
   if (error) alert('Failed to delete tenant: ' + error.message);
   else loadTenantsPage();
 }
@@ -333,11 +334,11 @@ export async function submitTransfer() {
   const { data: tenant } = await supabaseClient.from('renters').select('unit_id').eq('id', renter_id).single();
   const old_unit_id = tenant ? tenant.unit_id : null;
 
-  const { error } = await supabaseClient.from('renters').update({ unit_id: new_unit_id }).eq('id', renter_id);
+  const { error } = await safeUpdate(supabaseClient, 'renters', { unit_id: new_unit_id }, 'id', renter_id);
   if (error) alert('Transfer failed: ' + error.message);
   else {
-    if (old_unit_id) await supabaseClient.from('units').update({ status: 'VACANT' }).eq('id', old_unit_id);
-    await supabaseClient.from('units').update({ status: 'OCCUPIED' }).eq('id', new_unit_id);
+    if (old_unit_id) await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', old_unit_id);
+    await safeUpdate(supabaseClient, 'units', { status: 'OCCUPIED' }, 'id', new_unit_id);
     closeModal('modal-transfer-tenant');
     loadTenantsPage();
     loadPropertiesPage();
@@ -354,17 +355,29 @@ export async function submitMeterReset() {
   const supabaseClient = getSupabaseClient();
   const renter_id = document.getElementById('reset-renter-id').value;
   const type = document.getElementById('reset-reading-type').value;
-  const new_reading = parseInt(document.getElementById('reset-new-reading').value || '0');
+  const new_reading = parseInt(document.getElementById('reset-new-reading').value || '0', 10);
+  const reason = (document.getElementById('reset-reason')?.value || '').trim();
+
+  if (!renter_id) {
+    alert('No tenant selected for meter reset');
+    return;
+  }
 
   const field = type === 'EB' ? 'initial_eb' : 'initial_water';
-  const updateObj = {};
-  updateObj[field] = new_reading;
+  const resetTimeField = type === 'EB' ? 'eb_reset_at' : 'water_reset_at';
 
-  const { error } = await supabaseClient.from('renters').update(updateObj).eq('id', renter_id);
-  if (error) alert('Meter reset failed: ' + error.message);
-  else {
+  const updateObj = {
+    [field]: new_reading,
+    [resetTimeField]: new Date().toISOString()
+  };
+
+  const { error } = await safeUpdate(supabaseClient, 'renters', updateObj, 'id', renter_id);
+  if (error) {
+    alert('Meter reset failed: ' + error.message);
+  } else {
     closeModal('modal-reset-meter');
-    alert('Meter reset successful');
+    alert(`✅ ${type === 'EB' ? 'Electricity (EB)' : 'Water'} meter baseline reset to ${new_reading}${reason ? ` (${reason})` : ''}. Upcoming bills will start from this reading.`);
     loadTenantsPage();
+    loadPropertiesPage();
   }
 }

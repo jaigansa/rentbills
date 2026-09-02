@@ -1,0 +1,155 @@
+// RentBill Pro — Production-Grade Resilient Database Adapter
+// Self-healing schema adaptation: automatically detects & strips unsupported columns across all Supabase versions
+
+const unsupportedColumns = new Map(); // table -> Set of unsupported column names
+
+/**
+ * Filter out known unsupported columns for a given table
+ */
+export function cleanPayload(table, payload) {
+  const unsupported = unsupportedColumns.get(table);
+  if (!unsupported || !payload) return payload;
+
+  if (Array.isArray(payload)) {
+    return payload.map(item => cleanPayload(table, { ...item }));
+  }
+
+  const cleaned = { ...payload };
+  for (const col of unsupported) {
+    delete cleaned[col];
+  }
+  return cleaned;
+}
+
+/**
+ * Safely inserts records into Supabase, automatically adapting to schema differences in production
+ */
+export async function safeInsert(client, table, payload) {
+  if (!client) return { error: new Error('Database client not initialized') };
+
+  let currentPayload = cleanPayload(table, payload);
+  let maxRetries = 10;
+
+  while (maxRetries > 0) {
+    const res = await client.from(table).insert(currentPayload);
+    if (!res.error) {
+      return res;
+    }
+
+    const errMsg = res.error.message || '';
+    // Match PostgREST schema cache errors or Postgres missing column errors
+    const match = errMsg.match(/Could not find the '([^']+)' column/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? of relation/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? does not exist/i);
+
+    if (match && match[1]) {
+      const missingCol = match[1].trim();
+      if (!unsupportedColumns.has(table)) {
+        unsupportedColumns.set(table, new Set());
+      }
+      unsupportedColumns.get(table).add(missingCol);
+
+      // Strip missing column from currentPayload and retry
+      if (Array.isArray(currentPayload)) {
+        currentPayload = currentPayload.map(item => {
+          const copy = { ...item };
+          delete copy[missingCol];
+          return copy;
+        });
+      } else if (typeof currentPayload === 'object' && currentPayload !== null) {
+        currentPayload = { ...currentPayload };
+        delete currentPayload[missingCol];
+      }
+
+      maxRetries--;
+      continue;
+    }
+
+    // Self-healing resolution for duplicate unique constraint errors (e.g. recreating bill for same month)
+    if (table === 'bills' && (errMsg.includes('bills_renter_id_billing_period_key') || errMsg.includes('duplicate key value violates unique constraint'))) {
+      const singleItem = Array.isArray(currentPayload) ? currentPayload[0] : currentPayload;
+      if (singleItem && singleItem.renter_id && singleItem.billing_period) {
+        const { data: existing } = await client.from('bills')
+          .select('id')
+          .eq('renter_id', singleItem.renter_id)
+          .eq('billing_period', singleItem.billing_period)
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          return await safeUpdate(client, 'bills', { ...singleItem, deleted_at: null }, 'id', existing[0].id);
+        }
+      }
+    }
+
+    return res;
+  }
+
+  return { error: new Error(`Failed to insert into ${table} after schema adaptation`) };
+}
+
+/**
+ * Safely updates records in Supabase, automatically adapting to schema differences in production
+ */
+export async function safeUpdate(client, table, payload, matchField, matchValue) {
+  if (!client) return { error: new Error('Database client not initialized') };
+
+  let currentPayload = cleanPayload(table, payload);
+  let maxRetries = 10;
+
+  while (maxRetries > 0) {
+    const res = await client.from(table).update(currentPayload).eq(matchField, matchValue);
+    if (!res.error) {
+      return res;
+    }
+
+    const errMsg = res.error.message || '';
+    const match = errMsg.match(/Could not find the '([^']+)' column/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? of relation/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? does not exist/i);
+
+    if (match && match[1]) {
+      const missingCol = match[1].trim();
+      if (!unsupportedColumns.has(table)) {
+        unsupportedColumns.set(table, new Set());
+      }
+      unsupportedColumns.get(table).add(missingCol);
+
+      currentPayload = { ...currentPayload };
+      delete currentPayload[missingCol];
+
+      maxRetries--;
+      continue;
+    }
+
+    return res;
+  }
+
+  return { error: new Error(`Failed to update ${table} after schema adaptation`) };
+}
+
+/**
+ * Safely performs soft delete, falling back to hard delete if deleted_at is not in schema
+ */
+export async function safeDelete(client, table, id) {
+  if (!client) return { error: new Error('Database client not initialized') };
+
+  // 1. Try soft delete first if not known to be unsupported
+  const unsupported = unsupportedColumns.get(table);
+  if (!unsupported || !unsupported.has('deleted_at')) {
+    const res = await client.from(table).update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    if (!res.error) return res;
+
+    const errMsg = res.error.message || '';
+    if (errMsg.includes('deleted_at')) {
+      if (!unsupportedColumns.has(table)) {
+        unsupportedColumns.set(table, new Set());
+      }
+      unsupportedColumns.get(table).add('deleted_at');
+    } else {
+      return res;
+    }
+  }
+
+  // 2. Fallback to hard delete if soft delete column is not in schema
+  return await client.from(table).delete().eq('id', id);
+}

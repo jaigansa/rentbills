@@ -1,0 +1,61 @@
+  <!-- Mobile Bottom Navigation (3-Button Layout: Dashboard, Menu Drawer, Settings) -->
+  <nav class="mobile-nav">
+    <a href="#" class="mobile-nav-item active" data-target="page-dashboard">
+      <i data-lucide="layout-dashboard"></i>
+      <span>Dashboard</span>
+    </a>
+    <a href="#" class="mobile-nav-item" id="mobile-drawer-toggle">
+      <i data-lucide="menu"></i>
+      <span>Menu</span>
+    </a>
+    <a href="#" class="mobile-nav-item admin-only" id="mobile-settings-btn" data-target="page-settings">
+      <i data-lucide="settings"></i>
+      <span>Settings</span>
+    </a>
+  </nav>
+
+  <!-- Mobile Navigation Drawer Overlay Sheet -->
+  <div id="mobile-drawer" class="mobile-drawer-overlay">
+    <div class="mobile-drawer-content">
+      <div class="mobile-drawer-header">
+        <h3 style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;">Navigation Menu</h3>
+        <button class="close-btn" id="close-mobile-drawer" aria-label="Close menu"><i data-lucide="x"></i></button>
+      </div>
+      <div class="mobile-drawer-grid">
+        <div class="mobile-drawer-item nav-item" data-target="page-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span>Dashboard</span>
+        </div>
+        <div class="mobile-drawer-item nav-item admin-only" data-target="page-properties">
+          <i data-lucide="folder-open"></i>
+          <span>Documents</span>
+        </div>
+        <div class="mobile-drawer-item nav-item" data-target="page-bills">
+          <i data-lucide="receipt"></i>
+          <span>Bills</span>
+        </div>
+        <div class="mobile-drawer-item nav-item" data-target="page-payments">
+          <i data-lucide="credit-card"></i>
+          <span>Payments</span>
+        </div>
+        <div class="mobile-drawer-item nav-item admin-only" data-target="page-expenses">
+          <i data-lucide="dollar-sign"></i>
+          <span>Expenses</span>
+        </div>
+        <div class="mobile-drawer-item nav-item admin-only" data-target="page-settings">
+          <i data-lucide="settings"></i>
+          <span>Settings</span>
+        </div>
+      </div>
+      <div style="margin-top: 8px; border-top: 1px solid var(--border); padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+        <button type="button" class="btn btn-secondary admin-only" style="width: 100%; justify-content: center; gap: 8px;" onclick="showSetupConfigModal()">
+          <i data-lucide="key-round"></i>
+          <span>Change Supabase Keys</span>
+        </button>
+        <button type="button" class="btn btn-danger" style="width: 100%; justify-content: center; gap: 8px;" onclick="document.getElementById('logout-btn').click(); closeMobileDrawer();">
+          <i data-lucide="log-out"></i>
+          <span>Logout</span>
+        </button>
+      </div>
+    </div>
+  </div>

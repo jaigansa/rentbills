@@ -1,0 +1,50 @@
+        <!-- 5. PAYMENTS PAGE -->
+        <section id="page-payments" class="page-section">
+          <div class="page-header">
+            <h1>Payment Verification & Receipts</h1>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn btn-secondary admin-only" onclick="exportPaymentsCSV()"><i data-lucide="download"></i> Export CSV</button>
+              <button class="btn btn-primary tenant-only" style="display: none;" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+            </div>
+          </div>
+          <!-- Payments Filter & Search Toolbar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;" id="payments-filter-toolbar">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" id="payment-search-input" class="form-control" placeholder="Search renter name, ref # or invoice..." onkeyup="filterPaymentsTable()" autocomplete="off">
+            </div>
+            <div style="width: 160px;">
+              <select id="payment-filter-method" class="form-control" onchange="filterPaymentsTable()">
+                <option value="ALL">All Methods</option>
+                <option value="UPI">UPI / Online</option>
+                <option value="CASH">Cash</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+              </select>
+            </div>
+            <div style="width: 160px;">
+              <select id="payment-filter-status" class="form-control" onchange="filterPaymentsTable()">
+                <option value="ALL">All Statuses</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="PENDING">Pending Proof</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice Number & UUID</th>
+                  <th>Renter Name</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Ref No</th>
+                  <th>Payment Date</th>
+                  <th>Verification</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-payments">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>

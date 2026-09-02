@@ -1,5 +1,6 @@
 // RentBill Pro — Backup, JSON Export/Restore, CSV Engines & App Settings
 import { getSupabaseClient } from '../core/config.js';
+import { safeInsert } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
 import { loadDashboard } from './dashboard.js';
 import { loadPropertiesPage, loadTenantsPage } from './properties.js';
@@ -236,35 +237,35 @@ export async function triggerSeedSampleData() {
     }
 
     // 1. Seed Owners
-    const { data: ownerRes } = await supabaseClient.from('owners').insert([
+    const { data: ownerRes } = await safeInsert(supabaseClient, 'owners', [
       { name: 'Rajesh Kumar', email: 'rajesh.kumar@example.com', mobile_number: '9876543210', upi_id: 'rajesh.kumar@okicici', bank_name: 'State Bank of India', account_number: '30123456789', ifsc_code: 'SBIN0001234' },
       { name: 'Priya Sharma', email: 'priya.sharma@example.com', mobile_number: '9812345678', upi_id: 'priya@okhdfcbank', bank_name: 'HDFC Bank', account_number: '50100987654321', ifsc_code: 'HDFC0000123' }
-    ]).select();
+    ]);
 
     const ownerId = ownerRes && ownerRes.length > 0 ? ownerRes[0].id : null;
     const ownerName = ownerRes && ownerRes.length > 0 ? ownerRes[0].name : 'Rajesh Kumar';
 
     // 2. Seed Property
-    const { data: propRes } = await supabaseClient.from('properties').insert([
+    const { data: propRes } = await safeInsert(supabaseClient, 'properties', [
       { name: 'Royal Heights Residency', address: '123 MG Road, Koramangala, Bengaluru, Karnataka 560034', agreement_terms: 'Standard 11-month lease agreement' }
-    ]).select();
+    ]);
 
     const propertyId = propRes && propRes.length > 0 ? propRes[0].id : null;
 
     if (propertyId) {
       // 3. Seed Units
-      const { data: unitRes } = await supabaseClient.from('units').insert([
+      const { data: unitRes } = await safeInsert(supabaseClient, 'units', [
         { property_id: propertyId, unit_name: 'Flat 101 (1BHK)', floor: '1st Floor', status: 'OCCUPIED' },
         { property_id: propertyId, unit_name: 'Flat 102 (2BHK)', floor: '1st Floor', status: 'OCCUPIED' },
         { property_id: propertyId, unit_name: 'Flat 201 (3BHK)', floor: '2nd Floor', status: 'VACANT' }
-      ]).select();
+      ]);
 
       const unit1Id = unitRes && unitRes.length > 0 ? unitRes[0].id : null;
       const unit2Id = unitRes && unitRes.length > 1 ? unitRes[1].id : null;
 
       if (unit1Id && unit2Id) {
         // 4. Seed Tenants
-        const { data: tenantRes } = await supabaseClient.from('renters').insert([
+        const { data: tenantRes } = await safeInsert(supabaseClient, 'renters', [
           {
             unit_id: unit1Id,
             owner_id: ownerId,
@@ -301,14 +302,14 @@ export async function triggerSeedSampleData() {
             initial_water: 120,
             is_active: true
           }
-        ]).select();
+        ]);
 
         const renter1Id = tenantRes && tenantRes.length > 0 ? tenantRes[0].id : null;
 
         if (renter1Id) {
           // 5. Seed Bills & Expenses
           const nowStr = new Date().toISOString().slice(0, 7);
-          await supabaseClient.from('bills').insert([
+          await safeInsert(supabaseClient, 'bills', [
             {
               renter_id: renter1Id,
               billing_period: nowStr,
@@ -325,7 +326,7 @@ export async function triggerSeedSampleData() {
             }
           ]);
 
-          await supabaseClient.from('expenses').insert([
+          await safeInsert(supabaseClient, 'expenses', [
             { category: 'Plumbing & Repairs', amount: 350000, date: new Date().toISOString().slice(0, 10), notes: 'Fixed lobby pipe leak' }
           ]);
         }

@@ -1,0 +1,63 @@
+        <!-- 4. BILLS PAGE -->
+        <section id="page-bills" class="page-section">
+          <div class="page-header">
+            <h1>Invoices & Monthly Bills</h1>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn btn-secondary admin-only" onclick="exportBillsCSV()"><i data-lucide="download"></i> Export CSV</button>
+              <button class="btn btn-primary tenant-only" style="display: none;" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+              <button class="btn btn-primary admin-only" onclick="openModal('modal-add-bill')"><i data-lucide="plus-circle"></i> Generate Bill</button>
+            </div>
+          </div>
+          <!-- Unpaid Due KPI Banner -->
+          <div id="unpaid-kpi-banner" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; gap: 20px; align-items: center;">
+              <div>
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Unpaid Invoices</span>
+                <div id="unpaid-count-kpi" style="font-size: 18px; font-weight: 800; color: #d97706;">0 Bills</div>
+              </div>
+              <div style="border-left: 1px solid var(--border); height: 30px;"></div>
+              <div>
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Total Outstanding Due</span>
+                <div id="unpaid-amount-kpi" style="font-size: 18px; font-weight: 800; color: var(--danger);">₹0.00</div>
+              </div>
+            </div>
+          </div>
+          <!-- Bills Filter & Search Toolbar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;" id="bills-filter-toolbar">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" id="bill-search-input" class="form-control" placeholder="Search renter name or bill #..." onkeyup="filterBillsTable()" autocomplete="off">
+            </div>
+            <div style="width: 160px;">
+              <select id="bill-filter-status" class="form-control" onchange="filterBillsTable()">
+                <option value="ALL">All Statuses</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="PARTIAL">Partially Paid</option>
+                <option value="PAID">Paid</option>
+              </select>
+            </div>
+            <div style="width: 160px;">
+              <select id="bill-filter-month" class="form-control" onchange="filterBillsTable()">
+                <option value="ALL">All Months</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice Number & UUID</th>
+                  <th>Renter Name</th>
+                  <th>Billing Period</th>
+                  <th>Gross Charge</th>
+                  <th>Net Charge</th>
+                  <th>Paid</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-bills">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>

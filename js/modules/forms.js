@@ -1,8 +1,9 @@
 // RentBill Pro — Unified Form Handlers & Submission Subsystems (Pure Supabase)
 import { getSupabaseClient } from '../core/config.js';
+import { safeInsert, safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser, setCurrentUser, getUploadedDocBase64, setUploadedDocBase64 } from '../core/state.js';
 import { closeModal, refreshLucideIcons } from '../core/ui.js';
-import { checkAuth } from './auth.js';
+import { checkAuth, showLogin } from './auth.js';
 import { loadDashboard } from './dashboard.js';
 import { loadPropertiesPage, loadTenantsPage } from './properties.js';
 import { loadOwnersPage } from './owners.js';
@@ -48,11 +49,11 @@ export function setupFormSubmitHandlers() {
         refreshLucideIcons();
       }
 
-      const emailInput = (document.getElementById('login-email')?.value || document.getElementById('login-username')?.value || '').trim().toLowerCase();
+      const identifierInput = (document.getElementById('login-email')?.value || document.getElementById('login-username')?.value || '').trim();
       const passwordInput = document.getElementById('login-password').value.trim();
 
-      if (!emailInput || !passwordInput) {
-        showError('Please enter both email address and password');
+      if (!identifierInput || !passwordInput) {
+        showError('Please enter both email/mobile and password');
         return;
       }
 
@@ -62,30 +63,47 @@ export function setupFormSubmitHandlers() {
         return;
       }
 
-      // Perform Supabase Authentication directly with Email & Password
+      let emailToLogin = identifierInput.toLowerCase();
+
+      // If user typed a mobile number or name without '@'
+      if (!emailToLogin.includes('@')) {
+        const cleanDigits = identifierInput.replace(/[^0-9]/g, '');
+        try {
+          // Look up renter by mobile number or name
+          let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
+          if (cleanDigits.length >= 7) {
+            query = query.ilike('mobile_number', `%${cleanDigits.slice(-10)}%`);
+          } else {
+            query = query.ilike('name', `%${identifierInput}%`);
+          }
+          const { data: matchedRenters } = await query.limit(1);
+
+          if (matchedRenters && matchedRenters.length > 0 && matchedRenters[0].email) {
+            emailToLogin = matchedRenters[0].email.toLowerCase();
+          } else if (cleanDigits.length >= 10) {
+            emailToLogin = `tenant_${cleanDigits.slice(-10)}@rentbill.local`;
+          }
+        } catch (mErr) {
+          console.warn('Mobile identifier lookup notice:', mErr);
+        }
+      }
+
+      // Perform Supabase Authentication with Email & Password
       try {
         const { data, error } = await client.auth.signInWithPassword({
-          email: emailInput,
+          email: emailToLogin,
           password: passwordInput
         });
 
         if (error) {
-          showError(error.message || 'Invalid email or password.');
+          showError(error.message || 'Invalid login credentials. Please check your email/mobile and password.');
           return;
         }
 
-        if (data && data.session) {
-          const authV = document.getElementById('auth-view');
-          if (authV) authV.style.display = 'none';
-          const appV = document.getElementById('app-view');
-          if (appV) appV.style.display = 'flex';
-
-          await checkAuth(data.session);
-
-          if (loginBtn) {
-            loginBtn.disabled = false;
-            loginBtn.innerHTML = origBtnHtml;
-          }
+        // onAuthStateChange will fire SIGNED_IN and call checkAuth automatically.
+        if (data && data.session && loginBtn) {
+          loginBtn.disabled = false;
+          loginBtn.innerHTML = origBtnHtml;
         }
       } catch (err) {
         showError('Authentication error: ' + (err.message || err));
@@ -107,9 +125,9 @@ export function setupFormSubmitHandlers() {
 
       let result;
       if (editId) {
-        result = await client.from('properties').update({ name, address }).eq('id', editId);
+        result = await safeUpdate(client, 'properties', { name, address }, 'id', editId);
       } else {
-        result = await client.from('properties').insert([{ name, address }]);
+        result = await safeInsert(client, 'properties', [{ name, address }]);
       }
 
       if (result.error) {
@@ -138,9 +156,9 @@ export function setupFormSubmitHandlers() {
 
       let result;
       if (editId) {
-        result = await client.from('units').update({ property_id, unit_name, floor }).eq('id', editId);
+        result = await safeUpdate(client, 'units', { property_id, unit_name, floor }, 'id', editId);
       } else {
-        result = await client.from('units').insert([{ property_id, unit_name, floor }]);
+        result = await safeInsert(client, 'units', [{ property_id, unit_name, floor }]);
       }
 
       if (result.error) {
@@ -186,20 +204,18 @@ export function setupFormSubmitHandlers() {
 
       let result;
       let savedRenterId = editId;
+      const tenantPayload = {
+        unit_id, owner_id, name, mobile_number, email, aadhar_no, base_rent, advance_amount, pending_arrears,
+        maint_charge, eb_unit_price, initial_eb, water_calc_mode,
+        water_fixed_charge, water_unit_price, initial_water,
+        agreement_start_date, agreement_expiry_date
+      };
+
       if (editId) {
-        result = await client.from('renters').update({
-          unit_id, owner_id, name, mobile_number, email, aadhar_no, base_rent, advance_amount, pending_arrears,
-          maint_charge, eb_unit_price, initial_eb, water_calc_mode,
-          water_fixed_charge, water_unit_price, initial_water,
-          agreement_start_date, agreement_expiry_date
-        }).eq('id', editId);
+        result = await safeUpdate(client, 'renters', tenantPayload, 'id', editId);
       } else {
-        result = await client.from('renters').insert([{
-          unit_id, owner_id, name, mobile_number, email, aadhar_no, base_rent, advance_amount, pending_arrears,
-          maint_charge, eb_unit_price, initial_eb, water_calc_mode,
-          water_fixed_charge, water_unit_price, initial_water,
-          agreement_start_date, agreement_expiry_date, is_active: true
-        }]).select();
+        tenantPayload.is_active = true;
+        result = await safeInsert(client, 'renters', [tenantPayload]);
         if (result.data && result.data.length > 0) {
           savedRenterId = result.data[0].id;
         }
@@ -209,7 +225,7 @@ export function setupFormSubmitHandlers() {
         alert('Error saving tenant: ' + result.error.message);
       } else {
         if (unit_id) {
-          await client.from('units').update({ status: 'OCCUPIED' }).eq('id', unit_id);
+          await safeUpdate(client, 'units', { status: 'OCCUPIED' }, 'id', unit_id);
         }
 
         // If a password was supplied, provision tenant login credentials in Supabase Auth
@@ -247,7 +263,16 @@ export function setupFormSubmitHandlers() {
       const period_start_date = document.getElementById('bill-period-from')?.value || null;
       const period_end_date = document.getElementById('bill-period-to')?.value || null;
       const bill_date = document.getElementById('bill-generated-date')?.value || new Date().toISOString().slice(0, 10);
-      const due_date = document.getElementById('bill-due-date')?.value || null;
+      let due_date = document.getElementById('bill-due-date')?.value || null;
+      if (!due_date && billing_period) {
+        const [year, month] = billing_period.split('-').map(Number);
+        if (!isNaN(year) && !isNaN(month)) {
+          const lastDay = new Date(year, month, 0).getDate();
+          const cfgDueDay = parseInt(localStorage.getItem('rentbill_due_day') || '10', 10) || 10;
+          const dueDayClamped = Math.min(cfgDueDay, lastDay);
+          due_date = `${year}-${String(month).padStart(2, '0')}-${String(dueDayClamped).padStart(2, '0')}`;
+        }
+      }
       const curr_eb = parseInt(document.getElementById('bill-eb').value || '0');
       const curr_water = parseInt(document.getElementById('bill-water').value || '0');
       const late_fee = Math.round(parseFloat(document.getElementById('bill-late').value || '0') * 100);
@@ -260,8 +285,23 @@ export function setupFormSubmitHandlers() {
       const { data: lastBills } = await client.from('bills')
         .select('*').eq('renter_id', renter_id).order('created_at', { ascending: false }).limit(1);
 
-      const prev_eb = lastBills && lastBills.length > 0 ? (lastBills[0].curr_eb_reading || tenant.initial_eb) : tenant.initial_eb;
-      const prev_water = lastBills && lastBills.length > 0 ? (lastBills[0].curr_water_reading || tenant.initial_water) : tenant.initial_water;
+      let prev_eb = tenant.initial_eb || 0;
+      let prev_water = tenant.initial_water || 0;
+
+      if (lastBills && lastBills.length > 0) {
+        const lastBill = lastBills[0];
+        const lastBillDate = new Date(lastBill.created_at || lastBill.bill_date || 0);
+
+        const ebResetDate = tenant.eb_reset_at ? new Date(tenant.eb_reset_at) : null;
+        if (!ebResetDate || ebResetDate <= lastBillDate) {
+          prev_eb = lastBill.curr_eb_reading ?? tenant.initial_eb ?? 0;
+        }
+
+        const waterResetDate = tenant.water_reset_at ? new Date(tenant.water_reset_at) : null;
+        if (!waterResetDate || waterResetDate <= lastBillDate) {
+          prev_water = lastBill.curr_water_reading ?? tenant.initial_water ?? 0;
+        }
+      }
 
       const eb_units = Math.max(0, curr_eb - prev_eb);
       const eb_amount = eb_units * (tenant.eb_unit_price || 0);
@@ -285,7 +325,7 @@ export function setupFormSubmitHandlers() {
       const gross_amount = rent_amount + maint_amount + eb_amount + water_amount + arrears_included + late_fee + others;
       const net_amount = Math.max(0, gross_amount - discount_amount);
 
-      const { error } = await client.from('bills').insert([{
+      let billPayload = {
         renter_id,
         billing_period,
         period_start_date,
@@ -311,17 +351,54 @@ export function setupFormSubmitHandlers() {
         net_amount,
         paid_amount: 0,
         status: 'UNPAID'
-      }]);
+      };
 
-      if (error) alert('Error generating bill: ' + error.message);
-      else {
+      // Check if a bill (active or soft-deleted) already exists for this renter & billing period
+      const { data: existingBills } = await client.from('bills')
+        .select('id, deleted_at, status, paid_amount')
+        .eq('renter_id', renter_id)
+        .eq('billing_period', billing_period);
+
+      let insertOrUpdateError = null;
+
+      if (existingBills && existingBills.length > 0) {
+        const softDeleted = existingBills.filter(b => b.deleted_at !== null);
+        const activeBills = existingBills.filter(b => b.deleted_at === null);
+
+        // Permanently purge any soft-deleted records so they do not block the unique constraint
+        for (const sdb of softDeleted) {
+          await client.from('bills').delete().eq('id', sdb.id);
+        }
+
+        if (activeBills.length > 0) {
+          const active = activeBills[0];
+          if (!confirm(`An invoice for period ${billing_period} already exists. Do you want to overwrite and recalculate it?`)) {
+            return;
+          }
+          const { error: updErr } = await safeUpdate(client, 'bills', {
+            ...billPayload,
+            deleted_at: null
+          }, 'id', active.id);
+          insertOrUpdateError = updErr;
+        } else {
+          const { error: insErr } = await safeInsert(client, 'bills', [billPayload]);
+          insertOrUpdateError = insErr;
+        }
+      } else {
+        const { error: insErr } = await safeInsert(client, 'bills', [billPayload]);
+        insertOrUpdateError = insErr;
+      }
+
+      if (insertOrUpdateError) {
+        alert('Error generating bill: ' + insertOrUpdateError.message);
+      } else {
         closeModal('modal-add-bill');
         loadBillsPage();
         loadDashboard();
       }
     });
 
-    ['bill-period', 'bill-period-from', 'bill-period-to', 'bill-due-date', 'bill-rent-amount', 'bill-eb', 'bill-water', 'bill-late', 'bill-discount', 'bill-others', 'bill-arrears'].forEach(id => {
+    ['bill-renter-id', 'bill-period', 'bill-period-from', 'bill-period-to', 'bill-due-date', 'bill-rent-amount', 'bill-eb', 'bill-water', 'bill-late', 'bill-discount', 'bill-others', 'bill-arrears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         ['input', 'change'].forEach(evt => el.addEventListener(evt, updateLiveBillCalculation));
@@ -378,9 +455,9 @@ export function setupFormSubmitHandlers() {
           return;
         }
 
-        await client.from('bills').update({ paid_amount: 0, status: 'UNPAID' }).eq('id', bill_id);
+        await safeUpdate(client, 'bills', { paid_amount: 0, status: 'UNPAID' }, 'id', bill_id);
         if (bill.renter_id) {
-          await client.from('renters').update({ pending_arrears: bill.net_amount || 0 }).eq('id', bill.renter_id);
+          await safeUpdate(client, 'renters', { pending_arrears: bill.net_amount || 0 }, 'id', bill.renter_id);
         }
 
         alert('⚠️ Bill marked as UNPAID');
@@ -393,7 +470,7 @@ export function setupFormSubmitHandlers() {
         return;
       }
 
-      const { error: payErr } = await client.from('payments').insert([{
+      const { error: payErr } = await safeInsert(client, 'payments', [{
         bill_id,
         renter_id: bill.renter_id,
         amount,
@@ -414,11 +491,11 @@ export function setupFormSubmitHandlers() {
         let newStatus = 'PARTIAL';
         if (newPaid >= bill.net_amount) newStatus = 'PAID';
 
-        await client.from('bills').update({ paid_amount: newPaid, status: newStatus }).eq('id', bill_id);
+        await safeUpdate(client, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', bill_id);
 
         const remainingDue = Math.max(0, bill.net_amount - newPaid);
         if (bill.renter_id) {
-          await client.from('renters').update({ pending_arrears: remainingDue }).eq('id', bill.renter_id);
+          await safeUpdate(client, 'renters', { pending_arrears: remainingDue }, 'id', bill.renter_id);
         }
       }
 
@@ -465,7 +542,7 @@ export function setupFormSubmitHandlers() {
       const date = document.getElementById('expense-date').value;
       const notes = document.getElementById('expense-notes').value;
 
-      const { error } = await client.from('expenses').insert([{ category, amount, date, notes }]);
+      const { error } = await safeInsert(client, 'expenses', [{ category, amount, date, notes }]);
       if (error) alert('Error logging expense: ' + error.message);
       else {
         formAddExpense.reset();
@@ -489,7 +566,7 @@ export function setupFormSubmitHandlers() {
       const date = document.getElementById('withdrawal-date').value;
       const notes = document.getElementById('withdrawal-notes').value;
 
-      const { error } = await client.from('owner_withdrawals').insert([{ owner_name, amount, date, notes }]);
+      const { error } = await safeInsert(client, 'owner_withdrawals', [{ owner_name, amount, date, notes }]);
       if (error) alert('Error recording withdrawal: ' + error.message);
       else {
         formAddWithdrawal.reset();
@@ -516,15 +593,15 @@ export function setupFormSubmitHandlers() {
       const account_number = document.getElementById('owner-account-no').value;
       const ifsc_code = document.getElementById('owner-ifsc').value;
 
+      const ownerPayload = {
+        name, mobile_number, email, upi_id, bank_name, account_number, ifsc_code
+      };
+
       let result;
       if (editId) {
-        result = await client.from('owners').update({
-          name, mobile_number, email, upi_id, bank_name, account_number, ifsc_code
-        }).eq('id', editId);
+        result = await safeUpdate(client, 'owners', ownerPayload, 'id', editId);
       } else {
-        result = await client.from('owners').insert([{
-          name, mobile_number, email, upi_id, bank_name, account_number, ifsc_code
-        }]);
+        result = await safeInsert(client, 'owners', [ownerPayload]);
       }
 
       if (result.error) {
@@ -552,14 +629,12 @@ export function setupFormSubmitHandlers() {
 
       const { data: tenant } = await client.from('renters').select('unit_id').eq('id', renter_id).single();
       
-      const { error } = await client.from('renters')
-        .update({ is_active: false, vacate_date, exit_reason })
-        .eq('id', renter_id);
+      const { error } = await safeUpdate(client, 'renters', { is_active: false, vacate_date, exit_reason }, 'id', renter_id);
 
       if (error) alert('Error processing vacate: ' + error.message);
       else {
         if (tenant && tenant.unit_id) {
-          await client.from('units').update({ status: 'VACANT' }).eq('id', tenant.unit_id);
+          await safeUpdate(client, 'units', { status: 'VACANT' }, 'id', tenant.unit_id);
         }
         closeModal('modal-vacate-tenant');
         loadTenantsPage();
@@ -587,7 +662,7 @@ export function setupFormSubmitHandlers() {
 
       const fileUrl = getUploadedDocBase64() || fileUrlInput || '';
 
-      const { error } = await client.from('documents').insert([{
+      const { error } = await safeInsert(client, 'documents', [{
         title,
         category,
         expiry_date: expiryDate,
@@ -612,5 +687,159 @@ export function setupFormSubmitHandlers() {
   const formTenantPw = document.getElementById('form-tenant-password');
   if (formTenantPw) {
     formTenantPw.addEventListener('submit', submitTenantPasswordForm);
+  }
+
+  // 13. ADMIN CHANGE PASSWORD FORM
+  const formChangePassword = document.getElementById('form-change-password');
+  if (formChangePassword) {
+    formChangePassword.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPw = document.getElementById('cfg-new-password')?.value;
+      const confirmPw = document.getElementById('cfg-confirm-password')?.value;
+      if (!newPw || newPw.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+      }
+      if (newPw !== confirmPw) {
+        alert('Passwords do not match. Please re-enter.');
+        return;
+      }
+      const client = getSupabaseClient();
+      if (!client) {
+        alert('Supabase client not initialized.');
+        return;
+      }
+      const { data, error } = await client.auth.updateUser({ password: newPw });
+      if (error) {
+        alert('Failed to update password: ' + error.message);
+      } else {
+        alert('✅ Password updated successfully! Please remember your new password.');
+        formChangePassword.reset();
+      }
+    });
+  }
+
+  // 14. FORGOT PASSWORD REQUEST FORM
+  const formForgotPassword = document.getElementById('form-forgot-password');
+  if (formForgotPassword) {
+    formForgotPassword.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let email = document.getElementById('forgot-email')?.value?.trim();
+      const errorDiv = document.getElementById('forgot-error');
+      const successDiv = document.getElementById('forgot-success');
+      const submitBtn = document.getElementById('btn-forgot-submit');
+
+      if (errorDiv) errorDiv.style.display = 'none';
+      if (successDiv) successDiv.style.display = 'none';
+
+      if (!email) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Please enter a valid email address or mobile number.';
+          errorDiv.style.display = 'flex';
+        }
+        return;
+      }
+
+      const client = getSupabaseClient();
+      if (!client) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Supabase client not configured.';
+          errorDiv.style.display = 'flex';
+        }
+        return;
+      }
+
+      // If user typed a mobile number without @
+      if (!email.includes('@')) {
+        const cleanDigits = email.replace(/[^0-9]/g, '');
+        try {
+          let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
+          if (cleanDigits.length >= 7) {
+            query = query.ilike('mobile_number', `%${cleanDigits.slice(-10)}%`);
+          } else {
+            query = query.ilike('name', `%${email}%`);
+          }
+          const { data: matchedRenters } = await query.limit(1);
+          if (matchedRenters && matchedRenters.length > 0 && matchedRenters[0].email) {
+            email = matchedRenters[0].email.toLowerCase();
+          }
+        } catch (e) {}
+      }
+
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Sending...';
+        refreshLucideIcons();
+      }
+
+      try {
+        const redirectUrl = window.location.origin + window.location.pathname;
+        const { error } = await client.auth.resetPasswordForEmail(email, {
+          redirectTo: redirectUrl
+        });
+
+        if (error) {
+          if (errorDiv) {
+            errorDiv.textContent = error.message;
+            errorDiv.style.display = 'flex';
+          }
+        } else {
+          if (successDiv) successDiv.style.display = 'block';
+          formForgotPassword.reset();
+        }
+      } catch (err) {
+        if (errorDiv) {
+          errorDiv.textContent = err.message || 'Error sending reset email';
+          errorDiv.style.display = 'flex';
+        }
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Send Reset Link';
+        }
+      }
+    });
+  }
+
+  // 15. RECOVERY PASSWORD UPDATE FORM
+  const formRecoveryPassword = document.getElementById('form-reset-recovery-password');
+  if (formRecoveryPassword) {
+    formRecoveryPassword.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPw = document.getElementById('recovery-new-password')?.value;
+      const confirmPw = document.getElementById('recovery-confirm-password')?.value;
+      const errorDiv = document.getElementById('recovery-error');
+      if (errorDiv) errorDiv.style.display = 'none';
+
+      if (!newPw || newPw.length < 6) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Password must be at least 6 characters.';
+          errorDiv.style.display = 'flex';
+        }
+        return;
+      }
+      if (newPw !== confirmPw) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Passwords do not match.';
+          errorDiv.style.display = 'flex';
+        }
+        return;
+      }
+
+      const client = getSupabaseClient();
+      if (!client) return;
+
+      const { data, error } = await client.auth.updateUser({ password: newPw });
+      if (error) {
+        if (errorDiv) {
+          errorDiv.textContent = error.message;
+          errorDiv.style.display = 'flex';
+        }
+      } else {
+        alert('✅ Password updated successfully! Please login with your new password.');
+        closeModal('modal-reset-recovery-password');
+        showLogin();
+      }
+    });
   }
 }

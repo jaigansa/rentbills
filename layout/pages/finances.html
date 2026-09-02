@@ -1,0 +1,72 @@
+        <!-- 6. EXPENSES PAGE -->
+        <section id="page-expenses" class="page-section">
+          <div class="page-header">
+            <h1>Expenses & Owner Withdrawals</h1>
+            <div style="display: flex; gap: 12px;">
+              <button class="btn btn-secondary" onclick="exportExpensesCSV()">Export CSV</button>
+              <button class="btn btn-secondary" onclick="openModal('modal-add-withdrawal')">Withdrawal</button>
+              <button class="btn btn-primary" onclick="openModal('modal-add-expense')">Add Expense</button>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 12px;">Operating Expenses</h3>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-expenses">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-bottom: 12px; margin-top: 24px;">Owner Withdrawals</h3>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Owner Name</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-withdrawals">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 7. DIAGNOSTICS PAGE -->
+        <section id="page-diagnostics" class="page-section">
+          <div class="page-header">
+            <h1>Diagnostics & Backups</h1>
+            <button class="btn btn-primary" onclick="triggerManualBackup()">Manual Backup Now</button>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+            <div class="card">
+              <h3 style="margin-bottom: 16px;">Database Integrity Stats</h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;" id="diagnostics-info">
+                <!-- Dynamic text injection -->
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="margin-bottom: 16px;">Backup Files History</h3>
+              <div style="max-height: 250px; overflow-y: auto;">
+                <ul id="backups-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Dynamic backups list -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>

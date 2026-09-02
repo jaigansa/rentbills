@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rent Invoice & Payment Receipt — RentBill Pro</title>
+
+  <!-- Clean Corporate SVG Favicon (No Emojis) -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231d4ed8'><path d='M3 21h18v-2H3v2zm3-4h12V3H6v14zm2-12h8v10H8V5z'/></svg>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    /* ============================================================
+       RENTBILL PRO — PROFESSIONAL INVOICE & RECEIPT
+       ============================================================ */
+
+    :root {
+      --ink: #111827;
+      --text: #374151;
+      --muted: #6b7280;
+      --light: #f3f4f6;
+      --border: #d1d5db;
+      --dark-border: #9ca3af;
+
+      --primary: #1d4ed8;
+      --primary-soft: #eff6ff;
+
+      --success: #15803d;
+      --success-soft: #f0fdf4;
+
+      --danger: #b91c1c;
+      --danger-soft: #fef2f2;
+
+      --warning: #b45309;
+      --warning-soft: #fffbeb;
+
+      --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --mono: "JetBrains Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font);
+      color: var(--ink);
+      background: #f1f5f9;
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ============================================================
+       SCREEN TOOLBAR (STICKY TOP BAR)
+       ============================================================ */
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 24px;
+      background: #0f172a;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+    }
+
+    .toolbar-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .toolbar-badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #2563eb;
+      font-size: 10.5px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .toolbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar button {
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px;
+      padding: 7px 15px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-family: var(--font);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .toolbar button:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .toolbar .primary {
+      background: #2563eb;
+      border-color: #2563eb;
+      font-weight: 700;
+    }
+
+    .toolbar .primary:hover {
+      background: #1d4ed8;
+    }
+
+    .toolbar .whatsapp {
+      background: #16a34a;
+      border-color: #16a34a;
+      font-weight: 700;
+    }
+
+    .toolbar .whatsapp:hover {
+      background: #15803d;
+    }
+
+    /* ============================================================
+       RESPONSIVE SCREEN VIEWPORT (FULL READABLE CONTAINER)
+       ============================================================ */
+
+    .page-wrap {
+      flex: 1;
+      width: 100%;
+      padding: 24px 20px 48px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .invoice {
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 28px 34px;
+      background: #ffffff;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+
+    .invoice-header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      padding-bottom: 14px;
+      border-bottom: 2.5px solid var(--ink);
+    }
+
+    .company-name {
+      margin: 0 0 4px;
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .company-address {
+      max-width: 480px;
+      color: var(--text);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .company-contact {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .document-meta {
+      min-width: 220px;
+      text-align: right;
+    }
+
+    .document-title {
+      display: inline-block;
+      margin-bottom: 6px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      line-height: 1.2;
+      padding: 5px 12px;
+      border-radius: 5px;
+    }
+
+    .document-title.receipt {
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1.5px solid #86efac;
+    }
+
+    .document-title.invoice {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border: 1.5px solid #93c5fd;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 3px;
+      font-size: 10.5px;
+    }
+
+    .meta-label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .meta-value {
+      min-width: 95px;
+      font-weight: 700;
+      text-align: right;
+      color: var(--ink);
+    }
+
+    .invoice-number {
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    /* ============================================================
+       STATUS BADGE
+       ============================================================ */
+
+    .status-area {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 6px;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .status.paid {
+      color: var(--success);
+      background: var(--success-soft);
+      border: 1px solid #86efac;
+    }
+
+    .status.partial {
+      color: var(--warning);
+      background: var(--warning-soft);
+      border: 1px solid #fcd34d;
+    }
+
+    .status.unpaid {
+      color: var(--danger);
+      background: var(--danger-soft);
+      border: 1px solid #fca5a5;
+    }
+
+    /* ============================================================
+       BILL TO / BILLING INFORMATION
+       ============================================================ */
+
+    .info-section {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr 1fr;
+      margin-top: 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .info-box {
+      min-height: 68px;
+      padding: 10px 14px;
+      background: #fafbfc;
+      border-right: 1px solid var(--border);
+    }
+
+    .info-box:last-child {
+      border-right: 0;
+    }
+
+    .info-label {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .info-primary {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .info-secondary {
+      margin-top: 3px;
+      color: var(--text);
+      font-size: 10.5px;
+      line-height: 1.4;
+      font-weight: 500;
+    }
+
+    /* ============================================================
+       SECTION TITLES
+       ============================================================ */
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 15px 0 6px;
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--ink);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+
+    .section-title::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ============================================================
+       CHARGES TABLE
+       ============================================================ */
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .charges-table {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .charges-table th {
+      padding: 7px 11px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    .charges-table td {
+      padding: 6px 11px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+
+    .charges-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .charges-table td:last-child,
+    .charges-table th:last-child {
+      width: 155px;
+      text-align: right;
+    }
+
+    .charge-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .charge-main {
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .amount {
+      font-family: var(--mono);
+      font-weight: 700;
+      white-space: nowrap;
+      color: var(--ink);
+    }
+
+    .discount-row {
+      background: #fffafa;
+    }
+
+    .discount-row td {
+      color: var(--danger);
+    }
+
+    /* ============================================================
+       METER DETAILS
+       ============================================================ */
+
+    .meter-table {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .meter-table th {
+      padding: 6px 10px;
+      background: var(--ink);
+      color: #ffffff;
+      font-size: 9px;
+      font-weight: 700;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .meter-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 10.5px;
+      color: var(--text);
+    }
+
+    .meter-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .meter-table .right {
+      text-align: right;
+    }
+
+    /* ============================================================
+       TOTALS & AMOUNT IN WORDS
+       ============================================================ */
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 260px;
+      gap: 16px;
+      margin-top: 14px;
+    }
+
+    .words-box {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fafafa;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .words-label {
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 8.5px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .words {
+      font-size: 11px;
+      font-weight: 600;
+      font-style: italic;
+      line-height: 1.45;
+      color: var(--ink);
+    }
+
+    .totals {
+      border: 1.5px solid var(--ink);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 11px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 10.5px;
+    }
+
+    .total-row:last-child {
+      border-bottom: 0;
+    }
+
+    .total-row .label {
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .total-row .value {
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .net-row {
+      padding: 8px 11px;
+      background: #f8fafc;
+      font-size: 11.5px;
+      font-weight: 800;
+    }
+
+    .paid-row .value {
+      color: var(--success);
+    }
+
+    .due-row {
+      padding: 10px 11px;
+      background: var(--ink);
+      color: #ffffff;
+    }
+
+    .due-row .label {
+      color: #ffffff;
+      font-weight: 800;
+    }
+
+    .due-row .value {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    /* ============================================================
+       PAYMENT DETAILS
+       ============================================================ */
+
+    .payment-section {
+      display: grid;
+      grid-template-columns: 1fr 100px;
+      gap: 16px;
+      margin-top: 14px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fafbfc;
+    }
+
+    .payment-title {
+      margin-bottom: 6px;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink);
+    }
+
+    .payment-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 16px;
+      font-size: 10px;
+      color: var(--text);
+    }
+
+    .payment-item {
+      line-height: 1.4;
+    }
+
+    .payment-item strong {
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .payment-mono {
+      font-family: var(--mono);
+    }
+
+    .qr-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-left: 12px;
+      border-left: 1px dashed var(--border);
+    }
+
+    .qr {
+      width: 78px;
+      height: 78px;
+      padding: 2px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: #ffffff;
+      object-fit: contain;
+    }
+
+    .qr-label {
+      margin-top: 4px;
+      color: var(--primary);
+      font-size: 8px;
+      font-weight: 800;
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+
+    /* ============================================================
+       PAYMENT NOTICE
+       ============================================================ */
+
+    .notice {
+      margin-top: 10px;
+      padding: 6px 10px;
+      border: 1px solid #fcd34d;
+      border-radius: 5px;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 9.5px;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    /* ============================================================
+       FOOTER
+       ============================================================ */
+
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr 220px;
+      gap: 20px;
+      align-items: end;
+      margin-top: 14px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-text {
+      color: var(--muted);
+      font-size: 9px;
+      line-height: 1.45;
+    }
+
+    .signature {
+      text-align: center;
+    }
+
+    .signature-line {
+      margin-bottom: 4px;
+      height: 24px;
+      border-bottom: 1px solid var(--ink);
+    }
+
+    .signature-title {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--ink);
+      letter-spacing: 0.03em;
+    }
+
+    /* ============================================================
+       RESPONSIVE SCREEN PREVIEW (MOBILE & TABLET)
+       ============================================================ */
+
+    @media screen and (max-width: 800px) {
+      .toolbar {
+        align-items: flex-start;
+        flex-direction: column;
+        padding: 12px 16px;
+      }
+
+      .toolbar-actions {
+        width: 100%;
+      }
+
+      .toolbar button {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .page-wrap {
+        padding: 12px 8px 30px;
+      }
+
+      .invoice {
+        width: 100%;
+        padding: 16px 14px;
+      }
+
+      .invoice-header {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .document-meta {
+        text-align: left;
+      }
+
+      .meta-row {
+        justify-content: flex-start;
+      }
+
+      .status-area {
+        justify-content: flex-start;
+      }
+
+      .info-section,
+      .bottom-grid,
+      .payment-section,
+      .footer {
+        grid-template-columns: 1fr;
+      }
+
+      .info-box {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .info-box:last-child {
+        border-bottom: 0;
+      }
+
+      .qr-box {
+        padding: 12px 0 0;
+        border-left: 0;
+        border-top: 1px dashed var(--border);
+      }
+    }
+
+    /* ============================================================
+       PRINT MEDIA OPTIMIZATION (STRICT SINGLE-PAGE A4)
+       ============================================================ */
+
+    @page {
+      size: auto;
+      margin: 8mm 10mm;
+    }
+
+    @media print {
+      html,
+      body {
+        width: 100% !important;
+        min-height: auto !important;
+        background: #ffffff !important;
+        font-size: 10px !important;
+      }
+
+      body {
+        margin: 0 !important;
+      }
+
+      .toolbar {
+        display: none !important;
+      }
+
+      .page-wrap {
+        padding: 0 !important;
+      }
+
+      .invoice {
+        width: 100% !important;
+        min-height: auto !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 6mm 8mm 6mm !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+
+      .document-title {
+        font-size: 13px !important;
+        padding: 3px 8px !important;
+      }
+
+      .charges-table,
+      .meter-table,
+      .info-section,
+      .payment-section,
+      .totals,
+      .words-box {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .section-title {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+
+      tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ============================================================
+       SCREEN TOOLBAR (HIDDEN IN PRINT)
+       ============================================================ -->
+
+  <div class="toolbar">
+    <div class="toolbar-title">
+      <span class="toolbar-badge">RENTBILL</span>
+      <span>Invoice & Statement Preview</span>
+    </div>
+
+    <div class="toolbar-actions">
+      <button class="primary" onclick="window.print()">
+        Print / Save PDF
+      </button>
+
+      <button class="whatsapp" id="btn-share-whatsapp" onclick="shareReceiptWhatsApp()">
+        Share via WhatsApp
+      </button>
+
+      <button onclick="copyReceiptText()">
+        Copy Text
+      </button>
+
+      <button onclick="window.close()">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       A4 INVOICE SHEET CONTAINER
+       ============================================================ -->
+
+  <div class="page-wrap">
+    <main class="invoice" id="receipt-print-frame">
+
+      <!-- ========================================================
+           1. HEADER SECTION
+           ======================================================== -->
+
+      <header class="invoice-header">
+        <div>
+          <h1 class="company-name" id="prop-title-text">
+            RENTBILL PRO
+          </h1>
+          <div class="company-address" id="print-prop-address">
+            Property Address Details
+          </div>
+          <div class="company-contact">
+            Rental Property Management Statement
+          </div>
+        </div>
+
+        <div class="document-meta">
+          <div class="document-title invoice" id="print-doc-title">
+            RENT INVOICE
+          </div>
+
+          <div class="meta-row">
+            <span class="meta-label">Invoice No:</span>
+            <span class="meta-value invoice-number" id="print-bill-no">
+              INV-1001
+            </span>
+          </div>
+
+          <div class="meta-row">
+            <span class="meta-label">Bill Date:</span>
+            <span class="meta-value" id="print-date">
+              -
+            </span>
+          </div>
+
+          <div class="meta-row">
+            <span class="meta-label">Due Date:</span>
+            <span class="meta-value" id="print-due-date">
+              -
+            </span>
+          </div>
+
+          <div class="meta-row">
+            <span class="meta-label">Receipt Ref:</span>
+            <span class="meta-value invoice-number" id="print-receipt-no">
+              RCP-1001
+            </span>
+          </div>
+
+          <div class="status-area">
+            <span class="status unpaid" id="print-status-pill">
+              PAYMENT DUE
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ========================================================
+           2. TENANT INFORMATION STRIP
+           ======================================================== -->
+
+      <section class="info-section">
+        <div class="info-box">
+          <div class="info-label">
+            Billed To (Tenant)
+          </div>
+          <div class="info-primary" id="print-tenant-name">
+            Loading tenant...
+          </div>
+          <div class="info-secondary">
+            Mobile: <strong id="print-tenant-mobile">-</strong>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-label">
+            Assigned Property & Unit
+          </div>
+          <div class="info-primary" id="print-unit-name">
+            -
+          </div>
+          <div class="info-secondary">
+            Rental Unit
+          </div>
+        </div>
+
+        <div class="info-box">
+          <div class="info-label">
+            Billing & Stay Period
+          </div>
+          <div class="info-primary" id="print-period">
+            -
+          </div>
+          <div class="info-secondary" id="print-stay-dates">
+            Stay: -
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           3. ITEM CHARGES LEDGER
+           ======================================================== -->
+
+      <div class="section-title">
+        Statement Charges & Ledger Breakdown
+      </div>
+
+      <table class="charges-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Amount (INR)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="charge-main">Monthly Base Rent</td>
+            <td class="amount" id="print-val-rent">₹0.00</td>
+          </tr>
+          <tr>
+            <td class="charge-name">Maintenance & Common Area Charge</td>
+            <td class="amount" id="print-val-maint">₹0.00</td>
+          </tr>
+          <tr>
+            <td class="charge-name">Water Supply & Utility Charge</td>
+            <td class="amount" id="print-val-water">₹0.00</td>
+          </tr>
+          <tr>
+            <td class="charge-name">Electricity Consumption Charge (EB Meter)</td>
+            <td class="amount" id="print-val-eb">₹0.00</td>
+          </tr>
+          <tr>
+            <td class="charge-name">Previous Unpaid Arrears Carried Forward</td>
+            <td class="amount" id="print-val-arrears">₹0.00</td>
+          </tr>
+          <tr>
+            <td class="charge-name">Late Payment Fee / Miscellaneous Adjustments</td>
+            <td class="amount" id="print-val-late">₹0.00</td>
+          </tr>
+          <tr class="discount-row">
+            <td class="charge-name">Discounts / Concessions Applied</td>
+            <td class="amount" id="print-val-discount">-₹0.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================
+           4. UTILITY METER CONSUMPTION DETAILS
+           ======================================================== -->
+
+      <div class="section-title">
+        Utility Meter Consumption Details
+      </div>
+
+      <table class="meter-table">
+        <thead>
+          <tr>
+            <th>Utility</th>
+            <th class="right">Previous</th>
+            <th class="right">Current</th>
+            <th class="right">Consumed</th>
+            <th class="right">Rate</th>
+            <th class="right">Total Charge</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Electricity (EB Meter)</strong></td>
+            <td class="right" id="print-eb-prev">0</td>
+            <td class="right" id="print-eb-curr">0</td>
+            <td class="right" id="print-eb-consumed">0 Units</td>
+            <td class="right" id="print-eb-rate">₹0.00/u</td>
+            <td class="right amount" id="print-eb-total">₹0.00</td>
+          </tr>
+          <tr>
+            <td><strong>Water Supply Utility</strong></td>
+            <td class="right" id="print-water-prev">-</td>
+            <td class="right" id="print-water-curr">-</td>
+            <td class="right" id="print-water-consumed">Fixed Flat</td>
+            <td class="right" id="print-water-rate">Flat Rate</td>
+            <td class="right amount" id="print-water-total">₹0.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- ========================================================
+           5. TOTALS & WORDS
+           ======================================================== -->
+
+      <section class="bottom-grid">
+        <div class="words-box">
+          <div class="words-label">Amount in Words (INR)</div>
+          <div class="words" id="print-amount-words">Zero Rupees Only</div>
+        </div>
+
+        <div class="totals">
+          <div class="total-row net-row">
+            <span>Total Invoice:</span>
+            <span class="value" id="print-val-net">₹0.00</span>
+          </div>
+          <div class="total-row paid-row">
+            <span class="label">Amount Paid:</span>
+            <span class="value" id="print-val-paid">₹0.00</span>
+          </div>
+          <div class="total-row due-row">
+            <span class="label">Balance Due:</span>
+            <span class="value" id="print-val-outstanding">₹0.00</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           6. PAYMENT AUDIT & BANK SETTLEMENT
+           ======================================================== -->
+
+      <section class="payment-section">
+        <div>
+          <div class="payment-title">Owner Bank Transfer & Settlement Details</div>
+          <div class="payment-grid">
+            <div class="payment-item">Owner: <strong id="print-owner-name">-</strong></div>
+            <div class="payment-item">UPI ID: <strong class="payment-mono" id="print-owner-upi">-</strong></div>
+            <div class="payment-item">Bank: <strong id="print-owner-bank">-</strong></div>
+            <div class="payment-item">Account No: <strong class="payment-mono" id="print-owner-acc">-</strong></div>
+            <div class="payment-item">IFSC Code: <strong class="payment-mono" id="print-owner-ifsc">-</strong></div>
+            <div class="payment-item">Payment Method: <strong id="print-method">-</strong></div>
+            <div class="payment-item" style="grid-column: span 2;">Transaction Ref: <strong class="payment-mono" id="print-ref">-</strong></div>
+          </div>
+        </div>
+
+        <div class="qr-box" id="print-upi-qr-container" style="display:none;">
+          <img class="qr" id="print-upi-qr" src="" alt="UPI QR Code">
+          <div class="qr-label">SCAN TO PAY</div>
+        </div>
+      </section>
+
+      <!-- ========================================================
+           7. NOTICE
+           ======================================================== -->
+
+      <div class="notice">
+        Notice: Please share payment confirmation UTR / transaction screenshot after completing an online transfer.
+      </div>
+
+      <!-- ========================================================
+           8. SIGNATURE & COMPLIANCE FOOTER
+           ======================================================== -->
+
+      <footer class="footer">
+        <div class="footer-text">
+          <div><strong>Computer Generated Statement:</strong> Verified via RentBill Pro Management Cloud.</div>
+          <div>This invoice is generated electronically and does not require a physical signature.</div>
+          <div>Thank you for your prompt and timely payment.</div>
+        </div>
+        <div class="signature">
+          <div class="signature-line"></div>
+          <div class="signature-title">Authorized Signatory / Property Manager</div>
+        </div>
+      </footer>
+    </main>
+  </div>
+
+  <!-- ============================================================
+       JAVASCRIPT DATA & ACTION ENGINE
+       ============================================================ -->
+
+  <script type="module">
+    import { initSupabaseClient, getSupabaseClient } from './js/core/config.js';
+    import { formatCurrency, formatInvoiceNumber, numberToWordsINR } from './js/core/ui.js';
+
+    let currentBillData = null;
+    let currentTenantData = null;
+    let currentOwnerData = null;
+
+    /* ============================================================
+       LOAD AND RENDER INVOICE
+       ============================================================ */
+
+    async function loadAndRenderReceipt() {
+      const params = new URLSearchParams(window.location.search);
+      const billId = params.get('id') || params.get('billId');
+      const autoPrint = params.get('autoprint') === '1';
+
+      if (!billId) {
+        alert('No Bill ID provided in URL');
+        return;
+      }
+
+      initSupabaseClient();
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        alert('Supabase configuration not found. Please log in or configure credentials in the main dashboard.');
+        return;
+      }
+
+      try {
+        /* --------------------------------------------------------
+           1. FETCH BILL RECORD
+           -------------------------------------------------------- */
+        const { data: b, error: billErr } = await supabase.from('bills').select('*').eq('id', billId).single();
+        if (billErr || !b) {
+          alert('Bill invoice record not found.');
+          return;
+        }
+        currentBillData = b;
+
+        /* --------------------------------------------------------
+           2. FETCH TENANT
+           -------------------------------------------------------- */
+        const { data: t } = await supabase.from('renters').select('*').eq('id', b.renter_id).single();
+        currentTenantData = t;
+        const tenantName = t?.name || `Tenant #${b.renter_id}`;
+        const tenantMobile = t?.mobile_number || '-';
+
+        /* --------------------------------------------------------
+           3. FETCH PROPERTY & UNIT
+           -------------------------------------------------------- */
+        let propName = 'RentBill Pro Property';
+        let propAddress = 'Property Address Details';
+        let unitName = `Unit #${t?.unit_id || '-'}`;
+
+        if (t?.unit_id) {
+          const { data: u } = await supabase.from('units').select('unit_name, property_id').eq('id', t.unit_id).single();
+          if (u) {
+            unitName = u.unit_name;
+            const { data: p } = await supabase.from('properties').select('name, address').eq('id', u.property_id).single();
+            if (p) {
+              propName = p.name || 'RentBill Pro Property';
+              propAddress = p.address || '';
+            }
+          }
+        }
+
+        /* --------------------------------------------------------
+           4. FETCH LATEST PAYMENT
+           -------------------------------------------------------- */
+        const { data: payments } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('bill_id', billId)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        const lastPay = payments?.length ? payments[0] : null;
+
+        /* --------------------------------------------------------
+           5. STATUS & DOCUMENT TITLE
+           -------------------------------------------------------- */
+        const isPaid = b.status === 'PAID';
+        const isPartial = b.status === 'PARTIAL';
+
+        const docTitle = document.getElementById('print-doc-title');
+        if (docTitle) {
+          docTitle.textContent = isPaid ? 'PAYMENT RECEIPT' : 'RENT INVOICE';
+          docTitle.className = 'document-title ' + (isPaid ? 'receipt' : 'invoice');
+        }
+
+        document.title = `${isPaid ? 'Receipt' : 'Invoice'} - ${formatInvoiceNumber(b)} - ${tenantName}`;
+
+        function safeSetText(id, text) {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text ?? '-';
+        }
+
+        /* --------------------------------------------------------
+           6. BIND HEADER & TENANT INFO
+           -------------------------------------------------------- */
+        safeSetText('prop-title-text', propName);
+        safeSetText('print-prop-address', propAddress);
+        safeSetText('print-tenant-name', tenantName);
+        safeSetText('print-tenant-mobile', tenantMobile);
+        safeSetText('print-unit-name', unitName);
+        safeSetText('print-period', b.billing_period || '-');
+
+        /* Stay Period */
+        const stayEl = document.getElementById('print-stay-dates');
+        if (stayEl) {
+          if (b.period_start_date && b.period_end_date) {
+            stayEl.textContent = `Stay: ${b.period_start_date} to ${b.period_end_date}`;
+          } else {
+            stayEl.textContent = `Billing Month: ${b.billing_period || '-'}`;
+          }
+        }
+
+        /* Status Badge (No Emojis) */
+        const statusPill = document.getElementById('print-status-pill');
+        if (statusPill) {
+          statusPill.className = 'status ' + (b.status || 'UNPAID').toLowerCase();
+          if (isPaid) {
+            statusPill.textContent = 'PAID IN FULL';
+          } else if (isPartial) {
+            statusPill.textContent = 'PARTIAL PAYMENT';
+          } else {
+            statusPill.textContent = 'PAYMENT DUE';
+          }
+        }
+
+        /* Numbers and Dates */
+        safeSetText('print-receipt-no', `RCP-${b.id}`);
+        safeSetText('print-bill-no', formatInvoiceNumber(b));
+        const billDateStr = b.bill_date || (b.created_at ? new Date(b.created_at).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10));
+        safeSetText('print-date', billDateStr);
+
+        let calculatedDueDate = b.due_date;
+        if (!calculatedDueDate) {
+          const cfgDueDay = parseInt(localStorage.getItem('rentbill_due_day') || '10', 10) || 10;
+          if (b.billing_period && /^\d{4}-\d{2}$/.test(b.billing_period)) {
+            const [y, m] = b.billing_period.split('-').map(Number);
+            const lastDay = new Date(y, m, 0).getDate();
+            const clampedDay = Math.min(cfgDueDay, lastDay);
+            calculatedDueDate = `${y}-${String(m).padStart(2, '0')}-${String(clampedDay).padStart(2, '0')}`;
+          } else if (billDateStr) {
+            const d = new Date(billDateStr);
+            d.setDate(d.getDate() + 7);
+            calculatedDueDate = !isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : billDateStr;
+          } else {
+            calculatedDueDate = new Date().toISOString().slice(0, 10);
+          }
+        }
+        safeSetText('print-due-date', calculatedDueDate);
+
+        /* --------------------------------------------------------
+           7. UTILITY METER READINGS (ELECTRICITY & WATER)
+           -------------------------------------------------------- */
+        const prevEb = Number(b.prev_eb_reading) || 0;
+        const currEb = Number(b.curr_eb_reading) || 0;
+        const ebUnits = Math.max(0, currEb - prevEb);
+        const ebRate = b.eb_unit_price || 0;
+
+        safeSetText('print-eb-prev', prevEb);
+        safeSetText('print-eb-curr', currEb);
+        safeSetText('print-eb-consumed', `${ebUnits} Units`);
+        safeSetText('print-eb-rate', formatCurrency(ebRate) + '/u');
+        safeSetText('print-eb-total', formatCurrency(b.eb_amount || 0));
+
+        if (b.water_calc_mode === 'METERED') {
+          const prevW = Number(b.prev_water_reading) || 0;
+          const currW = Number(b.curr_water_reading) || 0;
+          const wUnits = Math.max(0, currW - prevW);
+          const wRate = b.water_unit_price || 0;
+
+          safeSetText('print-water-prev', prevW);
+          safeSetText('print-water-curr', currW);
+          safeSetText('print-water-consumed', `${wUnits} Units`);
+          safeSetText('print-water-rate', formatCurrency(wRate) + '/u');
+        } else {
+          safeSetText('print-water-prev', 'N/A');
+          safeSetText('print-water-curr', 'N/A');
+          safeSetText('print-water-consumed', 'Fixed Flat');
+          safeSetText('print-water-rate', 'Flat Rate');
+        }
+        safeSetText('print-water-total', formatCurrency(b.water_amount || 0));
+
+        /* --------------------------------------------------------
+           8. CHARGES BREAKDOWN
+           -------------------------------------------------------- */
+        safeSetText('print-val-rent', formatCurrency(b.rent_amount || 0));
+        safeSetText('print-val-maint', formatCurrency(b.maint_amount || 0));
+        safeSetText('print-val-water', formatCurrency(b.water_amount || 0));
+        safeSetText('print-val-eb', formatCurrency(b.eb_amount || 0));
+        safeSetText('print-val-arrears', formatCurrency(b.arrears_included || 0));
+        safeSetText('print-val-late', formatCurrency(b.late_fee || 0));
+
+        const discountVal = Number(b.discount_amount) || 0;
+        safeSetText('print-val-discount', discountVal > 0 ? ('-' + formatCurrency(discountVal)) : '₹0.00');
+
+        /* --------------------------------------------------------
+           9. TOTALS & WORDS
+           -------------------------------------------------------- */
+        safeSetText('print-val-net', formatCurrency(b.net_amount || 0));
+        safeSetText('print-val-paid', formatCurrency(b.paid_amount || 0));
+
+        const due = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
+        safeSetText('print-val-outstanding', formatCurrency(due));
+
+        const targetAmount = (b.paid_amount > 0 && isPaid) ? b.paid_amount : (due > 0 ? due : b.net_amount);
+        safeSetText('print-amount-words', numberToWordsINR(targetAmount));
+
+        /* --------------------------------------------------------
+           10. OWNER SETTLEMENT & UPI DETAILS
+           -------------------------------------------------------- */
+        let ownerObj = null;
+        if (t?.owner_id) {
+          const { data: o } = await supabase.from('owners').select('*').eq('id', t.owner_id).single();
+          if (o) ownerObj = o;
+        }
+
+        if (!ownerObj) {
+          const { data: ownersList } = await supabase.from('owners').select('*').is('deleted_at', null).limit(1);
+          if (ownersList && ownersList.length) {
+            ownerObj = ownersList[0];
+          }
+        }
+        currentOwnerData = ownerObj;
+
+        if (ownerObj) {
+          safeSetText('print-owner-name', ownerObj.name || '-');
+          safeSetText('print-owner-upi', ownerObj.upi_id || '-');
+          safeSetText('print-owner-bank', ownerObj.bank_name || '-');
+          safeSetText('print-owner-acc', ownerObj.account_number || '-');
+          safeSetText('print-owner-ifsc', ownerObj.ifsc_code || '-');
+        }
+
+        /* QR Code Engine */
+        const qrContainer = document.getElementById('print-upi-qr-container');
+        const qrImg = document.getElementById('print-upi-qr');
+
+        if (b.status !== 'PAID' && b.status !== 'VOID' && ownerObj?.upi_id && due > 0) {
+          const dueRupees = (due / 100).toFixed(2);
+          const upiURI = `upi://pay?pa=${ownerObj.upi_id}&pn=${encodeURIComponent(ownerObj.name || '')}&am=${dueRupees}&cu=INR&tn=${encodeURIComponent('Rent Bill ' + (b.billing_period || ''))}`;
+          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=0&data=${encodeURIComponent(upiURI)}`;
+          qrContainer.style.display = 'flex';
+        } else {
+          qrContainer.style.display = 'none';
+        }
+
+        /* Payment Audit Info */
+        document.getElementById('print-method').textContent = lastPay ? (lastPay.payment_method || 'CASH') : 'PENDING';
+        document.getElementById('print-ref').textContent = lastPay ? (lastPay.transaction_reference || '-') : '-';
+
+        /* Auto-Print */
+        if (autoPrint) {
+          requestAnimationFrame(() => {
+            setTimeout(() => window.print(), 150);
+          });
+        }
+
+      } catch (err) {
+        console.error('Error rendering receipt:', err);
+        alert('Unable to load invoice. Please check the console for details.');
+      }
+    }
+
+    /* ============================================================
+       EXECUTIVE WHATSAPP SHARE GENERATOR (NO EMOJIS)
+       ============================================================ */
+
+    window.shareReceiptWhatsApp = function () {
+      if (!currentBillData || !currentTenantData) return;
+      const b = currentBillData;
+      const t = currentTenantData;
+      const o = currentOwnerData;
+
+      const invoiceNo = formatInvoiceNumber(b);
+      const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
+      const paidRupees = ((b.paid_amount || 0) / 100).toFixed(2);
+      const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
+
+      let msg = `*RENTBILL PRO — INVOICE STATEMENT*\n`;
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `Invoice No: ${invoiceNo}\n`;
+      msg += `Tenant: ${t.name}\n`;
+      msg += `Billing Period: ${b.billing_period || '-'}\n`;
+
+      if (b.period_start_date && b.period_end_date) {
+        msg += `Stay Duration: ${b.period_start_date} to ${b.period_end_date}\n`;
+      }
+
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `Monthly Rent: INR ${((b.rent_amount || 0) / 100).toFixed(2)}\n`;
+
+      if (b.maint_amount > 0) {
+        msg += `Maintenance: INR ${(b.maint_amount / 100).toFixed(2)}\n`;
+      }
+
+      if (b.water_amount > 0) {
+        msg += `Water Utility: INR ${(b.water_amount / 100).toFixed(2)}\n`;
+      }
+
+      if (b.eb_amount > 0) {
+        const units = Math.max(0, (Number(b.curr_eb_reading) || 0) - (Number(b.prev_eb_reading) || 0));
+        msg += `Electricity: INR ${(b.eb_amount / 100).toFixed(2)} (${units} units)\n`;
+      }
+
+      if (b.arrears_included > 0) {
+        msg += `Prior Arrears: INR ${(b.arrears_included / 100).toFixed(2)}\n`;
+      }
+
+      if (b.late_fee > 0) {
+        msg += `Late Fee: INR ${(b.late_fee / 100).toFixed(2)}\n`;
+      }
+
+      if (b.discount_amount > 0) {
+        msg += `Discount Applied: -INR ${(b.discount_amount / 100).toFixed(2)}\n`;
+      }
+
+      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      msg += `Total Invoice: INR ${netRupees}\n`;
+      msg += `Amount Paid: INR ${paidRupees}\n`;
+      msg += `Balance Due: INR ${dueRupees}\n`;
+
+      if (o?.upi_id && Number(dueRupees) > 0) {
+        msg += `\n*PAYMENT DETAILS*\n`;
+        msg += `UPI ID: ${o.upi_id}\n`;
+        if (o.bank_name) {
+          msg += `Bank: ${o.bank_name} | Account: ${o.account_number || '-'}\n`;
+        }
+      }
+
+      msg += `\nNotice: Please share payment confirmation UTR after transfer.`;
+
+      const encoded = encodeURIComponent(msg);
+      const cleanPhone = (t.mobile_number || '').replace(/[^0-9]/g, '');
+      const waUrl = cleanPhone.length >= 10 ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+      window.open(waUrl, '_blank');
+    };
+
+    /* ============================================================
+       COPY INVOICE TEXT
+       ============================================================ */
+
+    window.copyReceiptText = function () {
+      if (!currentBillData || !currentTenantData) return;
+      const b = currentBillData;
+      const t = currentTenantData;
+      const invoiceNo = formatInvoiceNumber(b);
+      const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
+      const paidRupees = ((b.paid_amount || 0) / 100).toFixed(2);
+      const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
+
+      const text = `RENT INVOICE\nInvoice: ${invoiceNo}\nTenant: ${t.name}\nPeriod: ${b.billing_period || '-'}` +
+        `\nTotal: INR ${netRupees}\nPaid: INR ${paidRupees}\nBalance Due: INR ${dueRupees}`;
+
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Invoice summary copied to clipboard!');
+      });
+    };
+
+    /* ============================================================
+       INIT
+       ============================================================ */
+
+    document.addEventListener('DOMContentLoaded', loadAndRenderReceipt);
+  </script>
+</body>
+</html>
