@@ -34,13 +34,23 @@ export function formatInvoiceNumber(b) {
   return `INV-${String(b.id || 1).padStart(4, '0')}`;
 }
 
-export function renderEmptyState(colSpan, message = 'No records found') {
+export function renderEmptyState(iconOrColspan = 6, title = 'No records found', subtitle = 'Use the action buttons above to create new entries.') {
+  let colSpan = 6;
+  let iconHtml = '<div style="font-size: 28px; margin-bottom: 6px;">📋</div>';
+
+  if (typeof iconOrColspan === 'number' || (!isNaN(parseInt(iconOrColspan)) && !String(iconOrColspan).match(/^[a-zA-Z]/))) {
+    colSpan = parseInt(iconOrColspan, 10) || 6;
+  } else if (typeof iconOrColspan === 'string') {
+    colSpan = 8;
+    iconHtml = `<div style="font-size: 24px; margin-bottom: 8px; color: var(--primary);"><i data-lucide="${iconOrColspan}"></i></div>`;
+  }
+
   return `
     <tr>
       <td colspan="${colSpan}" style="text-align: center; padding: 36px 16px; color: var(--text-muted);">
-        <div style="font-size: 28px; margin-bottom: 6px;">📋</div>
-        <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">${message}</div>
-        <div style="font-size: 12px; margin-top: 2px;">Use the action buttons above to create new entries.</div>
+        ${iconHtml}
+        <div style="font-weight: 600; color: var(--text-main); font-size: 14px;">${title}</div>
+        <div style="font-size: 12px; margin-top: 4px; color: var(--text-muted);">${subtitle}</div>
       </td>
     </tr>
   `;
