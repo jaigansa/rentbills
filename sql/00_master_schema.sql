@@ -1008,12 +1008,19 @@ DECLARE
   v_email TEXT := auth.email();
   v_digits TEXT;
   v_prof_email TEXT;
+  v_meta_renter_id BIGINT;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN jsonb_build_object('success', false, 'message', 'Unauthenticated');
   END IF;
 
   SELECT email INTO v_prof_email FROM public.profiles WHERE id = v_uid;
+  BEGIN
+    SELECT (raw_user_meta_data->>'renter_id')::BIGINT INTO v_meta_renter_id FROM auth.users WHERE id = v_uid;
+  EXCEPTION WHEN OTHERS THEN
+    v_meta_renter_id := NULL;
+  END;
+
   v_digits := REGEXP_REPLACE(COALESCE(v_email, ''), '[^0-9]', '', 'g');
 
   UPDATE public.renters
@@ -1021,8 +1028,10 @@ BEGIN
   WHERE deleted_at IS NULL
     AND (
       user_id = v_uid
+      OR (v_meta_renter_id IS NOT NULL AND id = v_meta_renter_id)
       OR (v_email IS NOT NULL AND v_email != '' AND LOWER(TRIM(email)) = LOWER(TRIM(v_email)))
       OR (v_prof_email IS NOT NULL AND v_prof_email != '' AND LOWER(TRIM(email)) = LOWER(TRIM(v_prof_email)))
+      OR (v_email IS NOT NULL AND v_email != '' AND LOWER(TRIM(mobile_number)) = LOWER(TRIM(v_email)))
       OR (LENGTH(v_digits) >= 7 AND REGEXP_REPLACE(mobile_number, '[^0-9]', '', 'g') LIKE '%' || v_digits || '%')
     );
 
