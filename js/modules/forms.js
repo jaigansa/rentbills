@@ -68,23 +68,52 @@ export function setupFormSubmitHandlers() {
       // If user typed a mobile number or name without '@'
       if (!emailToLogin.includes('@')) {
         const cleanDigits = identifierInput.replace(/[^0-9]/g, '');
-        try {
-          // Look up renter by mobile number or name
-          let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
-          if (cleanDigits.length >= 7) {
-            query = query.ilike('mobile_number', `%${cleanDigits.slice(-10)}%`);
-          } else {
-            query = query.ilike('name', `%${identifierInput}%`);
-          }
-          const { data: matchedRenters } = await query.limit(1);
+        const cleanName = identifierInput.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-          if (matchedRenters && matchedRenters.length > 0 && matchedRenters[0].email) {
-            emailToLogin = matchedRenters[0].email.toLowerCase();
-          } else if (cleanDigits.length >= 10) {
-            emailToLogin = `tenant_${cleanDigits.slice(-10)}@rentbill.local`;
+        // 1. Try public RPC lookup if available
+        try {
+          const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: identifierInput });
+          if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
+            emailToLogin = rpcEmail.toLowerCase();
           }
-        } catch (mErr) {
-          console.warn('Mobile identifier lookup notice:', mErr);
+        } catch (e) {}
+
+        // 2. Try looking up in profiles or renters
+        if (!emailToLogin.includes('@')) {
+          try {
+            const { data: pData } = await client.from('profiles').select('email').ilike('username', identifierInput).limit(1);
+            if (pData && pData.length > 0 && pData[0].email) {
+              emailToLogin = pData[0].email.toLowerCase();
+            }
+          } catch (pErr) {}
+        }
+
+        if (!emailToLogin.includes('@')) {
+          try {
+            let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
+            if (cleanDigits.length >= 7) {
+              query = query.ilike('mobile_number', `%${cleanDigits.slice(-10)}%`);
+            } else {
+              query = query.ilike('name', `%${identifierInput}%`);
+            }
+            const { data: matchedRenters } = await query.limit(1);
+
+            if (matchedRenters && matchedRenters.length > 0 && matchedRenters[0].email) {
+              emailToLogin = matchedRenters[0].email.toLowerCase();
+            }
+          } catch (mErr) {}
+        }
+
+        // 3. Fallback pattern for username / mobile
+        if (!emailToLogin.includes('@')) {
+          if (cleanDigits.length >= 10) {
+            emailToLogin = `tenant_${cleanDigits.slice(-10)}@rentbill.local`;
+          } else if (cleanName) {
+            emailToLogin = `${cleanName}@rentbill.local`;
+          } else {
+            showError('Please enter a valid email address (e.g. name@example.com) or 10-digit mobile number.');
+            return;
+          }
         }
       }
 
@@ -96,7 +125,11 @@ export function setupFormSubmitHandlers() {
         });
 
         if (error) {
-          showError(error.message || 'Invalid login credentials. Please check your email/mobile and password.');
+          let msg = error.message || 'Invalid login credentials.';
+          if (msg.toLowerCase().includes('database error') || msg.toLowerCase().includes('querying schema') || msg.toLowerCase().includes('invalid login credentials')) {
+            msg = 'Invalid username/email or password. Please verify your credentials or ask the property manager to reset your password.';
+          }
+          showError(msg);
           return;
         }
 
@@ -106,7 +139,11 @@ export function setupFormSubmitHandlers() {
           loginBtn.innerHTML = origBtnHtml;
         }
       } catch (err) {
-        showError('Authentication error: ' + (err.message || err));
+        let msg = err.message || String(err);
+        if (msg.toLowerCase().includes('database error') || msg.toLowerCase().includes('querying schema')) {
+          msg = 'Invalid username/email or password. Please verify your credentials or ask the property manager to reset your password.';
+        }
+        showError(msg);
       }
     });
   }
