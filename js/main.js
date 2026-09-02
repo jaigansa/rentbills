@@ -109,8 +109,6 @@ import {
   copyTenantCredentialsFromRow,
   shareTenantCredentialsWhatsApp,
   shareTenantCredentialsFromRow,
-  generateRandomTenantPassword,
-  generateTenantModalPassword,
   toggleTenantPasswordMask,
   toggleTenantModalPasswordMask,
   toggleLoginPasswordMask,
@@ -194,8 +192,6 @@ window.copyTenantCredentials = copyTenantCredentials;
 window.copyTenantCredentialsFromRow = copyTenantCredentialsFromRow;
 window.shareTenantCredentialsWhatsApp = shareTenantCredentialsWhatsApp;
 window.shareTenantCredentialsFromRow = shareTenantCredentialsFromRow;
-window.generateRandomTenantPassword = generateRandomTenantPassword;
-window.generateTenantModalPassword = generateTenantModalPassword;
 window.toggleTenantPasswordMask = toggleTenantPasswordMask;
 window.toggleTenantModalPasswordMask = toggleTenantModalPasswordMask;
 window.toggleLoginPasswordMask = toggleLoginPasswordMask;

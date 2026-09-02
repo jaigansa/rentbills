@@ -229,9 +229,7 @@ export function triggerTenantPasswordModal(renterId, name, email = '', mobile = 
 
   const defaultEmail = email || (name ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@rentbill.local` : '');
   setVal('tp-tenant-email', defaultEmail);
-
-  const autoPass = generateRandomPassword();
-  setVal('tp-tenant-password', autoPass);
+  setVal('tp-tenant-password', 'Tenant@123');
 
   const titleEl = document.getElementById('tp-modal-title');
   if (titleEl) {
@@ -579,34 +577,6 @@ export function shareTenantCredentialsWhatsApp(name, email, mobile, password = '
 
 export function shareTenantCredentialsFromRow(name, email, mobile) {
   shareTenantCredentialsWhatsApp(name, email, mobile, '');
-}
-
-/**
- * Generates an easy-to-read, secure random password for tenants
- */
-export function generateRandomPassword() {
-  const words = ['Rent', 'Home', 'Flat', 'Unit', 'Door', 'Stay', 'Lease', 'Urban', 'View', 'Nest'];
-  const symbols = ['@', '#', '$', '!'];
-  const word = words[Math.floor(Math.random() * words.length)];
-  const num = Math.floor(1000 + Math.random() * 9000);
-  const sym = symbols[Math.floor(Math.random() * symbols.length)];
-  return `${word}${sym}${num}`;
-}
-
-export function generateRandomTenantPassword() {
-  const pwInput = document.getElementById('tp-tenant-password');
-  if (pwInput) {
-    pwInput.value = generateRandomPassword();
-    pwInput.type = 'text';
-  }
-}
-
-export function generateTenantModalPassword() {
-  const pwInput = document.getElementById('tenant-password');
-  if (pwInput) {
-    pwInput.value = generateRandomPassword();
-    pwInput.type = 'text';
-  }
 }
 
 export function toggleTenantPasswordMask() {
