@@ -294,14 +294,26 @@ export function setupFormSubmitHandlers() {
           await safeUpdate(client, 'units', { status: 'OCCUPIED' }, 'id', unit_id);
         }
 
-        // If a password was supplied, provision tenant login credentials in Supabase Auth
-        const tenantPassword = (document.getElementById('tenant-password')?.value || '').trim();
-        if (tenantPassword && tenantPassword.length >= 6 && email) {
-          try {
-            await saveTenantCredentials(savedRenterId, email, tenantPassword, name, mobile_number);
-          } catch (authErr) {
-            console.warn('Tenant credential auto-save warning:', authErr.message);
+        // Automatically provision tenant login credentials in Supabase Auth (1-Step Automatic Portal Account)
+        let loginEmail = (email || '').trim();
+        const cleanMobileDigits = (mobile_number || '').replace(/[^0-9]/g, '');
+        if (!loginEmail || !loginEmail.includes('@')) {
+          if (cleanMobileDigits.length >= 10) {
+            loginEmail = `tenant_${cleanMobileDigits.slice(-10)}@rentbill.local`;
+          } else {
+            loginEmail = `tenant_${savedRenterId || Date.now()}@rentbill.local`;
           }
+        }
+        
+        let tenantPassword = (document.getElementById('tenant-password')?.value || '').trim();
+        if (!tenantPassword || tenantPassword.length < 6) {
+          tenantPassword = 'Tenant@123';
+        }
+
+        try {
+          await saveTenantCredentials(savedRenterId, loginEmail, tenantPassword, name, mobile_number);
+        } catch (authErr) {
+          console.warn('Tenant credential auto-save notice:', authErr.message);
         }
 
         formAddTenant.reset();

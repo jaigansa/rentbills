@@ -94,17 +94,17 @@
               <input type="text" id="tenant-mobile" class="form-control" required autocomplete="tel">
             </div>
             <div class="form-group">
-              <label>Email Address (for Tenant Portal Login) *</label>
-              <input type="email" id="tenant-email" class="form-control" placeholder="tenant@example.com" required autocomplete="email">
+              <label>Email Address (Optional)</label>
+              <input type="email" id="tenant-email" class="form-control" placeholder="Optional (e.g. tenant@example.com)" autocomplete="email">
             </div>
             <div class="form-group">
               <label>Portal Login Password</label>
               <div style="display: flex; gap: 8px;">
-                <input type="password" id="tenant-password" class="form-control" placeholder="Min 6 chars to enable login" minlength="6" style="flex: 1;" autocomplete="new-password">
+                <input type="password" id="tenant-password" class="form-control" placeholder="Default: Tenant@123" minlength="6" style="flex: 1;" autocomplete="new-password">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantModalPasswordMask()" title="Show/Hide Password">👁️</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="generateTenantModalPassword()" title="Generate Random Password">🎲</button>
               </div>
-              <small style="color: var(--text-muted); font-size: 11px;">Set password now (or set later in Tenant Logins)</small>
+              <small style="color: var(--success); font-size: 11px;">⚡ Login account created automatically (Default: Tenant@123)</small>
             </div>
             <div class="form-group">
               <label>Aadhaar Card No</label>
