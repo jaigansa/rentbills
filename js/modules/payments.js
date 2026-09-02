@@ -34,7 +34,7 @@ export async function loadPaymentsPage() {
 
     let bills = [];
     try {
-      const { data: bData } = await supabaseClient.from('bills').select('id, uuid, invoice_no');
+      const { data: bData } = await supabaseClient.from('bills').select('id, uuid, billing_period');
       bills = bData || [];
     } catch (e) {}
 
