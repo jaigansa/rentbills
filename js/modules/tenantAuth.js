@@ -422,9 +422,13 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
     throw new Error(`Failed to create tenant login: ${creationErr.message}`);
   }
 
-  if (createdUserId && renterId) {
+  if (createdUserId) {
     try {
-      await supabaseClient.from('renters').update({ user_id: createdUserId, email }).eq('id', renterId);
+      if (renterId) {
+        await supabaseClient.from('renters').update({ user_id: createdUserId, email }).eq('id', parseInt(renterId));
+      } else if (email) {
+        await supabaseClient.from('renters').update({ user_id: createdUserId }).ilike('email', email);
+      }
       await supabaseClient.from('profiles').upsert([{
         id: createdUserId,
         email,
