@@ -5,34 +5,22 @@ import { formatCurrency, formatInvoiceNumber, escapeStr, renderEmptyState, openM
 import { loadDashboard } from './dashboard.js';
 
 export function populateBillingPeriods() {
-  const select = document.getElementById('bill-period');
-  if (!select) return;
+  const periodInput = document.getElementById('bill-period');
+  if (!periodInput) return;
   
-  const currentVal = select.value;
-  select.innerHTML = '';
-  const now = new Date();
-  
-  // Provide upcoming 2 months + current month + past 12 months
-  for (let i = -2; i < 12; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
-    const value = `${year}-${monthStr}`;
-    
-    const monthName = d.toLocaleString('en-US', { month: 'long' });
-    const label = `${monthName} ${year} (${value})`;
-    
-    const opt = document.createElement('option');
-    opt.value = value;
-    opt.textContent = label;
-    if (i === 0 && !currentVal) opt.selected = true;
-    else if (currentVal === value) opt.selected = true;
-    select.appendChild(opt);
+  if (!periodInput.value) {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    periodInput.value = currentMonth;
   }
 
   syncBillPeriodDates();
 
-  select.onchange = function() {
+  periodInput.oninput = function() {
+    syncBillPeriodDates();
+    updateLiveBillCalculation();
+  };
+  periodInput.onchange = function() {
     syncBillPeriodDates();
     updateLiveBillCalculation();
   };

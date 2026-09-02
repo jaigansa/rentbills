@@ -321,7 +321,7 @@ export function setupFormSubmitHandlers() {
       }
     });
 
-    ['bill-rent-amount', 'bill-eb', 'bill-water', 'bill-late', 'bill-discount', 'bill-others', 'bill-arrears'].forEach(id => {
+    ['bill-period', 'bill-period-from', 'bill-period-to', 'bill-due-date', 'bill-rent-amount', 'bill-eb', 'bill-water', 'bill-late', 'bill-discount', 'bill-others', 'bill-arrears'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         ['input', 'change'].forEach(evt => el.addEventListener(evt, updateLiveBillCalculation));
