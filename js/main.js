@@ -102,6 +102,8 @@ import {
   shareTenantCredentialsFromRow,
   generateRandomTenantPassword,
   generateTenantModalPassword,
+  toggleTenantPasswordMask,
+  toggleTenantModalPasswordMask,
   toggleLoginPasswordMask,
   fillAdminCredentials,
   triggerDeleteTenantLogin,
