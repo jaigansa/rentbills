@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RentBill Pro — Rental & Property Management System</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- 0. INITIAL SESSION LOADER -->
+  <div id="app-loader" class="auth-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+    <div class="auth-logo">RentBill Pro</div>
+    <div class="sync-badge compact" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); color: #fff;">
+      <span class="status-dot online"></span>
+      <span>Authenticating workspace...</span>
+    </div>
+  </div>
+
+  <!-- 1. AUTHENTICATION VIEW -->
+  <div id="auth-view" class="auth-container" style="display: none;">
+    <div class="auth-card">
+      <div class="auth-logo" id="i18n-login-title">RentBill Pro</div>
+      <div class="auth-subtitle" id="i18n-login-subtitle">Property & Rental Management System</div>
+      <form id="login-form">
+        <div class="form-group">
+          <label for="login-email" id="i18n-label-email">Email Address</label>
+          <input type="email" id="login-email" class="form-control" placeholder="name@example.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label for="login-password" id="i18n-label-password">Password</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="password" id="login-password" class="form-control" placeholder="Enter password" required autocomplete="current-password" style="flex: 1;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="toggleLoginPasswordMask()" title="Show/Hide Password" style="padding: 0 10px;">👁️</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 10px;" id="i18n-btn-login">Login</button>
+      </form>
+      <div id="login-error" style="color: var(--danger); font-size: 13px; font-weight: 600; margin-top: 14px; display: none;"></div>
+      <div style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px; text-align: center;">
+        <button type="button" class="btn btn-secondary" style="width: 100%; justify-content: center; gap: 8px; font-size: 13px; font-weight: 500;" onclick="showSetupConfigModal()">
+          <i data-lucide="key-round"></i>
+          <span>Configure Supabase API Keys</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. MAIN APPLICATION WORKSPACE -->
+  <div id="app-view" class="app-container" style="display: none;">
+    <!-- Desktop Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <i data-lucide="building-2" style="width: 24px; height: 24px;"></i>
+        <span>RentBill Pro</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-target="page-dashboard">
+          <i data-lucide="layout-dashboard"></i>
+          <span id="i18n-nav-dashboard">Dashboard</span>
+        </div>
+        <div class="nav-item admin-only" data-target="page-properties">
+          <i data-lucide="folder-open"></i>
+          <span id="i18n-nav-properties">Documents</span>
+        </div>
+        <div class="nav-item" data-target="page-bills">
+          <i data-lucide="receipt"></i>
+          <span id="i18n-nav-bills">Bills</span>
+        </div>
+        <div class="nav-item" data-target="page-payments">
+          <i data-lucide="credit-card"></i>
+          <span id="i18n-nav-payments">Payments</span>
+        </div>
+        <div class="nav-item admin-only" data-target="page-expenses">
+          <i data-lucide="dollar-sign"></i>
+          <span id="i18n-nav-expenses">Expenses</span>
+        </div>
+        <div class="nav-item admin-only" data-target="page-settings">
+          <i data-lucide="settings"></i>
+          <span>Settings</span>
+        </div>
+      </nav>
+      <div class="sidebar-footer">
+        <button id="logout-btn" class="btn btn-secondary" style="width: 100%; border-color: rgba(255,255,255,0.1); background: transparent; color: var(--text-white); gap: 8px;">
+          <i data-lucide="log-out"></i>
+          <span id="i18n-btn-logout">Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Mobile Bottom Navigation (3-Button Layout: Dashboard, Menu Drawer, Settings) -->
+    <nav class="mobile-nav">
+      <a href="#" class="mobile-nav-item active" data-target="page-dashboard">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="mobile-nav-item" id="mobile-drawer-toggle">
+        <i data-lucide="menu"></i>
+        <span>Menu</span>
+      </a>
+      <a href="#" class="mobile-nav-item admin-only" id="mobile-settings-btn" data-target="page-settings">
+        <i data-lucide="settings"></i>
+        <span>Settings</span>
+      </a>
+    </nav>
+
+    <!-- Mobile Navigation Drawer Overlay Sheet -->
+    <div id="mobile-drawer" class="mobile-drawer-overlay">
+      <div class="mobile-drawer-content">
+        <div class="mobile-drawer-header">
+          <h3 style="font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 800;">Navigation Menu</h3>
+          <button class="close-btn" id="close-mobile-drawer" aria-label="Close menu"><i data-lucide="x"></i></button>
+        </div>
+        <div class="mobile-drawer-grid">
+          <div class="mobile-drawer-item nav-item" data-target="page-dashboard">
+            <i data-lucide="layout-dashboard"></i>
+            <span>Dashboard</span>
+          </div>
+          <div class="mobile-drawer-item nav-item admin-only" data-target="page-properties">
+            <i data-lucide="folder-open"></i>
+            <span>Documents</span>
+          </div>
+          <div class="mobile-drawer-item nav-item" data-target="page-bills">
+            <i data-lucide="receipt"></i>
+            <span>Bills</span>
+          </div>
+          <div class="mobile-drawer-item nav-item" data-target="page-payments">
+            <i data-lucide="credit-card"></i>
+            <span>Payments</span>
+          </div>
+          <div class="mobile-drawer-item nav-item admin-only" data-target="page-expenses">
+            <i data-lucide="dollar-sign"></i>
+            <span>Expenses</span>
+          </div>
+          <div class="mobile-drawer-item nav-item admin-only" data-target="page-settings">
+            <i data-lucide="settings"></i>
+            <span>Settings</span>
+          </div>
+        </div>
+        <div style="margin-top: 8px; border-top: 1px solid var(--border); padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
+          <button type="button" class="btn btn-secondary admin-only" style="width: 100%; justify-content: center; gap: 8px;" onclick="showSetupConfigModal()">
+            <i data-lucide="key-round"></i>
+            <span>Change Supabase Keys</span>
+          </button>
+          <button type="button" class="btn btn-danger" style="width: 100%; justify-content: center; gap: 8px;" onclick="document.getElementById('logout-btn').click(); closeMobileDrawer();">
+            <i data-lucide="log-out"></i>
+            <span>Logout</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Panel Container -->
+    <main class="main-content">
+      <header class="top-bar compact">
+        <div class="indicator-row">
+          <button id="mobile-top-menu-btn" class="btn btn-secondary btn-icon-only mobile-only" title="Navigation Menu" onclick="openMobileDrawer()">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="mobile-brand-title">
+            <i data-lucide="building-2"></i>
+            <span>RentBill</span>
+          </div>
+        </div>
+        <div class="top-bar-actions">
+          <div class="user-profile-badge icon-only" id="user-profile-badge" title="Admin">
+            <div class="avatar-circle" id="user-avatar-text">A</div>
+          </div>
+          <button id="theme-toggle-btn" class="btn btn-secondary btn-icon-only" title="Toggle Theme (Dark / Light)" onclick="toggleTheme()">
+            <i data-lucide="moon" id="theme-icon"></i>
+          </button>
+          <button id="lang-switch-btn" class="btn btn-secondary btn-icon-only" title="Switch Language (English / தமிழ்)">
+            <i data-lucide="globe"></i>
+          </button>
+          <div class="sync-badge icon-only" title="Online • Synced">
+            <span class="status-dot online"></span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Scrollable workspace page sections -->
+      <div class="page-container">
+
+        <!-- 1. DASHBOARD PAGE -->
+        <section id="page-dashboard" class="page-section active">
+          <div class="page-header">
+            <h1 id="i18n-dash-title">Financial Dashboard</h1>
+          </div>
+
+          <!-- Tenant Overview Card (Visible only when role === 'TENANT') -->
+          <div id="tenant-portal-banner" class="tenant-only" style="display: none; margin-bottom: 24px;">
+            <div class="card" style="border-left: 4px solid var(--primary); background: linear-gradient(135deg, var(--card-bg) 0%, rgba(59, 130, 246, 0.05) 100%);">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+                <div>
+                  <span class="badge badge-primary" style="margin-bottom: 8px; font-size: 12px;">Resident Tenant Portal</span>
+                  <h2 id="tenant-banner-unit" style="font-size: 20px; font-weight: 700; margin-bottom: 4px;">My Rental Unit</h2>
+                  <p id="tenant-banner-lease" style="color: var(--text-muted); font-size: 13px;">Lease Details & Monthly Invoices</p>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-secondary" onclick="document.querySelector('[data-target=\'page-bills\']').click()"><i data-lucide="receipt"></i> View Invoices</button>
+                  <button class="btn btn-primary" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 16px;">
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Current Outstanding Due</div>
+                  <div id="tenant-banner-due" style="font-size: 22px; font-weight: 800; color: var(--danger);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Monthly Base Rent</div>
+                  <div id="tenant-banner-rent" style="font-size: 18px; font-weight: 700; color: var(--text-main);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Advance Deposit</div>
+                  <div id="tenant-banner-advance" style="font-size: 18px; font-weight: 700; color: var(--success);">₹0.00</div>
+                </div>
+                <div>
+                  <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Payable via UPI</div>
+                  <div id="tenant-banner-upi" style="font-size: 14px; font-weight: 700; color: var(--primary); font-family: monospace;">-</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-grid">
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-billed">Total Billed</span>
+                <i data-lucide="bar-chart-3" style="color: var(--primary);"></i>
+              </div>
+              <span class="value" id="val-billed">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-collected">Total Collected</span>
+                <i data-lucide="wallet" style="color: var(--success);"></i>
+              </div>
+              <span class="value" id="val-collected" style="color: var(--success);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-outstanding">Outstanding Dues</span>
+                <i data-lucide="clock" style="color: var(--danger);"></i>
+              </div>
+              <span class="value" id="val-outstanding" style="color: var(--danger);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-arrears">Arrears Balance</span>
+                <i data-lucide="alert-triangle" style="color: var(--warning);"></i>
+              </div>
+              <span class="value" id="val-arrears" style="color: var(--warning);">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-expenses">Total Expenses</span>
+                <i data-lucide="trending-down" style="color: var(--danger);"></i>
+              </div>
+              <span class="value" id="val-expenses">₹0.00</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-tenants">Active Tenants</span>
+                <i data-lucide="users" style="color: var(--primary);"></i>
+              </div>
+              <span class="value" id="val-tenants">0</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-vacant">Vacant Units</span>
+                <i data-lucide="key" style="color: var(--warning);"></i>
+              </div>
+              <span class="value" id="val-vacant">0</span>
+            </div>
+            <div class="card admin-only">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span class="label" id="i18n-stat-maintenance">Pending Proofs</span>
+                <i data-lucide="file-check" style="color: var(--text-muted);"></i>
+              </div>
+              <span class="value" id="val-proofs">0</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. DOCUMENTS & OPERATIONS HUB -->
+        <section id="page-properties" class="page-section">
+          <div class="page-header">
+            <div>
+              <h1>Documents Hub</h1>
+              <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Centralized records for property buildings, rental units, active tenants, property owners, and digital deeds.</p>
+            </div>
+          </div>
+
+          <!-- Properties Sub-Tabs Bar (Sorted in Logical Top-Down Hierarchy: Owners -> Properties -> Units -> Tenants -> Documents) -->
+          <div class="properties-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; overflow-x: auto;">
+            <button class="btn btn-secondary properties-tab-btn active" onclick="switchPropertiesSubTab('owners', this)"><i data-lucide="user-check"></i> Property Owners</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('properties', this)"><i data-lucide="building"></i> Properties</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('units', this)"><i data-lucide="grid"></i> Rental Units</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('tenants', this)"><i data-lucide="users"></i> Tenants Directory</button>
+            <button class="btn btn-secondary properties-tab-btn" onclick="switchPropertiesSubTab('documents', this)"><i data-lucide="file-text"></i> Documents Vault</button>
+          </div>
+
+          <!-- SUB-TAB 1: PROPERTY OWNERS -->
+          <div id="prop-sub-tab-owners" class="properties-sub-section">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Property Owners Directory</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-owner')"><i data-lucide="user-check"></i> Add Owner</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Mobile</th>
+                    <th>Email</th>
+                    <th>UPI ID</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-owners">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 2: PROPERTIES -->
+          <div id="prop-sub-tab-properties" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Property Buildings</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-property')"><i data-lucide="building-2"></i> Add Property</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th id="i18n-th-pname">Property Name</th>
+                    <th id="i18n-th-paddress">Address</th>
+                    <th id="i18n-th-pstatus">Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-properties">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 3: RENTAL UNITS -->
+          <div id="prop-sub-tab-units" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Rental Units & Apartments</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-unit')"><i data-lucide="plus-circle"></i> Add Unit</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Unit Name</th>
+                    <th>Floor</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-units">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 4: TENANTS DIRECTORY -->
+          <div id="prop-sub-tab-tenants" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Tenant Management Directory</h3>
+              <button class="btn btn-primary" onclick="openModal('modal-add-tenant')"><i data-lucide="user-plus"></i> Add Tenant</button>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Unit</th>
+                    <th>Mobile</th>
+                    <th>Monthly Rent</th>
+                    <th>Arrears</th>
+                    <th>Agreement Expiry</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-tenants">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUB-TAB 5: DIGITAL DOCUMENTS VAULT -->
+          <div id="prop-sub-tab-documents" class="properties-sub-section" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <h3 style="margin: 0;">Digital Documents Vault</h3>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-primary" onclick="openAddDocumentModal()"><i data-lucide="file-plus"></i> Upload Document</button>
+                <select id="doc-filter-category" class="form-control" style="width: auto;" onchange="filterDocumentsTable()">
+                  <option value="ALL">All Categories</option>
+                  <option value="LEASE_AGREEMENT">Lease Agreement</option>
+                  <option value="IDENTITY_PROOF">ID Proof (Aadhaar/PAN)</option>
+                  <option value="PROPERTY_TAX">Property Tax Receipt</option>
+                  <option value="OWNERSHIP_DEED">Ownership Deed</option>
+                  <option value="MAINTENANCE">Maintenance Invoice</option>
+                  <option value="ELECTRICITY_DEED">Electricity Deed</option>
+                  <option value="OTHER">Other Documents</option>
+                </select>
+                <input type="text" id="doc-search-input" class="form-control" placeholder="Search documents..." style="width: 200px;" onkeyup="filterDocumentsTable()">
+              </div>
+            </div>
+            <div class="table-container table-responsive-cards">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Document Name</th>
+                    <th>Category</th>
+                    <th>Associated Entity</th>
+                    <th>Expiry Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body-documents">
+                  <!-- Loaded dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. BILLS PAGE -->
+        <section id="page-bills" class="page-section">
+          <div class="page-header">
+            <h1>Invoices & Monthly Bills</h1>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn btn-secondary admin-only" onclick="exportBillsCSV()"><i data-lucide="download"></i> Export CSV</button>
+              <button class="btn btn-primary tenant-only" style="display: none;" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+              <button class="btn btn-primary admin-only" onclick="openModal('modal-add-bill')"><i data-lucide="plus-circle"></i> Generate Bill</button>
+            </div>
+          </div>
+          <!-- Unpaid Due KPI Banner -->
+          <div id="unpaid-kpi-banner" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; gap: 20px; align-items: center;">
+              <div>
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Unpaid Invoices</span>
+                <div id="unpaid-count-kpi" style="font-size: 18px; font-weight: 800; color: #d97706;">0 Bills</div>
+              </div>
+              <div style="border-left: 1px solid var(--border); height: 30px;"></div>
+              <div>
+                <span style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Total Outstanding Due</span>
+                <div id="unpaid-amount-kpi" style="font-size: 18px; font-weight: 800; color: var(--danger);">₹0.00</div>
+              </div>
+            </div>
+          </div>
+          <!-- Bills Filter & Search Toolbar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;" id="bills-filter-toolbar">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" id="bill-search-input" class="form-control" placeholder="Search renter name or bill #..." onkeyup="filterBillsTable()">
+            </div>
+            <div style="width: 160px;">
+              <select id="bill-filter-status" class="form-control" onchange="filterBillsTable()">
+                <option value="ALL">All Statuses</option>
+                <option value="UNPAID">Unpaid</option>
+                <option value="PARTIAL">Partially Paid</option>
+                <option value="PAID">Paid</option>
+              </select>
+            </div>
+            <div style="width: 160px;">
+              <select id="bill-filter-month" class="form-control" onchange="filterBillsTable()">
+                <option value="ALL">All Months</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice Number & UUID</th>
+                  <th>Renter Name</th>
+                  <th>Billing Period</th>
+                  <th>Gross Charge</th>
+                  <th>Net Charge</th>
+                  <th>Paid</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-bills">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 5. PAYMENTS PAGE -->
+        <section id="page-payments" class="page-section">
+          <div class="page-header">
+            <h1>Payment Verification & Receipts</h1>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn btn-secondary admin-only" onclick="exportPaymentsCSV()"><i data-lucide="download"></i> Export CSV</button>
+              <button class="btn btn-primary tenant-only" style="display: none;" onclick="openPaymentModal()"><i data-lucide="upload-cloud"></i> Submit Payment Proof</button>
+            </div>
+          </div>
+          <!-- Payments Filter & Search Toolbar -->
+          <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;" id="payments-filter-toolbar">
+            <div style="flex: 1; min-width: 220px;">
+              <input type="text" id="payment-search-input" class="form-control" placeholder="Search renter name, ref # or invoice..." onkeyup="filterPaymentsTable()">
+            </div>
+            <div style="width: 160px;">
+              <select id="payment-filter-method" class="form-control" onchange="filterPaymentsTable()">
+                <option value="ALL">All Methods</option>
+                <option value="UPI">UPI / Online</option>
+                <option value="CASH">Cash</option>
+                <option value="BANK_TRANSFER">Bank Transfer</option>
+              </select>
+            </div>
+            <div style="width: 160px;">
+              <select id="payment-filter-status" class="form-control" onchange="filterPaymentsTable()">
+                <option value="ALL">All Statuses</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="PENDING">Pending Proof</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Invoice Number & UUID</th>
+                  <th>Renter Name</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Ref No</th>
+                  <th>Payment Date</th>
+                  <th>Verification</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-payments">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 6. EXPENSES PAGE -->
+        <section id="page-expenses" class="page-section">
+          <div class="page-header">
+            <h1>Expenses & Owner Withdrawals</h1>
+            <div style="display: flex; gap: 12px;">
+              <button class="btn btn-secondary" onclick="exportExpensesCSV()">Export CSV</button>
+              <button class="btn btn-secondary" onclick="openModal('modal-add-withdrawal')">Withdrawal</button>
+              <button class="btn btn-primary" onclick="openModal('modal-add-expense')">Add Expense</button>
+            </div>
+          </div>
+
+          <h3 style="margin-bottom: 12px;">Operating Expenses</h3>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-expenses">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style="margin-bottom: 12px; margin-top: 24px;">Owner Withdrawals</h3>
+          <div class="table-container table-responsive-cards">
+            <table>
+              <thead>
+                <tr>
+                  <th>Owner Name</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="table-body-withdrawals">
+                <!-- Loaded dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- 7. DIAGNOSTICS PAGE -->
+        <section id="page-diagnostics" class="page-section">
+          <div class="page-header">
+            <h1>Diagnostics & Backups</h1>
+            <button class="btn btn-primary" onclick="triggerManualBackup()">Manual Backup Now</button>
+          </div>
+          
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+            <div class="card">
+              <h3 style="margin-bottom: 16px;">Database Integrity Stats</h3>
+              <div style="display: flex; flex-direction: column; gap: 8px;" id="diagnostics-info">
+                <!-- Dynamic text injection -->
+              </div>
+            </div>
+            <div class="card">
+              <h3 style="margin-bottom: 16px;">Backup Files History</h3>
+              <div style="max-height: 250px; overflow-y: auto;">
+                <ul id="backups-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px;">
+                  <!-- Dynamic backups list -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. SETTINGS & SYSTEM CONTROL CENTER PAGE -->
+        <section id="page-settings" class="page-section">
+          <div class="page-header">
+            <div>
+              <h1>Settings & System Control Center</h1>
+              <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Configure application preferences, Supabase credentials, backups, and live system diagnostics.</p>
+            </div>
+            <button class="btn btn-primary" onclick="saveAppSettings()">💾 Save App Settings</button>
+          </div>
+
+          <!-- Settings Tab Sub-Navigation Pills -->
+          <div class="settings-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; overflow-x: auto;">
+            <button class="btn btn-secondary settings-tab-btn active" onclick="switchSettingsSubTab('app', this)"><i data-lucide="sliders"></i> App Settings</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('tenants', this)"><i data-lucide="key-round"></i> Tenant Logins</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('auth', this)"><i data-lucide="shield-check"></i> Auth & API Keys</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('data', this)"><i data-lucide="database"></i> Data & Backups</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('diagnostics', this)"><i data-lucide="activity"></i> Diagnostics & Latency</button>
+          </div>
+
+          <!-- TAB 1: APP SETTINGS -->
+          <div id="settings-tab-app" class="settings-sub-section">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Application Preferences</h3>
+                <div class="form-group">
+                  <label for="cfg-app-title">System Brand Name</label>
+                  <input type="text" id="cfg-app-title" class="form-control" value="RentBill Pro">
+                </div>
+                <div class="form-group">
+                  <label for="cfg-theme">UI Color Theme Mode</label>
+                  <select id="cfg-theme" class="form-control" onchange="setTheme(this.value)">
+                    <option value="system">💻 System Default</option>
+                    <option value="light">☀️ Light Theme</option>
+                    <option value="dark">🌙 Dark Midnight Theme</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cfg-currency">Primary Currency Format</label>
+                  <select id="cfg-currency" class="form-control">
+                    <option value="INR" selected>INR (₹) — Indian Rupee</option>
+                    <option value="USD">USD ($) — US Dollar</option>
+                    <option value="EUR">EUR (€) — Euro</option>
+                    <option value="GBP">GBP (£) — British Pound</option>
+                    <option value="AED">AED (🇦🇪) — UAE Dirham</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cfg-language">Default Language</label>
+                  <select id="cfg-language" class="form-control">
+                    <option value="en" selected>English (US)</option>
+                    <option value="ta">தமிழ் (Tamil)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Billing Defaults & Notifications</h3>
+                <div class="form-group">
+                  <label for="cfg-due-day">Rent Due Day of Month</label>
+                  <select id="cfg-due-day" class="form-control">
+                    <option value="1">1st of every month</option>
+                    <option value="5" selected>5th of every month</option>
+                    <option value="10">10th of every month</option>
+                    <option value="15">15th of every month</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="cfg-wa-template">WhatsApp Notification Template</label>
+                  <input type="text" id="cfg-wa-template" class="form-control" value="Dear {name}, your bill for {period} is ₹{amount}. View invoice: {link}">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: TENANT LOGINS & PASSWORDS -->
+          <div id="settings-tab-tenants" class="settings-sub-section" style="display: none;">
+            <div class="card" style="margin-bottom: 24px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+                <div>
+                  <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                    <i data-lucide="key-round" style="color: var(--primary);"></i>
+                    <span>Tenant Logins & Passwords Manager</span>
+                  </h3>
+                  <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;" id="tenant-logins-count">
+                    Manage tenant portal logins, set or reset passwords, and share access credentials.
+                  </p>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                  <button class="btn btn-secondary" onclick="loadTenantLoginsSettings()">
+                    <i data-lucide="refresh-cw"></i> Refresh
+                  </button>
+                  <button class="btn btn-primary" onclick="openModal('modal-add-tenant')">
+                    <i data-lucide="user-plus"></i> + Add Tenant
+                  </button>
+                </div>
+              </div>
+
+              <!-- Search Filter Bar -->
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <div style="position: relative; flex: 1;">
+                  <input type="text" id="search-tenant-logins" class="form-control" placeholder="Filter by tenant name, unit, phone or login email..." oninput="filterTenantLoginsTable()">
+                </div>
+              </div>
+
+              <!-- Tenant Accounts Table -->
+              <div class="table-container table-responsive-cards">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Tenant & Unit</th>
+                      <th>Mobile</th>
+                      <th>Login Email</th>
+                      <th>Portal Access</th>
+                      <th>Last Activity</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="table-body-tenant-logins">
+                    <!-- Populated dynamically by tenantAuth.js -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: AUTH & API KEYS -->
+          <div id="settings-tab-auth" class="settings-sub-section" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Supabase Cloud API Credentials</h3>
+                <div class="form-group">
+                  <label for="cfg-sb-url">Supabase Project URL / ID</label>
+                  <input type="text" id="cfg-sb-url" class="form-control" placeholder="YOUR_PROJECT_ID">
+                </div>
+                <div class="form-group">
+                  <label for="cfg-sb-key">Supabase Publishable / Anon Key</label>
+                  <div style="display: flex; gap: 8px;">
+                    <input type="password" id="cfg-sb-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiI...">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKeyMask()">👁️</button>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 12px; margin-top: 16px;">
+                  <button type="button" class="btn btn-primary" onclick="saveSupabaseSettings()">Save Keys</button>
+                  <button type="button" class="btn btn-secondary" onclick="testSupabaseConnection()">🔌 Ping Connection</button>
+                </div>
+                <div id="sb-ping-result" style="margin-top: 12px; font-weight: 600; font-size: 13px;"></div>
+              </div>
+
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Active Account Session</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                  <div><strong>Email:</strong> <span id="settings-user-email">admin@rentbill.local</span></div>
+                  <div><strong>Role:</strong> <span id="settings-user-role" class="badge badge-success">ADMIN</span></div>
+                  <div><strong>Session Status:</strong> <span style="color: var(--success); font-weight: 700;">🟢 Active</span></div>
+                </div>
+                <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; display: flex; gap: 12px;">
+                  <button class="btn btn-secondary" onclick="showSetupConfigModal()">⚙️ Re-configure Credentials</button>
+                  <button class="btn btn-danger" onclick="document.getElementById('logout-btn').click();">🚪 Logout Session</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 3: DATA & BACKUPS -->
+          <div id="settings-tab-data" class="settings-sub-section" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Backup & Data Export</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Create a complete portable JSON database dump or export individual tables to CSV.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <button class="btn btn-primary" onclick="triggerManualBackup()">📥 Download Full JSON Backup</button>
+                  <button class="btn btn-secondary" onclick="exportBillsCSV()">📊 Export Bills (CSV)</button>
+                  <button class="btn btn-secondary" onclick="exportPaymentsCSV()">💳 Export Payments (CSV)</button>
+                  <button class="btn btn-secondary" onclick="exportExpensesCSV()">💸 Export Expenses (CSV)</button>
+                </div>
+              </div>
+
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Data Restore & Reset</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Restore database state from a backup JSON file or reset local cache.</p>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <button class="btn btn-primary" onclick="triggerRestoreData()"><i data-lucide="rotate-ccw"></i> 🔄 Restore Data (JSON File)</button>
+                  <button class="btn btn-warning" onclick="clearAppCache()"><i data-lucide="refresh-cw"></i> 🧹 Clear Local Cache & Reset State</button>
+                  <input type="file" id="json-restore-file-input" accept=".json" style="display: none;" onchange="handleRestoreFileUpload(event)">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 4: DIAGNOSTICS & LATENCY -->
+          <div id="settings-tab-diagnostics" class="settings-sub-section" style="display: none;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Database Integrity & System Metrics</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;" id="settings-diagnostics-info">
+                  <!-- Dynamic text injection -->
+                </div>
+              </div>
+
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">System Health & Storage Usage</h3>
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
+                  <div><strong>Database Response Latency:</strong> <span id="diag-latency-val" style="color: var(--success); font-weight: 700;">-</span></div>
+                  <div><strong>LocalStorage Usage:</strong> <span id="diag-storage-val">-</span></div>
+                  <div><strong>Realtime Subscription:</strong> <span class="badge badge-success">ACTIVE</span></div>
+                  <div><strong>Browser Environment:</strong> <span id="diag-browser-val">-</span></div>
+                </div>
+                <div style="margin-top: 16px;">
+                  <button class="btn btn-secondary" onclick="runDiagnosticsCheck()">🔄 Re-run System Check</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- 3. PRINT RECEIPT CONTAINER (Optimized Single A4 Sheet Corporate Layout) -->
+  <div id="receipt-print-frame" class="receipt-print-area">
+    <!-- Header Section -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 10px;">
+      <div>
+        <h1 id="print-prop-name" style="font-size: 18px; font-weight: 800; text-transform: uppercase; margin: 0 0 2px 0; color: #0f172a; letter-spacing: 0.02em;">RENTBILL PRO</h1>
+        <div id="print-prop-address" style="font-size: 11px; color: #475569; max-width: 380px;">Property Address Details</div>
+      </div>
+      <div style="text-align: right;">
+        <div id="print-doc-title" style="font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #0f172a; margin-bottom: 3px;">
+          RENT BILL / INVOICE STATEMENT
+        </div>
+        <div style="font-size: 11px; color: #334155;">
+          <strong>Invoice #:</strong> <span id="print-bill-no" style="font-family: monospace; font-weight: 700;">INV-1001</span> | 
+          <strong>Date:</strong> <span id="print-date">2026-08-31</span>
+        </div>
+        <div style="font-size: 10px; color: #64748b;">Receipt Ref: <span id="print-receipt-no">RCP-1001</span></div>
+      </div>
+    </div>
+
+    <!-- Tenant & Bill Info Summary Strip -->
+    <div style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 11px;">
+      <div>
+        <div style="color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700;">Billed To (Tenant)</div>
+        <div style="font-weight: 700; font-size: 12px; color: #0f172a;" id="print-tenant-name">John Doe</div>
+        <div style="color: #475569;">Unit: <strong id="print-unit-name">Room 101</strong></div>
+      </div>
+      <div>
+        <div style="color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700;">Billing Period</div>
+        <div style="font-weight: 700; font-size: 12px; color: #0f172a;" id="print-period">2026-08</div>
+        <div style="color: #475569;">Status: <strong id="print-status-label" style="text-transform: uppercase;">UNPAID</strong></div>
+      </div>
+      <div style="text-align: right;">
+        <div style="color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700;">Payment Info</div>
+        <div style="font-weight: 700; color: #0f172a;" id="print-method">UPI</div>
+        <div style="color: #64748b; font-size: 10px;">Ref: <span id="print-ref">-</span></div>
+      </div>
+    </div>
+
+    <!-- Utility Meter Consumption Sub-table -->
+    <div style="margin-bottom: 10px;">
+      <table style="width: 100%; font-size: 10px; border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 4px;">
+        <thead>
+          <tr style="background: #f1f5f9; border-bottom: 1px solid #cbd5e1; color: #334155;">
+            <th style="text-align: left; padding: 4px 8px;">Utility Meter</th>
+            <th style="text-align: right; padding: 4px 8px;">Previous</th>
+            <th style="text-align: right; padding: 4px 8px;">Current</th>
+            <th style="text-align: right; padding: 4px 8px;">Consumed</th>
+            <th style="text-align: right; padding: 4px 8px;">Rate (₹)</th>
+            <th style="text-align: right; padding: 4px 8px;">Amount (₹)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 4px 8px; font-weight: 600;">Electricity (EB)</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-eb-prev">0</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-eb-curr">0</td>
+            <td style="text-align: right; padding: 4px 8px; font-weight: 700;" id="print-eb-consumed">0 Units</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-eb-rate">₹0.00</td>
+            <td style="text-align: right; padding: 4px 8px; font-weight: 700;" id="print-eb-total">₹0.00</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 8px; font-weight: 600;">Water Supply</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-water-prev">-</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-water-curr">-</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-water-consumed">-</td>
+            <td style="text-align: right; padding: 4px 8px;" id="print-water-rate">-</td>
+            <td style="text-align: right; padding: 4px 8px; font-weight: 700;" id="print-water-total">₹0.00</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Itemized Statement Table -->
+    <table style="width: 100%; font-size: 11px; border-collapse: collapse; margin-bottom: 8px; border: 1px solid #cbd5e1;">
+      <thead>
+        <tr style="background: #0f172a; color: #fff;">
+          <th style="text-align: left; padding: 6px 8px; font-weight: 700;">Item Description</th>
+          <th style="text-align: right; padding: 6px 8px; font-weight: 700; width: 140px;">Amount (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Monthly Base Rent Charge</td><td style="text-align: right; padding: 4px 8px; font-weight: 600;" id="print-val-rent">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Maintenance & Common Area Charge</td><td style="text-align: right; padding: 4px 8px;" id="print-val-maint">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Water Utility Charge</td><td style="text-align: right; padding: 4px 8px;" id="print-val-water">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Electricity Charge (EB Consumption)</td><td style="text-align: right; padding: 4px 8px;" id="print-val-eb">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Previous Pending Arrears</td><td style="text-align: right; padding: 4px 8px;" id="print-val-arrears">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 4px 8px;">Late Fees / Other Charges</td><td style="text-align: right; padding: 4px 8px;" id="print-val-late">₹0.00</td></tr>
+        <tr style="border-bottom: 1px solid #cbd5e1;"><td style="padding: 4px 8px; color: #dc2626;">Discounts Applied</td><td style="text-align: right; padding: 4px 8px; color: #dc2626;" id="print-val-discount">-₹0.00</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Totals Summary & Words -->
+    <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin-bottom: 8px;">
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; font-size: 11px;">
+        <div style="color: #64748b; font-size: 10px; text-transform: uppercase; font-weight: 700; margin-bottom: 2px;">Amount in Words:</div>
+        <div id="print-amount-words" style="font-weight: 700; font-style: italic; color: #0f172a; font-size: 11.5px; line-height: 1.3;">Zero Rupees Only</div>
+      </div>
+      <div style="background: #f8fafc; border: 1.5px solid #0f172a; border-radius: 6px; padding: 6px 10px; font-size: 11px;">
+        <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 12px; margin-bottom: 2px;">
+          <span>Net Total:</span>
+          <span id="print-val-net">₹0.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #16a34a; font-weight: 700; font-size: 11px; margin-bottom: 2px;">
+          <span>Paid:</span>
+          <span id="print-val-paid">₹0.00</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; color: #dc2626; font-weight: 800; font-size: 12px; border-top: 1px solid #cbd5e1; padding-top: 2px;">
+          <span>Balance Due:</span>
+          <span id="print-val-outstanding">₹0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Owner Payment Details & UPI QR Code Strip -->
+    <div style="font-size: 10px; background: #f8fafc; padding: 8px 12px; border-radius: 6px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+      <div style="flex: 1;">
+        <div style="font-weight: 700; font-size: 10.5px; margin-bottom: 3px; color: #0f172a; text-transform: uppercase;">Owner Bank Transfer & UPI Details:</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3px;">
+          <div><strong>Owner:</strong> <span id="print-owner-name">-</span></div>
+          <div><strong>UPI ID:</strong> <span id="print-owner-upi" style="font-weight: 700; color: #0284c7;">-</span></div>
+          <div><strong>Bank:</strong> <span id="print-owner-bank">-</span></div>
+          <div><strong>Account No:</strong> <span id="print-owner-acc">-</span></div>
+          <div style="grid-column: span 2;"><strong>IFSC Code:</strong> <span id="print-owner-ifsc">-</span></div>
+        </div>
+      </div>
+      <div id="print-upi-qr-container" style="text-align: center; margin-left: 12px; display: none;">
+        <img id="print-upi-qr" src="" alt="Scan & Pay UPI QR" style="width: 75px; height: 75px; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px; background: #fff;">
+        <div style="font-size: 8px; font-weight: 700; margin-top: 1px; color: #0284c7;">SCAN TO PAY VIA UPI</div>
+      </div>
+    </div>
+
+    <!-- Mandatory Payment Screenshot Notice Callout -->
+    <div style="text-align: center; margin-bottom: 10px; padding: 6px 10px; background: #fffbebf0; border: 1px solid #fde68a; border-radius: 6px; font-size: 10.5px; font-weight: 700; color: #92400e;">
+      📌 Notice: Please share payment confirmation screenshot / UTR reference after completing online payment.
+    </div>
+
+    <!-- Signatory & Official Footer -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; font-size: 10px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+      <div style="color: #64748b;">
+        <div>This is an official computer-generated document.</div>
+        <div>Thank you for your timely payment!</div>
+      </div>
+      <div style="text-align: center;">
+        <div style="margin-bottom: 24px; color: #94a3b8;">___________________________</div>
+        <div style="font-weight: 700; font-size: 10px; color: #0f172a;">Authorized Signatory</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 4. DIALOG MODAL LAYERS -->
+
+  <!-- Add Property Modal -->
+  <div id="modal-add-property" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Property Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-property')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-property">
+        <input type="hidden" id="edit-property-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Property Name *</label>
+            <input type="text" id="prop-name" class="form-control" placeholder="e.g. Royal Residency" required>
+          </div>
+          <div class="form-group">
+            <label>Address</label>
+            <textarea id="prop-address" class="form-control" placeholder="Complete address"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Agreement Terms</label>
+            <textarea id="prop-terms" class="form-control" placeholder="Default tenancy conditions"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-property')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Unit Modal -->
+  <div id="modal-add-unit" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add Rental Unit</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-unit')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-unit">
+        <input type="hidden" id="edit-unit-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Target Property *</label>
+            <select id="unit-property-id" class="form-control" required>
+              <!-- Dynamic list option insertion -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Unit Name/No *</label>
+            <input type="text" id="unit-name" class="form-control" placeholder="e.g. Flat 101" required>
+          </div>
+          <div class="form-group">
+            <label>Floor</label>
+            <input type="text" id="unit-floor" class="form-control" placeholder="e.g. 1st Floor">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-unit')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Tenant Modal -->
+  <div id="modal-add-tenant" class="modal-overlay">
+    <div class="modal-content" style="max-width: 640px;">
+      <div class="modal-header">
+        <h2>Add Tenant Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-tenant">
+        <input type="hidden" id="edit-tenant-id">
+        <div class="modal-body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="form-group">
+              <label>Target Unit *</label>
+              <select id="tenant-unit-id" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label>Assigned Property Owner</label>
+              <select id="tenant-owner-id" class="form-control">
+                <option value="">Select Property Owner (Optional)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Tenant Full Name *</label>
+              <input type="text" id="tenant-name" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Mobile Number *</label>
+              <input type="text" id="tenant-mobile" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Email Address (for Tenant Portal Login) *</label>
+              <input type="email" id="tenant-email" class="form-control" placeholder="tenant@example.com" required>
+            </div>
+            <div class="form-group">
+              <label>Portal Login Password</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="password" id="tenant-password" class="form-control" placeholder="Min 6 chars to enable login" minlength="6" style="flex: 1;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantModalPasswordMask()" title="Show/Hide Password">👁️</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="generateTenantModalPassword()" title="Generate Random Password">🎲</button>
+              </div>
+              <small style="color: var(--text-muted); font-size: 11px;">Set password now (or set later in Tenant Logins)</small>
+            </div>
+            <div class="form-group">
+              <label>Aadhaar Card No</label>
+              <input type="text" id="tenant-aadhar" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Base Rent (₹) *</label>
+              <input type="number" id="tenant-rent" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Advance Deposit Amount (₹) *</label>
+              <input type="number" id="tenant-advance" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label>Pending Arrears (₹)</label>
+              <input type="number" step="0.01" id="tenant-arrears" class="form-control" value="0" placeholder="Prior unpaid balance">
+            </div>
+            <div class="form-group">
+              <label>Maintenance Charge (₹)</label>
+              <input type="number" id="tenant-maint" class="form-control" value="0">
+            </div>
+            <div class="form-group">
+              <label>Electricity Unit Price (₹ / unit)</label>
+              <input type="number" step="0.01" id="tenant-eb-price" class="form-control" value="8">
+            </div>
+            <div class="form-group">
+              <label>Initial EB Meter Reading</label>
+              <input type="number" id="tenant-init-eb" class="form-control" value="0">
+            </div>
+            <div class="form-group">
+              <label>Water Calculation Mode</label>
+              <select id="tenant-water-mode" class="form-control">
+                <option value="FIXED">FIXED</option>
+                <option value="METERED">METERED</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Water Fixed Charge / Unit Price (₹)</label>
+              <input type="number" id="tenant-water-rate" class="form-control" value="150">
+            </div>
+            <div class="form-group">
+              <label>Initial Water Meter Reading</label>
+              <input type="number" id="tenant-init-water" class="form-control" value="0">
+            </div>
+            <div class="form-group">
+              <label>Agreement Start Date</label>
+              <input type="date" id="tenant-start-date" class="form-control">
+            </div>
+            <div class="form-group">
+              <label>Agreement Expiry Date</label>
+              <input type="date" id="tenant-end-date" class="form-control">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Set / Reset Tenant Password Modal -->
+  <div id="modal-tenant-password" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <h2><i data-lucide="key-round" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Tenant Login & Password</h2>
+        <button class="close-btn" onclick="closeModal('modal-tenant-password')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-tenant-password">
+        <input type="hidden" id="tp-renter-id">
+        <input type="hidden" id="tp-user-id">
+        <div class="modal-body">
+          <div style="background: var(--bg-card-header); padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 15px;" id="tp-tenant-name">-</div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">
+              <span id="tp-tenant-unit">-</span> • <span id="tp-tenant-mobile">-</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="tp-tenant-email">Portal Login Email *</label>
+            <input type="email" id="tp-tenant-email" class="form-control" placeholder="tenant@example.com" required>
+            <small style="color: var(--text-muted); font-size: 11px;">Tenants can sign in with this email or their registered mobile number</small>
+          </div>
+
+          <div class="form-group">
+            <label for="tp-tenant-password">Portal Password *</label>
+            <div style="display: flex; gap: 8px;">
+              <input type="password" id="tp-tenant-password" class="form-control" placeholder="Minimum 6 characters" minlength="6" required style="flex: 1;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantPasswordMask()" title="Show/Hide Password" style="padding: 0 10px;">👁️</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="generateRandomTenantPassword()" title="Generate Random Password">🎲 Random</button>
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px;">Must be at least 6 characters long</small>
+          </div>
+
+          <div class="form-group" style="margin-top: 12px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+              <input type="checkbox" id="tp-copy-clipboard" checked>
+              <span>Copy login credentials to clipboard on save</span>
+            </label>
+          </div>
+
+          <div id="tp-status-msg" style="display: none; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;"></div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-tenant-password')">Cancel</button>
+            <button type="button" id="tp-btn-toggle-status" class="btn btn-secondary" onclick="triggerToggleTenantLoginStatusFromModal()" style="display: none;"><i data-lucide="shield-off"></i> Deactivate Access</button>
+            <button type="button" id="tp-btn-delete-login" class="btn btn-danger" onclick="triggerDeleteTenantLoginFromModal()" style="display: none;"><i data-lucide="user-x"></i> Delete Account</button>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="btn btn-secondary" onclick="saveAndShareTenantWhatsApp()" style="color: #25d366;"><i data-lucide="message-circle"></i> Save & WhatsApp</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save Credentials</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Generate Bill Modal -->
+  <div id="modal-add-bill" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Generate Bill Invoice</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-bill')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-bill">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Tenant *</label>
+            <select id="bill-renter-id" class="form-control" required></select>
+          </div>
+
+          <!-- Billing Cycle & Bill Generated Date -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Billing Month / Cycle *</label>
+              <select id="bill-period" class="form-control" required></select>
+            </div>
+            <div class="form-group">
+              <label>Bill Generated Date *</label>
+              <input type="date" id="bill-generated-date" class="form-control" required>
+            </div>
+          </div>
+
+          <!-- Stay Period Dates (From & To) -->
+          <div style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 14px;">
+            <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+              <i data-lucide="calendar" style="width: 14px; height: 14px;"></i> Stay / Rental Period Dates
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <div>
+                <label style="font-size: 12px; margin-bottom: 2px;">Stay From Date *</label>
+                <input type="date" id="bill-period-from" class="form-control" required>
+              </div>
+              <div>
+                <label style="font-size: 12px; margin-bottom: 2px;">Stay To Date *</label>
+                <input type="date" id="bill-period-to" class="form-control" required>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Monthly Base Rent (₹) *</label>
+              <input type="number" step="0.01" id="bill-rent-amount" class="form-control" placeholder="Base rent amount" required>
+            </div>
+            <div class="form-group">
+              <label>Payment Due Date *</label>
+              <input type="date" id="bill-due-date" class="form-control" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Current EB Reading</label>
+              <input type="number" id="bill-eb" class="form-control" placeholder="Enter current reading">
+            </div>
+            <div class="form-group">
+              <label>Current Water Reading</label>
+              <input type="number" id="bill-water" class="form-control" placeholder="Enter reading (if metered)">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Late Fee (₹)</label>
+              <input type="number" id="bill-late" class="form-control" value="0">
+            </div>
+            <div class="form-group">
+              <label>Discount (₹)</label>
+              <input type="number" id="bill-discount" class="form-control" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Other Miscellaneous charges (₹)</label>
+            <input type="number" id="bill-others" class="form-control" value="0">
+          </div>
+          <div class="form-group">
+            <label>Pending Arrears Adjustment (₹)</label>
+            <input type="number" step="0.01" id="bill-arrears" class="form-control" value="0">
+          </div>
+          <!-- Live Invoice Calculation Summary Card -->
+          <div class="bill-live-calc-card" style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; margin-top: 16px;">
+            <div style="font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <span>⚡ Live Invoice Calculation Summary</span>
+              <span id="live-calc-net" style="font-size: 16px; color: var(--primary); font-weight: 800;">₹0.00</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; color: var(--text-muted);">
+              <div>Base Rent: <strong id="live-calc-rent" style="color: var(--text-main);">₹0.00</strong></div>
+              <div>EB Electricity: <strong id="live-calc-eb" style="color: var(--text-main);">₹0.00</strong> (<span id="live-calc-eb-units">0</span> units)</div>
+              <div>Water Utility: <strong id="live-calc-water" style="color: var(--text-main);">₹0.00</strong></div>
+              <div>Maintenance: <strong id="live-calc-maint" style="color: var(--text-main);">₹0.00</strong></div>
+              <div>Arrears / Fee: <strong id="live-calc-extra" style="color: var(--text-main);">₹0.00</strong></div>
+              <div>Discount: <strong id="live-calc-discount" style="color: var(--danger);">₹0.00</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-bill')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Generate Bill</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Record Payment Modal -->
+  <div id="modal-add-payment" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Submit Payment Proof</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-payment')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-payment">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Select Unpaid Bill Invoice *</label>
+            <select id="pay-bill-id" class="form-control" required>
+              <option value="">Select Invoice / Bill</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Payment Amount (₹) *</label>
+            <input type="number" id="pay-amount" step="0.01" min="0" class="form-control" placeholder="Enter payment amount" required>
+          </div>
+          <div class="form-group">
+            <label>Payment Method *</label>
+            <select id="pay-method" class="form-control" required>
+              <option value="UPI">UPI</option>
+              <option value="CASH">CASH</option>
+              <option value="BANK_TRANSFER">BANK TRANSFER</option>
+              <option value="UNPAID">Mark as Unpaid (No Payment Received)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Transaction Reference / UTR (Optional)</label>
+            <input type="text" id="pay-ref" class="form-control" placeholder="Enter bank reference number (optional)">
+          </div>
+          <div class="form-group">
+            <label>Notes / Remarks</label>
+            <input type="text" id="pay-notes" class="form-control" placeholder="Optional payment notes">
+          </div>
+          <div class="form-group">
+            <label>Attach Payment Receipt Screenshot / Photo (Optional)</label>
+            <input type="file" id="pay-proof-photo" accept="image/*,.pdf" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-payment')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="pay-submit-btn">Submit Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Payment Proof Screenshot Modal -->
+  <div id="modal-view-proof-image" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px; text-align: center;">
+      <div class="modal-header">
+        <h2>Payment Receipt Screenshot</h2>
+        <button class="close-btn" onclick="closeModal('modal-view-proof-image')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="padding: 16px;">
+        <img id="proof-image-display" src="" alt="Payment Proof" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color); max-height: 400px; object-fit: contain;">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-view-proof-image')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Expense Modal -->
+  <div id="modal-add-expense" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Log Operating Expense</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-expense')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-expense">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Category *</label>
+            <input type="text" id="expense-category" class="form-control" placeholder="e.g. Repairs, Electricity" required>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹) *</label>
+            <input type="number" id="expense-amount" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="expense-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="expense-notes" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-expense')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Withdrawal Modal -->
+  <div id="modal-add-withdrawal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Record Owner Withdrawal</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-withdrawal')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-withdrawal">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Owner Name *</label>
+            <select id="withdrawal-owner-name" class="form-control" required></select>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹) *</label>
+            <input type="number" id="withdrawal-amount" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" id="withdrawal-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <input type="text" id="withdrawal-notes" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-withdrawal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Record Withdrawal</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tenant Vacate Modal -->
+  <div id="modal-vacate-tenant" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Process Tenant Exit Settlement</h2>
+        <button class="close-btn" onclick="closeModal('modal-vacate-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-vacate-tenant">
+        <input type="hidden" id="vacate-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <input type="text" id="vacate-tenant-name-display" class="form-control" readonly>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Repair Deduction (₹)</label>
+              <input type="number" id="vacate-repair" class="form-control" value="0">
+            </div>
+            <div class="form-group">
+              <label>Other Miscellaneous Deductions (₹)</label>
+              <input type="number" id="vacate-others" class="form-control" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Vacate Date *</label>
+            <input type="date" id="vacate-date" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Exit Reason *</label>
+            <input type="text" id="vacate-reason" class="form-control" placeholder="e.g. End of contract" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-vacate-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-danger">Process Exit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Tenant Transfer Modal -->
+  <div id="modal-transfer-tenant" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Transfer Tenant to New Unit</h2>
+        <button class="close-btn" onclick="closeModal('modal-transfer-tenant')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-transfer-tenant" onsubmit="event.preventDefault(); submitTransfer();">
+        <input type="hidden" id="transfer-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <div id="transfer-renter-name" style="font-weight: 700; font-size: 16px; padding: 6px 0; color: var(--text-main);"></div>
+          </div>
+          <div class="form-group">
+            <label>Select New Vacant Unit *</label>
+            <select id="transfer-new-unit-id" class="form-control" required></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-transfer-tenant')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Process Transfer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Meter Reset Modal -->
+  <div id="modal-reset-meter" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Reset Utility EB/Water Meter</h2>
+        <button class="close-btn" onclick="closeModal('modal-reset-meter')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-reset-meter" onsubmit="event.preventDefault(); submitMeterReset();">
+        <input type="hidden" id="reset-renter-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Tenant Name</label>
+            <div id="reset-renter-name" style="font-weight: 700; font-size: 16px; padding: 6px 0; color: var(--text-main);"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Meter Type *</label>
+              <select id="reset-reading-type" class="form-control" required>
+                <option value="EB">Electricity (EB)</option>
+                <option value="WATER">Water</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>New Initial Reading *</label>
+              <input type="number" id="reset-new-reading" class="form-control" value="0" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Reason for Reset *</label>
+            <input type="text" id="reset-reason" class="form-control" placeholder="e.g. Meter replaced due to fault" required>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-reset-meter')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Reset Meter</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Owner Modal -->
+  <div id="modal-add-owner" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Add / Edit Owner Profile</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-owner')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-owner">
+        <input type="hidden" id="edit-owner-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Owner Full Name *</label>
+            <input type="text" id="owner-name" class="form-control" placeholder="e.g. Rajesh Kumar" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Mobile Number</label>
+              <input type="text" id="owner-mobile" class="form-control" placeholder="e.g. 9876543210">
+            </div>
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="owner-email" class="form-control" placeholder="e.g. rajesh@example.com">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>UPI ID (for tenant payments & withdrawals)</label>
+            <input type="text" id="owner-upi" class="form-control" placeholder="e.g. rajesh@upi">
+          </div>
+          <div style="border-top: 1px solid var(--border); margin: 12px 0 8px 0; padding-top: 8px; font-weight: 700; font-size: 13px; color: var(--text-main);">Bank Details (for Direct Tenant Rent Transfers):</div>
+          <div class="form-group">
+            <label>Bank Name</label>
+            <input type="text" id="owner-bank-name" class="form-control" placeholder="e.g. State Bank of India / HDFC Bank">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Account Number</label>
+              <input type="text" id="owner-account-no" class="form-control" placeholder="e.g. 50100123456789">
+            </div>
+            <div class="form-group">
+              <label>IFSC Code</label>
+              <input type="text" id="owner-ifsc" class="form-control" placeholder="e.g. SBIN0001234">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-owner')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Document Modal -->
+  <div id="modal-add-document" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Attach / Upload Digital Document</h2>
+        <button class="close-btn" onclick="closeModal('modal-add-document')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <form id="form-add-document">
+        <input type="hidden" id="edit-doc-id">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Document Title *</label>
+            <input type="text" id="doc-title" class="form-control" placeholder="e.g. Flat 101 Lease Agreement 2026.pdf" required>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Category *</label>
+              <select id="doc-category" class="form-control" required>
+                <option value="LEASE_AGREEMENT">Lease Agreement</option>
+                <option value="IDENTITY_PROOF">ID Proof (Aadhaar/PAN)</option>
+                <option value="PROPERTY_TAX">Property Tax Receipt</option>
+                <option value="OWNERSHIP_DEED">Ownership Deed</option>
+                <option value="MAINTENANCE">Maintenance Invoice</option>
+                <option value="ELECTRICITY_DEED">Electricity Deed</option>
+                <option value="OTHER">Other Document</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Expiry / Renewal Date</label>
+              <input type="date" id="doc-expiry-date" class="form-control">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="form-group">
+              <label>Link To Entity Type</label>
+              <select id="doc-entity-type" class="form-control" onchange="populateDocEntitySelect(this.value)">
+                <option value="GENERAL">General / Unlinked</option>
+                <option value="PROPERTY">Property Building</option>
+                <option value="UNIT">Rental Unit</option>
+                <option value="RENTER">Tenant Profile</option>
+                <option value="OWNER">Property Owner</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Select Specific Entity</label>
+              <select id="doc-entity-id" class="form-control">
+                <option value="">Select Entity</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Attach File (PDF, Image, Doc) or Enter File URL</label>
+            <input type="file" id="doc-file-input" class="form-control" style="margin-bottom: 6px;" onchange="handleDocFileUpload(event)">
+            <input type="text" id="doc-file-url" class="form-control" placeholder="Or enter file URL (https://...)">
+          </div>
+          <div class="form-group">
+            <label>Notes / Description</label>
+            <input type="text" id="doc-notes" class="form-control" placeholder="Optional notes or remarks">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-document')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
+        </div>
+      </form>
+    </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

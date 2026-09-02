@@ -1,0 +1,68 @@
+/* RentBill Pro — Professional Single-Page A4 Invoice & Cash Bill Print Engine */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+  
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    background: #fff !important;
+    color: #0f172a !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Completely hide ALL website UI containers during print so only the receipt prints */
+  #app-loader,
+  #auth-view,
+  #app-view,
+  .app-container,
+  .sidebar,
+  .mobile-header,
+  .mobile-nav,
+  .mobile-fab,
+  .mobile-drawer,
+  .modal-overlay,
+  #toast-container,
+  .notification-bell-btn,
+  .theme-toggle-btn {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Exclusively render the A4 receipt/invoice frame */
+  #receipt-print-frame {
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 10px 14px !important;
+    border: 1.5px solid #0f172a !important;
+    border-radius: 6px !important;
+    box-sizing: border-box !important;
+    background: #fff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #receipt-print-frame table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+}
+
+.receipt-print-area {
+  display: none;
+}
