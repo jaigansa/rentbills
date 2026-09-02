@@ -105,7 +105,6 @@ import {
   toggleTenantPasswordMask,
   toggleTenantModalPasswordMask,
   toggleLoginPasswordMask,
-  fillAdminCredentials,
   triggerDeleteTenantLogin,
   triggerDeleteTenantLoginFromModal,
   triggerToggleTenantLoginStatus,
@@ -189,7 +188,6 @@ window.generateTenantModalPassword = generateTenantModalPassword;
 window.toggleTenantPasswordMask = toggleTenantPasswordMask;
 window.toggleTenantModalPasswordMask = toggleTenantModalPasswordMask;
 window.toggleLoginPasswordMask = toggleLoginPasswordMask;
-window.fillAdminCredentials = fillAdminCredentials;
 window.triggerDeleteTenantLogin = triggerDeleteTenantLogin;
 window.triggerDeleteTenantLoginFromModal = triggerDeleteTenantLoginFromModal;
 window.triggerToggleTenantLoginStatus = triggerToggleTenantLoginStatus;

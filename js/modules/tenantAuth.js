@@ -549,12 +549,3 @@ export function toggleLoginPasswordMask() {
     refreshLucideIcons();
   }
 }
-
-export function fillAdminCredentials() {
-  const emailEl = document.getElementById('login-email');
-  const pwEl = document.getElementById('login-password');
-  if (emailEl) emailEl.value = 'admin@rentbill.com';
-  if (pwEl) pwEl.value = 'Admin@123';
-  const errorDiv = document.getElementById('login-error');
-  if (errorDiv) errorDiv.style.display = 'none';
-}

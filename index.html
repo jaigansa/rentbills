@@ -47,18 +47,13 @@
           <label for="login-email" id="i18n-label-email">Email Address</label>
           <div class="input-icon-wrapper">
             <i data-lucide="mail" class="input-leading-icon"></i>
-            <input type="email" id="login-email" class="form-control" placeholder="admin@rentbill.com" required autocomplete="email">
+            <input type="email" id="login-email" class="form-control" placeholder="name@example.com" required autocomplete="email">
           </div>
         </div>
 
         <!-- Password Input Group -->
         <div class="form-group auth-input-group">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-            <label for="login-password" id="i18n-label-password" style="margin-bottom: 0;">Password</label>
-            <button type="button" onclick="fillAdminCredentials()" style="font-size: 11px; font-weight: 600; color: var(--primary); background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0;">
-              ⚡ Fill Admin
-            </button>
-          </div>
+          <label for="login-password" id="i18n-label-password">Password</label>
           <div class="input-icon-wrapper">
             <i data-lucide="lock" class="input-leading-icon"></i>
             <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
@@ -79,17 +74,6 @@
       <div id="login-error" class="auth-error-banner" style="display: none;">
         <i data-lucide="alert-circle"></i>
         <span id="login-error-text"></span>
-      </div>
-
-      <!-- Quick Admin Hint Card -->
-      <div class="auth-hint-card">
-        <div class="auth-hint-header">
-          <i data-lucide="shield-check"></i>
-          <span>Default Credentials</span>
-        </div>
-        <div class="auth-hint-body">
-          <code>admin@rentbill.com</code> / <code>Admin@123</code>
-        </div>
       </div>
 
       <!-- Footer & Configure API Keys -->

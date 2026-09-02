@@ -674,43 +674,6 @@ tr:has(.dropdown.active) {
   75% { transform: translateX(4px); }
 }
 
-.auth-hint-card {
-  background: var(--bg-input);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
-  margin-top: 20px;
-  font-size: 12px;
-}
-
-.auth-hint-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 700;
-  color: var(--text-main);
-  margin-bottom: 4px;
-}
-
-.auth-hint-header i {
-  width: 14px;
-  height: 14px;
-  color: var(--success);
-}
-
-.auth-hint-body {
-  color: var(--text-muted);
-  font-family: monospace;
-}
-
-.auth-hint-body code {
-  background: rgba(99, 102, 241, 0.1);
-  color: var(--primary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 11px;
-}
-
 .auth-footer {
   margin-top: 22px;
   padding-top: 16px;
