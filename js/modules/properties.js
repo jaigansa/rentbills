@@ -303,10 +303,28 @@ export async function triggerAdjustArrears(tenantId) {
 
 export async function triggerDeleteTenant(id, name) {
   const supabaseClient = getSupabaseClient();
-  if (!confirm(`Are you sure you want to delete tenant "${name}"?`)) return;
+  if (!confirm(`Are you sure you want to delete tenant "${name}"?\n\nThis will also free up their rental unit and mark it as Vacant.`)) return;
+
+  let unitId = null;
+  try {
+    const { data: tenant } = await supabaseClient.from('renters').select('unit_id').eq('id', id).maybeSingle();
+    unitId = tenant ? tenant.unit_id : null;
+  } catch (e) {}
+
   const { error } = await safeDelete(supabaseClient, 'renters', id);
-  if (error) alert('Failed to delete tenant: ' + error.message);
-  else loadTenantsPage();
+  if (error) {
+    alert('Failed to delete tenant: ' + error.message);
+    return;
+  }
+
+  if (unitId) {
+    try {
+      await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', unitId);
+    } catch (e) {}
+  }
+
+  loadTenantsPage();
+  loadPropertiesPage();
 }
 
 export function triggerVacateModal(tenantId, tenantName) {

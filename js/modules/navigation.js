@@ -13,40 +13,45 @@ import { loadSettingsPage } from './backups.js';
 import { openAddDocumentModal } from './documents.js';
 import { loadTenantLoginsSettings } from './tenantAuth.js';
 
-export function openMobileDrawer() {
-  const drawer = document.getElementById('mobile-drawer');
-  if (drawer) {
-    drawer.classList.add('active');
+export function openMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  if (menu) {
+    menu.classList.add('active');
     refreshLucideIcons();
   }
 }
 
-export function closeMobileDrawer() {
-  const drawer = document.getElementById('mobile-drawer');
-  if (drawer) drawer.classList.remove('active');
+export function closeMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  if (menu) menu.classList.remove('active');
+}
+
+export function toggleMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  if (!menu) return;
+  if (menu.classList.contains('active')) closeMobileMenu();
+  else openMobileMenu();
 }
 
 export function setupNavigation() {
-  const toggleBtn = document.getElementById('mobile-drawer-toggle');
-  const closeBtn = document.getElementById('close-mobile-drawer');
-  const drawer = document.getElementById('mobile-drawer');
+  const menu = document.getElementById('mobile-menu');
+  const closeBtn = document.getElementById('close-mobile-menu');
 
-  if (toggleBtn) toggleBtn.addEventListener('click', (e) => { e.preventDefault(); openMobileDrawer(); });
-  if (closeBtn) closeBtn.addEventListener('click', () => closeMobileDrawer());
-  if (drawer) {
-    drawer.addEventListener('click', (e) => {
-      if (e.target === drawer) closeMobileDrawer();
+  if (menu) {
+    menu.addEventListener('click', (e) => {
+      if (e.target === menu) closeMobileMenu();
     });
   }
+  if (closeBtn) closeBtn.addEventListener('click', () => closeMobileMenu());
 
-  const items = document.querySelectorAll('.nav-item, .mobile-nav-item');
+  const items = document.querySelectorAll('.nav-item');
   items.forEach(item => {
     item.addEventListener('click', () => {
       const target = item.getAttribute('data-target');
       if (!target) return;
       
       localStorage.setItem('rentbill_active_page', target);
-      closeMobileDrawer();
+      closeMobileMenu();
 
       items.forEach(nav => nav.classList.remove('active'));
       document.querySelectorAll(`[data-target="${target}"]`).forEach(nav => nav.classList.add('active'));

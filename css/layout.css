@@ -8,18 +8,7 @@
   width: 100vw;
 }
 
-/* Sidebar Navigation (Desktop) */
-.sidebar {
-  width: 260px;
-  background-color: var(--bg-sidebar);
-  color: var(--text-white);
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  flex-shrink: 0;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.05);
-}
-
+/* Brand & Navigation Item Styles (used by the top-bar navigation menu) */
 .brand {
   display: flex;
   align-items: center;
@@ -32,14 +21,6 @@
   background: var(--primary-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  flex-grow: 1;
-  overflow-y: auto;
 }
 
 .nav-item {
@@ -68,12 +49,6 @@
   color: var(--text-white);
 }
 
-.sidebar-footer {
-  margin-top: auto;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 20px;
-}
-
 /* Main Workspace Header & Content */
 .main-content {
   flex-grow: 1;
@@ -92,8 +67,24 @@
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   padding: 0 24px;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  box-shadow: var(--shadow-sm);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Elements that only appear on mobile (hidden by default, shown in breakpoint below) */
+.mobile-only {
+  display: none;
 }
 
 @media (max-width: 768px) {
@@ -136,6 +127,56 @@
   gap: 8px;
 }
 
+/* Round, stroked (outline) icon buttons with bold icons & no fill */
+.circle-icon-btn {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.circle-icon-btn [data-lucide],
+.circle-icon-btn svg.lucide {
+  width: 19px;
+  height: 19px;
+  margin: 0;
+  stroke-width: 2.25;
+}
+
+.circle-icon-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background-color: var(--primary-gradient-subtle);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.circle-icon-btn:active {
+  transform: translateY(0);
+}
+
+.circle-icon-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 768px) {
+  .circle-icon-btn {
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+  }
+}
+
 .btn-icon-only {
   width: 32px;
   height: 32px;
@@ -155,15 +196,25 @@
 }
 
 .user-profile-badge.icon-only .avatar-circle {
-  width: 32px;
-  height: 32px;
-  font-size: 13px;
+  width: 36px;
+  height: 36px;
+  font-size: 15px;
   cursor: pointer;
   transition: transform 0.15s ease;
 }
 
 .user-profile-badge.icon-only .avatar-circle:hover {
   transform: scale(1.06);
+}
+
+/* Sync status ring around the user avatar circle (green = synced, red = not synced) */
+.avatar-circle.sync-indicator {
+  outline: 3px solid var(--success);
+  outline-offset: 2px;
+}
+
+.avatar-circle.sync-indicator.unsynced {
+  outline-color: var(--danger);
 }
 
 .sync-badge.icon-only {

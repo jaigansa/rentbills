@@ -261,6 +261,7 @@ export async function updateLiveBillCalculation() {
   const { data: lastBills } = await supabaseClient.from('bills')
     .select('curr_eb_reading, curr_water_reading, created_at, bill_date')
     .eq('renter_id', renterId)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false }).limit(1);
 
   let prevEb = tenant.initial_eb || 0;

@@ -168,57 +168,51 @@
 
   <!-- Set / Reset Tenant Password Modal -->
   <div id="modal-tenant-password" class="modal-overlay">
-    <div class="modal-content" style="max-width: 480px;">
+    <div class="modal-content" style="max-width: 460px;">
       <div class="modal-header">
-        <h2><i data-lucide="key-round" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Tenant Portal Login & Password</h2>
+        <h2><i data-lucide="key-round" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Tenant Portal Login</h2>
         <button class="close-btn" onclick="closeModal('modal-tenant-password')" aria-label="Close modal"><i data-lucide="x"></i></button>
       </div>
       <form id="form-tenant-password">
         <input type="hidden" id="tp-renter-id">
         <input type="hidden" id="tp-user-id">
+        <input type="hidden" id="tp-tenant-email">
         <div class="modal-body">
           <div style="background: var(--bg-card-header); padding: 14px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 15px; color: var(--text-main);" id="tp-tenant-name">-</div>
-            <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+            <div style="font-weight: 700; font-size: 15px; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
+              <span style="width: 38px; height: 38px; border-radius: 10px; background: rgba(79, 70, 229, 0.12); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">A</span>
+              <span id="tp-tenant-name">-</span>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <span id="tp-tenant-unit" class="badge badge-secondary" style="font-size: 11px;">-</span>
-              <span>•</span>
+              <span style="opacity: 0.5;">•</span>
               <span id="tp-tenant-mobile" style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">-</span>
             </div>
           </div>
 
           <div class="form-group">
-            <label for="tp-tenant-email">Portal Login Email *</label>
-            <input type="email" id="tp-tenant-email" class="form-control" placeholder="tenant@example.com" required autocomplete="email">
-            <small style="color: var(--text-muted); font-size: 11px;">Tenants can sign in using this email or their 10-digit registered mobile number</small>
-          </div>
-
-          <div class="form-group">
-            <label for="tp-tenant-password">Portal Password *</label>
+            <label for="tp-tenant-password"><i data-lucide="lock" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i> New Password *</label>
             <div style="position: relative; display: flex; align-items: center;">
-              <input type="text" id="tp-tenant-password" class="form-control" placeholder="Mobile Number (e.g. 9876543210) or Tenant@123" minlength="6" required style="padding-right: 42px;" autocomplete="off">
-              <button type="button" onclick="toggleTenantPasswordMask()" title="Show/Hide Password" style="position: absolute; right: 4px; top: 4px; bottom: 4px; border: none; background: transparent; padding: 0 10px; cursor: pointer; font-size: 14px;">👁️</button>
+              <input type="password" id="tp-tenant-password" class="form-control" placeholder="Enter new password" minlength="6" required style="padding-right: 42px;" autocomplete="new-password">
+              <button type="button" onclick="toggleTenantPasswordMask()" title="Show/Hide Password" style="position: absolute; right: 4px; top: 4px; bottom: 4px; border: none; background: transparent; padding: 0 10px; cursor: pointer; font-size: 14px; color: var(--text-muted);"><i data-lucide="eye"></i></button>
             </div>
-            <small style="color: var(--text-muted); font-size: 11px;">Default: Tenant's 10-digit mobile number or minimum 6 characters</small>
-          </div>
-
-          <div class="form-group" style="margin-top: 12px;">
-            <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
-              <input type="checkbox" id="tp-copy-clipboard" checked>
-              <span>Copy login credentials to clipboard on save</span>
-            </label>
+            <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary" onclick="generateRandomPassword()" style="font-size: 11px; padding: 3px 8px;"><i data-lucide="dice-5"></i> Generate Strong</button>
+            </div>
+            <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Minimum 6 characters. The tenant signs in with their registered mobile number using this password.</small>
           </div>
 
           <div id="tp-status-msg" style="display: none; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;"></div>
         </div>
         <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button type="button" class="btn btn-secondary" onclick="closeModal('modal-tenant-password')">Cancel</button>
-            <button type="button" id="tp-btn-toggle-status" class="btn btn-secondary" onclick="triggerToggleTenantLoginStatusFromModal()" style="display: none;"><i data-lucide="shield-off"></i> Deactivate Access</button>
-            <button type="button" id="tp-btn-delete-login" class="btn btn-danger" onclick="triggerDeleteTenantLoginFromModal()" style="display: none;"><i data-lucide="user-x"></i> Delete Account</button>
+            <button type="button" id="tp-toggle-status-btn" class="btn btn-secondary" onclick="triggerToggleTenantLoginStatusFromModal()" style="display: none;"><i data-lucide="shield-off"></i></button>
+            <button type="button" id="tp-delete-btn" class="btn btn-danger" onclick="triggerDeleteTenantLoginFromModal()" style="display: none;"><i data-lucide="user-x"></i></button>
           </div>
-          <div style="display: flex; gap: 8px;">
-            <button type="button" class="btn btn-secondary" onclick="saveAndShareTenantWhatsApp()" style="color: #25d366; border-color: rgba(37, 211, 102, 0.4);"><i data-lucide="message-circle"></i> Save & WhatsApp</button>
-            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save Credentials</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary" onclick="saveAndShareTenantWhatsApp()" style="color: #25d366; border-color: rgba(37, 211, 102, 0.4);"><i data-lucide="message-circle"></i> Share</button>
+            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
           </div>
         </div>
       </form>
@@ -703,7 +697,7 @@
       </div>
       <div class="modal-body">
         <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-          Enter your registered email address and we will send you a secure password reset link.
+          Enter your registered email address and we will send you a secure password reset link. This works for admin &amp; staff accounts. Tenants should contact their property manager to reset their portal password.
         </p>
         <form id="form-forgot-password">
           <div class="form-group">

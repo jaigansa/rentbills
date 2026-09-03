@@ -148,7 +148,7 @@ export function renderTenantLoginsTable(tenants) {
         <div class="dropdown">
           <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
           <div class="dropdown-menu">
-            <button class="dropdown-item" onclick="triggerTenantPasswordModal(${t.renter_id}, '${escapeStr(t.renter_name)}', '${escapeStr(t.email || '')}', '${escapeStr(t.mobile_number || '')}', '${t.user_id || ''}', ${t.has_auth_account}, ${t.is_disabled || false})">
+            <button class="dropdown-item" onclick="triggerTenantPasswordModal(${t.renter_id}, '${escapeStr(t.renter_name)}', '${escapeStr(t.email || '')}', '${escapeStr(t.mobile_number || '')}', '${t.user_id || ''}', ${t.has_auth_account}, ${t.is_disabled || false}, '${escapeStr(t.assigned_password || '')}')">
               <i data-lucide="key-round"></i> ${t.has_auth_account ? 'Reset / Edit Password' : 'Create Login Account'}
             </button>
             <button class="dropdown-item" onclick="shareTenantCredentialsFromRow('${escapeStr(t.renter_name)}', '${escapeStr(t.email || '')}', '${escapeStr(t.mobile_number || '')}')">
@@ -208,7 +208,7 @@ export function filterTenantLoginsTable() {
 /**
  * Opens Set / Reset Tenant Password Modal
  */
-export function triggerTenantPasswordModal(renterId, name, email = '', mobile = '', userId = '', hasAccount = false, isDisabled = false) {
+export function triggerTenantPasswordModal(renterId, name, email = '', mobile = '', userId = '', hasAccount = false, isDisabled = false, assignedPassword = '') {
   const modal = document.getElementById('modal-tenant-password');
   if (!modal) return;
 
@@ -225,12 +225,14 @@ export function triggerTenantPasswordModal(renterId, name, email = '', mobile = 
   setVal('tp-renter-id', renterId);
   setVal('tp-user-id', userId || '');
   setText('tp-tenant-name', name || 'Tenant');
-  const cleanMobile = (mobile || '').replace(/[^0-9]/g, '');
-  const defaultEmail = email || (cleanMobile ? `tenant_${cleanMobile.slice(-10)}@rentbill.local` : (name ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@rentbill.local` : ''));
-  setVal('tp-tenant-email', defaultEmail);
+  setText('tp-tenant-mobile', mobile || '-');
+  setText('tp-tenant-unit', '-');
 
-  const defaultPassword = (cleanMobile && cleanMobile.length >= 6) ? cleanMobile.slice(-10) : 'Tenant@123';
-  setVal('tp-tenant-password', defaultPassword);
+  const cleanMobile = (mobile || '').replace(/[^0-9]/g, '');
+  const tenDigitMobile = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+  const defaultEmail = email || (tenDigitMobile ? `tenant_${tenDigitMobile}@rentbill.local` : (name ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@rentbill.local` : ''));
+  setVal('tp-tenant-email', defaultEmail);
+  setVal('tp-tenant-password', assignedPassword || '');
 
   const titleEl = document.getElementById('tp-modal-title');
   if (titleEl) {
@@ -241,17 +243,34 @@ export function triggerTenantPasswordModal(renterId, name, email = '', mobile = 
   if (statusMsg) statusMsg.style.display = 'none';
 
   const deleteBtn = document.getElementById('tp-delete-btn');
-  if (deleteBtn) deleteBtn.style.display = hasAccount ? 'inline-flex' : 'none';
+  if (deleteBtn) {
+    deleteBtn.style.display = hasAccount ? 'inline-flex' : 'none';
+    deleteBtn.title = 'Delete / Revoke login account';
+    deleteBtn.setAttribute('aria-label', 'Delete / Revoke login account');
+  }
 
   const toggleBtn = document.getElementById('tp-toggle-status-btn');
   if (toggleBtn) {
     toggleBtn.style.display = hasAccount ? 'inline-flex' : 'none';
-    toggleBtn.textContent = isDisabled ? '🔓 Reactivate Access' : '🔒 Suspend Access';
     toggleBtn.setAttribute('data-disabled', isDisabled ? 'true' : 'false');
+    toggleBtn.title = isDisabled ? 'Reactivate Access' : 'Suspend Access';
+    toggleBtn.setAttribute('aria-label', toggleBtn.title);
+    const icon = toggleBtn.querySelector('i[data-lucide]');
+    if (icon) {
+      icon.setAttribute('data-lucide', isDisabled ? 'unlock' : 'lock');
+    }
   }
 
   openModal('modal-tenant-password');
   refreshLucideIcons();
+
+  // If no assigned password provided, fetch from cache asynchronously
+  if (!assignedPassword && renterId) {
+    const cached = tenantLoginsCache.find(t => t.renter_id === renterId);
+    if (cached && cached.assigned_password) {
+      setVal('tp-tenant-password', cached.assigned_password);
+    }
+  }
 }
 
 /**
@@ -373,67 +392,130 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
   const supabaseClient = getSupabaseClient();
   if (!supabaseClient) throw new Error('Supabase client is not connected.');
 
-  email = (email || '').trim().toLowerCase();
   password = (password || '').trim();
-
-  if (!email || !email.includes('@')) {
-    throw new Error('A valid email address is required for tenant login.');
-  }
-
   if (password.length < 6) {
     throw new Error('Password must be at least 6 characters long.');
   }
 
+  const cleanMobileDigits = (mobile || '').replace(/[^0-9]/g, '');
+  const tenDigitMobile = cleanMobileDigits.length >= 10 ? cleanMobileDigits.slice(-10) : cleanMobileDigits;
+
+  // Strictly use phone-number-based email as login identifier
+  if (!tenDigitMobile || tenDigitMobile.length < 10) {
+    throw new Error('A valid 10-digit phone number is required for tenant login.');
+  }
+
+  const loginEmail = `tenant_${tenDigitMobile}@rentbill.local`;
+  const username = name || tenDigitMobile;
+  const parsedRenterId = renterId ? parseInt(renterId) : null;
+
   let createdUserId = null;
+  let passwordUpdated = false;
 
-  try {
-    const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('admin_create_tenant_user', {
-      p_email: email,
-      p_password: password,
-      p_username: name || email.split('@')[0],
-      p_renter_id: renterId ? parseInt(renterId) : null
-    });
-
-    if (!rpcErr && rpcRes && rpcRes.user_id) {
-      createdUserId = rpcRes.user_id;
-    } else {
-      console.warn('RPC admin_create_tenant_user notice, falling back to standard auth:', rpcErr?.message);
-      
-      const { data: authData, error: authErr } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role: 'TENANT',
-            username: name || email.split('@')[0],
-            renter_id: renterId
-          }
-        }
+  // Tier 0: Direct admin_update_tenant_user_password RPC by renter_id
+  if (parsedRenterId) {
+    try {
+      const { data: updateRes, error: updateErr } = await supabaseClient.rpc('admin_update_tenant_user_password', {
+        p_renter_id: parsedRenterId,
+        p_new_password: password,
+        p_email: loginEmail
       });
 
-      if (authErr && !authErr.message.includes('already registered')) {
-        throw authErr;
+      if (!updateErr && updateRes && updateRes.success && updateRes.user_id) {
+        createdUserId = updateRes.user_id;
+        passwordUpdated = true;
       }
+    } catch (e) {}
+  }
 
-      if (authData?.user) {
-        createdUserId = authData.user.id;
+  // Tier 1: Try 5-parameter admin_create_tenant_user RPC
+  if (!passwordUpdated) {
+    try {
+      const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('admin_create_tenant_user', {
+        p_email: loginEmail,
+        p_password: password,
+        p_username: username,
+        p_renter_id: parsedRenterId,
+        p_mobile: tenDigitMobile || null
+      });
+
+      if (!rpcErr && rpcRes && rpcRes.user_id) {
+        createdUserId = rpcRes.user_id;
+        passwordUpdated = true;
       }
+    } catch (e) {}
+  }
+
+  // Tier 2: Try 4-parameter admin_create_tenant_user RPC (backwards compatibility)
+  if (!passwordUpdated) {
+    try {
+      const { data: rpcRes2, error: rpcErr2 } = await supabaseClient.rpc('admin_create_tenant_user', {
+        p_email: loginEmail,
+        p_password: password,
+        p_username: username,
+        p_renter_id: parsedRenterId
+      });
+
+      if (!rpcErr2 && rpcRes2 && rpcRes2.user_id) {
+        createdUserId = rpcRes2.user_id;
+        passwordUpdated = true;
+      }
+    } catch (e) {}
+  }
+
+  // Tier 3: Try admin_reset_tenant_password RPC if renter has an existing user_id
+  if (!passwordUpdated && parsedRenterId) {
+    try {
+      const { data: renter } = await supabaseClient.from('renters').select('user_id').eq('id', parsedRenterId).single();
+      if (renter && renter.user_id) {
+        const { error: resetErr } = await supabaseClient.rpc('admin_reset_tenant_password', {
+          p_user_id: renter.user_id,
+          p_new_password: password
+        });
+        if (!resetErr) {
+          createdUserId = renter.user_id;
+          passwordUpdated = true;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // Tier 4: Fallback to standard auth.signUp if user does NOT exist yet
+  if (!passwordUpdated) {
+    const { data: authData, error: authErr } = await supabaseClient.auth.signUp({
+      email: loginEmail,
+      password,
+      options: {
+        data: {
+          role: 'TENANT',
+          username,
+          mobile: tenDigitMobile || null,
+          renter_id: parsedRenterId
+        }
+      }
+    });
+
+    if (!authErr && authData?.user) {
+      createdUserId = authData.user.id;
+      passwordUpdated = true;
+    } else if (authErr && authErr.message.includes('already registered')) {
+      throw new Error(`The login account "${loginEmail}" already exists. Run sql/13_robust_update.sql in Supabase SQL Editor to enable password updates.`);
+    } else if (authErr) {
+      throw authErr;
     }
-  } catch (creationErr) {
-    throw new Error(`Failed to create tenant login: ${creationErr.message}`);
   }
 
   if (createdUserId) {
     try {
       if (renterId) {
-        await supabaseClient.from('renters').update({ user_id: createdUserId, email }).eq('id', parseInt(renterId));
-      } else if (email) {
-        await supabaseClient.from('renters').update({ user_id: createdUserId }).ilike('email', email);
+        await supabaseClient.from('renters').update({ user_id: createdUserId, email: loginEmail }).eq('id', parseInt(renterId));
+      } else if (loginEmail) {
+        await supabaseClient.from('renters').update({ user_id: createdUserId }).ilike('email', loginEmail);
       }
       await supabaseClient.from('profiles').upsert([{
         id: createdUserId,
-        email,
-        username: name || email.split('@')[0],
+        email: loginEmail,
+        username: username,
         role: 'TENANT',
         is_disabled: false
       }]);
@@ -442,7 +524,7 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
     }
   }
 
-  return { success: true, user_id: createdUserId, email };
+  return { success: true, user_id: createdUserId, email: loginEmail };
 }
 
 /**
@@ -467,10 +549,11 @@ export async function submitTenantPasswordForm(e) {
   }
 
   try {
-    await saveTenantCredentials(renterId, email, password, name, mobile);
+    const result = await saveTenantCredentials(renterId, email, password, name, mobile);
+    const loginEmail = result.email || email;
 
     if (copyCheck) {
-      copyTenantCredentials(name, email, mobile, password);
+      copyTenantCredentials(name, loginEmail, mobile, password);
     }
 
     if (statusMsg) {
@@ -504,8 +587,9 @@ export async function saveAndShareTenantWhatsApp() {
   const mobile = document.getElementById('tp-tenant-mobile').textContent;
 
   try {
-    await saveTenantCredentials(renterId, email, password, name, mobile);
-    shareTenantCredentialsWhatsApp(name, email, mobile, password);
+    const result = await saveTenantCredentials(renterId, email, password, name, mobile);
+    const loginEmail = result.email || email;
+    shareTenantCredentialsWhatsApp(name, loginEmail, mobile, password);
     closeModal('modal-tenant-password');
     loadTenantLoginsSettings();
   } catch (err) {
@@ -527,16 +611,11 @@ export function copyTenantCredentials(name, email, mobile, password = '') {
   let text = `🏠 *RentBill Pro — Resident Tenant Portal*\n`;
   text += `Hello ${name || 'Resident'},\n\nHere are your tenant portal login credentials:\n`;
   text += `🔗 *Portal Link:* ${portalUrl}\n`;
-  text += `👤 *Username / Email:* ${email || mobile}\n`;
-  if (mobile && email) {
-    text += `📱 *Mobile Number:* ${mobile}\n`;
-  }
+  text += `📱 *Login Phone:* ${mobile || email}\n`;
   if (password) {
     text += `🔑 *Password:* ${password}\n\n`;
-  } else {
-    text += `🔑 *Password:* (Use your existing password)\n\n`;
   }
-  text += `You can log in to view your lease agreement, monthly bills, electricity/water meter readings, and submit payment proofs online.`;
+  text += `Use your phone number and the password set by the property manager to log in.`;
 
   navigator.clipboard.writeText(text).then(() => {
     alert('✓ Tenant login credentials copied to clipboard!');
@@ -546,7 +625,8 @@ export function copyTenantCredentials(name, email, mobile, password = '') {
 }
 
 export function copyTenantCredentialsFromRow(name, email, mobile) {
-  copyTenantCredentials(name, email, mobile, '');
+  const cached = tenantLoginsCache.find(t => (t.email || '').toLowerCase() === (email || '').toLowerCase() && !t.deleted_at);
+  copyTenantCredentials(name, email, mobile, cached?.assigned_password || '');
 }
 
 /**
@@ -565,13 +645,11 @@ export function shareTenantCredentialsWhatsApp(name, email, mobile, password = '
   let msg = `🏠 *RentBill Pro — Resident Tenant Portal*\n`;
   msg += `Hello ${name || 'Resident'},\n\nHere are your tenant portal login credentials:\n`;
   msg += `🔗 *Portal Link:* ${portalUrl}\n`;
-  msg += `👤 *Username / Email:* ${email || mobile}\n`;
+  msg += `📱 *Login Phone:* ${mobile || email}\n`;
   if (password) {
     msg += `🔑 *Password:* ${password}\n\n`;
-  } else {
-    msg += `🔑 *Password:* (Use your existing password)\n\n`;
   }
-  msg += `Log in to view your lease agreement, monthly bills, and submit payment proofs online.`;
+  msg += `Use your phone number and the password set by the property manager to log in.`;
 
   const waUrl = cleanMobile ? 
     `https://wa.me/${cleanMobile}?text=${encodeURIComponent(msg)}` : 
@@ -581,13 +659,21 @@ export function shareTenantCredentialsWhatsApp(name, email, mobile, password = '
 }
 
 export function shareTenantCredentialsFromRow(name, email, mobile) {
-  shareTenantCredentialsWhatsApp(name, email, mobile, '');
+  const cached = tenantLoginsCache.find(t => (t.email || '').toLowerCase() === (email || '').toLowerCase() && !t.deleted_at);
+  shareTenantCredentialsWhatsApp(name, email, mobile, cached?.assigned_password || '');
 }
 
 export function toggleTenantPasswordMask() {
   const pwInput = document.getElementById('tp-tenant-password');
   if (!pwInput) return;
-  pwInput.type = pwInput.type === 'password' ? 'text' : 'password';
+  const isHidden = pwInput.type === 'password';
+  pwInput.type = isHidden ? 'text' : 'password';
+  const btn = pwInput.closest('div')?.querySelector('button');
+  if (btn) {
+    const icon = btn.querySelector('i[data-lucide]');
+    if (icon) icon.setAttribute('data-lucide', isHidden ? 'eye-off' : 'eye');
+    refreshLucideIcons();
+  }
 }
 
 export function toggleTenantModalPasswordMask() {
@@ -606,4 +692,26 @@ export function toggleLoginPasswordMask() {
     eyeIcon.setAttribute('data-lucide', isHidden ? 'eye-off' : 'eye');
     refreshLucideIcons();
   }
+}
+
+export function fillMobilePassword() {
+  const mobileText = document.getElementById('tp-tenant-mobile')?.textContent || '';
+  const cleanMobile = mobileText.replace(/[^0-9]/g, '');
+  const tenDigit = cleanMobile.length >= 10 ? cleanMobile.slice(-10) : cleanMobile;
+  if (tenDigit && tenDigit.length >= 6) {
+    const pwInput = document.getElementById('tp-tenant-password');
+    if (pwInput) pwInput.value = tenDigit;
+  } else {
+    alert('Mobile number must have at least 6 digits.');
+  }
+}
+
+export function generateRandomPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789#@!';
+  let randPw = 'Rent#';
+  for (let i = 0; i < 5; i++) {
+    randPw += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const pwInput = document.getElementById('tp-tenant-password');
+  if (pwInput) pwInput.value = randPw;
 }

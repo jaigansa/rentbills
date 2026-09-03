@@ -1,0 +1,57 @@
+<!-- 5. MAINTENANCE PAGE -->
+<section id="page-maintenance" class="page-section">
+  <div class="page-header">
+    <h1>Maintenance & Repairs</h1>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <button class="btn btn-secondary admin-only" onclick="exportMaintenanceCSV()"><i data-lucide="download"></i> Export CSV</button>
+      <button class="btn btn-primary" onclick="openModal('modal-add-maintenance')"><i data-lucide="plus-circle"></i> New Repair Request</button>
+    </div>
+  </div>
+
+  <!-- Filter & Search Toolbar -->
+  <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;" id="maint-filter-toolbar">
+    <div style="flex: 1; min-width: 220px;">
+      <input type="text" id="maint-search-input" class="form-control" placeholder="Search task, tenant name, unit, or technician..." onkeyup="filterMaintenanceTable()" autocomplete="off">
+    </div>
+    <div style="width: 160px;">
+      <select id="maint-filter-status" class="form-control" onchange="filterMaintenanceTable()">
+        <option value="ALL">All Statuses</option>
+        <option value="PENDING">⏳ Pending</option>
+        <option value="IN_PROGRESS">⚙️ In Progress</option>
+        <option value="COMPLETED">✅ Completed</option>
+        <option value="CANCELLED">❌ Cancelled</option>
+      </select>
+    </div>
+    <div style="width: 160px;">
+      <select id="maint-filter-category" class="form-control" onchange="filterMaintenanceTable()">
+        <option value="ALL">All Categories</option>
+        <option value="PLUMBING">🔧 Plumbing</option>
+        <option value="ELECTRICAL">⚡ Electrical</option>
+        <option value="APPLIANCE">🔌 Appliance</option>
+        <option value="CLEANING">🧹 Cleaning</option>
+        <option value="PAINTING">🎨 Painting</option>
+        <option value="CARPENTRY">🪚 Carpentry</option>
+        <option value="GENERAL">🏢 General</option>
+        <option value="OTHER">❓ Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="table-container table-responsive-cards">
+    <table>
+      <thead>
+        <tr>
+          <th>Task Subject & Category</th>
+          <th>Property / Unit & Resident</th>
+          <th>Priority & Status</th>
+          <th>Assigned Tech / Scheduled</th>
+          <th>Est. / Actual Cost</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="table-body-maintenance">
+        <!-- Loaded dynamically -->
+      </tbody>
+    </table>
+  </div>
+</section>

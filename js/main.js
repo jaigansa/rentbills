@@ -18,8 +18,9 @@ import { initTheme, applyThemeMode, toggleTheme, setTheme } from './core/theme.j
 import { loadTranslations, applyTranslations, toggleLanguage } from './core/i18n.js';
 import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask, openForgotPasswordModal } from './modules/auth.js';
 import {
-  openMobileDrawer,
-  closeMobileDrawer,
+  openMobileMenu,
+  closeMobileMenu,
+  toggleMobileMenu,
   setupNavigation,
   switchPropertiesSubTab,
   handleMobileFabClick,
@@ -115,7 +116,9 @@ import {
   triggerDeleteTenantLogin,
   triggerDeleteTenantLoginFromModal,
   triggerToggleTenantLoginStatus,
-  triggerToggleTenantLoginStatusFromModal
+  triggerToggleTenantLoginStatusFromModal,
+  fillMobilePassword,
+  generateRandomPassword
 } from './modules/tenantAuth.js';
 
 // Register public handlers to window for HTML inline event listeners
@@ -163,8 +166,9 @@ window.sendOverdueReminderWhatsApp = sendOverdueReminderWhatsApp;
 window.triggerSeedSampleData = triggerSeedSampleData;
 window.openAddDocumentModal = openAddDocumentModal;
 window.populateDocEntitySelect = populateDocEntitySelect;
-window.openMobileDrawer = openMobileDrawer;
-window.closeMobileDrawer = closeMobileDrawer;
+window.openMobileMenu = openMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
+window.toggleMobileMenu = toggleMobileMenu;
 window.toggleTheme = toggleTheme;
 window.setTheme = setTheme;
 window.switchPropertiesSubTab = switchPropertiesSubTab;
@@ -199,6 +203,8 @@ window.triggerDeleteTenantLogin = triggerDeleteTenantLogin;
 window.triggerDeleteTenantLoginFromModal = triggerDeleteTenantLoginFromModal;
 window.triggerToggleTenantLoginStatus = triggerToggleTenantLoginStatus;
 window.triggerToggleTenantLoginStatusFromModal = triggerToggleTenantLoginStatusFromModal;
+window.fillMobilePassword = fillMobilePassword;
+window.generateRandomPassword = generateRandomPassword;
 window.triggerApprovePaymentProof = triggerApprovePaymentProof;
 window.triggerRejectPaymentProof = triggerRejectPaymentProof;
 window.viewPaymentProofImage = viewPaymentProofImage;
@@ -234,6 +240,22 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Sync status indicator on the user avatar (green ring = synced, red ring = offline)
+function updateSyncIndicator() {
+  const avatar = document.getElementById('user-avatar-text');
+  if (!avatar) return;
+  if (navigator.onLine) {
+    avatar.classList.remove('unsynced');
+    avatar.classList.add('synced');
+  } else {
+    avatar.classList.remove('synced');
+    avatar.classList.add('unsynced');
+  }
+}
+
+window.addEventListener('online', updateSyncIndicator);
+window.addEventListener('offline', updateSyncIndicator);
+
 // Bootstrap Lifecycle Execution
 document.addEventListener('DOMContentLoaded', async () => {
   // Asynchronously mount all modular layout templates
@@ -242,6 +264,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   setupNavigation();
   setupFormSubmitHandlers();
+
+  updateSyncIndicator();
 
   if (!initSupabaseClient()) {
     showSetupConfigModal();

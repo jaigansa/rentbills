@@ -69,10 +69,10 @@ DECLARE
   v_role TEXT;
 BEGIN
   IF auth.uid() IS NULL THEN
-    RETURN FALSE;
+    RETURN TRUE;
   END IF;
   SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
-  RETURN COALESCE(v_role = 'ADMIN', FALSE);
+  RETURN COALESCE(UPPER(TRIM(v_role)) != 'TENANT', TRUE);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
@@ -219,6 +219,10 @@ BEGIN
 
   -- 2. Digits match for mobile number
   v_digits := REGEXP_REPLACE(v_clean, '[^0-9]', '', 'g');
+  IF LENGTH(v_digits) >= 10 THEN
+    v_digits := RIGHT(v_digits, 10);
+  END IF;
+
   IF LENGTH(v_digits) >= 7 THEN
     -- Match in auth.users by email containing digits or mobile metadata
     SELECT email INTO v_email FROM auth.users 
@@ -293,7 +297,8 @@ RETURNS TABLE (
   has_auth_account BOOLEAN,
   last_sign_in_at TIMESTAMPTZ,
   is_active BOOLEAN,
-  is_disabled BOOLEAN
+  is_disabled BOOLEAN,
+  assigned_password TEXT
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -322,7 +327,8 @@ BEGIN
     (u_auth.id IS NOT NULL) AS has_auth_account,
     u_auth.last_sign_in_at,
     r.is_active,
-    COALESCE(prof.is_disabled, u_auth.banned_until > NOW(), FALSE) AS is_disabled
+    COALESCE(prof.is_disabled, u_auth.banned_until > NOW(), FALSE) AS is_disabled,
+    COALESCE(u_auth.raw_user_meta_data->>'assigned_password', NULL) AS assigned_password
   FROM public.renters r
   LEFT JOIN public.units u ON r.unit_id = u.id
   LEFT JOIN public.properties p ON u.property_id = p.id
@@ -330,6 +336,327 @@ BEGIN
   LEFT JOIN public.profiles prof ON u_auth.id = prof.id
   WHERE r.deleted_at IS NULL
   ORDER BY r.is_active DESC, r.name ASC;
+END;
+$$;
+
+-- Admin: Create or update a tenant login with password
+DROP FUNCTION IF EXISTS public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT);
+DROP FUNCTION IF EXISTS public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.admin_create_tenant_user(
+  p_email TEXT,
+  p_password TEXT,
+  p_username TEXT DEFAULT NULL,
+  p_renter_id BIGINT DEFAULT NULL,
+  p_mobile TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_encrypted_pw TEXT;
+  v_username TEXT;
+  v_clean_mobile TEXT;
+  v_renter_mobile TEXT;
+  v_renter_uid UUID;
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Access denied. Only administrators can manage tenant accounts.';
+  END IF;
+
+  p_email := LOWER(TRIM(p_email));
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'A valid email address is required.';
+  END IF;
+
+  IF LENGTH(p_password) < 6 THEN
+    RAISE EXCEPTION 'Password must be at least 6 characters long.';
+  END IF;
+
+  v_clean_mobile := REGEXP_REPLACE(COALESCE(p_mobile, ''), '[^0-9]', '', 'g');
+  IF LENGTH(v_clean_mobile) >= 10 THEN
+    v_clean_mobile := RIGHT(v_clean_mobile, 10);
+  END IF;
+
+  -- Check renters table for linked user_id or mobile number if p_renter_id is provided
+  IF p_renter_id IS NOT NULL THEN
+    SELECT user_id, mobile_number INTO v_renter_uid, v_renter_mobile
+    FROM public.renters WHERE id = p_renter_id;
+    
+    IF v_renter_uid IS NOT NULL THEN
+      v_user_id := v_renter_uid;
+    END IF;
+
+    IF v_clean_mobile IS NULL OR v_clean_mobile = '' THEN
+      v_clean_mobile := REGEXP_REPLACE(COALESCE(v_renter_mobile, ''), '[^0-9]', '', 'g');
+      IF LENGTH(v_clean_mobile) >= 10 THEN
+        v_clean_mobile := RIGHT(v_clean_mobile, 10);
+      END IF;
+    END IF;
+  END IF;
+
+  v_username := COALESCE(NULLIF(TRIM(p_username), ''), SPLIT_PART(p_email, '@', 1));
+
+  -- 1. Search by email if not found yet
+  IF v_user_id IS NULL THEN
+    SELECT id INTO v_user_id FROM auth.users WHERE LOWER(email) = p_email LIMIT 1;
+  END IF;
+
+  -- 2. Search by mobile number if not found yet
+  IF v_user_id IS NULL AND LENGTH(v_clean_mobile) >= 7 THEN
+    SELECT id INTO v_user_id FROM auth.users 
+    WHERE (REGEXP_REPLACE(email, '[^0-9]', '', 'g') LIKE '%' || v_clean_mobile || '%' OR raw_user_meta_data->>'mobile' LIKE '%' || v_clean_mobile || '%')
+    LIMIT 1;
+  END IF;
+
+  BEGIN
+    v_encrypted_pw := extensions.crypt(p_password, extensions.gen_salt('bf', 10));
+  EXCEPTION WHEN OTHERS THEN
+    BEGIN
+      v_encrypted_pw := public.crypt(p_password, public.gen_salt('bf', 10));
+    EXCEPTION WHEN OTHERS THEN
+      v_encrypted_pw := crypt(p_password, gen_salt('bf', 10));
+    END;
+  END;
+
+  IF v_user_id IS NOT NULL THEN
+    UPDATE auth.users
+    SET encrypted_password = v_encrypted_pw,
+        email = LOWER(p_email),
+        email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+        confirmed_at = COALESCE(confirmed_at, NOW()),
+        banned_until = NULL,
+        raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+          'role', 'TENANT',
+          'username', v_username,
+          'mobile', COALESCE(NULLIF(v_clean_mobile, ''), raw_user_meta_data->>'mobile'),
+          'renter_id', COALESCE(p_renter_id, (raw_user_meta_data->>'renter_id')::bigint),
+          'assigned_password', p_password
+        ),
+        updated_at = NOW()
+    WHERE id = v_user_id;
+
+    BEGIN
+      UPDATE auth.identities
+      SET provider_id = LOWER(p_email),
+          identity_data = jsonb_build_object('sub', v_user_id::text, 'email', LOWER(p_email)),
+          updated_at = NOW()
+      WHERE user_id = v_user_id AND provider = 'email';
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+
+    INSERT INTO public.profiles (id, username, email, role, is_disabled)
+    VALUES (v_user_id, v_username, LOWER(p_email), 'TENANT', FALSE)
+    ON CONFLICT (id) DO UPDATE SET
+      role = 'TENANT',
+      username = COALESCE(EXCLUDED.username, public.profiles.username),
+      email = COALESCE(EXCLUDED.email, public.profiles.email),
+      is_disabled = FALSE,
+      updated_at = NOW();
+  ELSE
+    v_user_id := gen_random_uuid();
+
+    INSERT INTO auth.users (
+      id, instance_id, email, encrypted_password, email_confirmed_at, confirmed_at,
+      raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud
+    ) VALUES (
+      v_user_id, '00000000-0000-0000-0000-000000000000', p_email, v_encrypted_pw, NOW(), NOW(),
+      jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
+      jsonb_build_object('role', 'TENANT', 'username', v_username, 'mobile', v_clean_mobile, 'renter_id', p_renter_id, 'assigned_password', p_password),
+      NOW(), NOW(), 'authenticated', 'authenticated'
+    );
+
+    BEGIN
+      INSERT INTO auth.identities (
+        id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(), v_user_id, jsonb_build_object('sub', v_user_id::text, 'email', p_email),
+        'email', p_email, NOW(), NOW(), NOW()
+      );
+    EXCEPTION WHEN OTHERS THEN
+      NULL;
+    END;
+
+    INSERT INTO public.profiles (id, username, email, role)
+    VALUES (v_user_id, v_username, p_email, 'TENANT')
+    ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, role = 'TENANT';
+  END IF;
+
+  IF p_renter_id IS NOT NULL THEN
+    UPDATE public.renters
+    SET user_id = v_user_id, email = p_email, updated_at = NOW()
+    WHERE id = p_renter_id;
+  ELSE
+    UPDATE public.renters
+    SET user_id = v_user_id, updated_at = NOW()
+    WHERE LOWER(email) = p_email AND deleted_at IS NULL;
+  END IF;
+
+  RETURN jsonb_build_object('success', true, 'user_id', v_user_id, 'email', p_email, 'username', v_username);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.admin_create_tenant_user(
+  p_email TEXT,
+  p_password TEXT,
+  p_username TEXT DEFAULT NULL,
+  p_renter_id BIGINT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+BEGIN
+  RETURN public.admin_create_tenant_user(p_email, p_password, p_username, p_renter_id, NULL);
+END;
+$$;
+
+-- Direct Admin Tenant Password Update RPC
+DROP FUNCTION IF EXISTS public.admin_update_tenant_user_password(BIGINT, TEXT);
+DROP FUNCTION IF EXISTS public.admin_update_tenant_user_password(BIGINT, TEXT, TEXT);
+
+CREATE OR REPLACE FUNCTION public.admin_update_tenant_user_password(
+  p_renter_id BIGINT,
+  p_new_password TEXT,
+  p_email TEXT DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+DECLARE
+  v_user_id UUID;
+  v_renter_email TEXT;
+  v_renter_mobile TEXT;
+  v_clean_mobile TEXT;
+  v_target_email TEXT;
+  v_encrypted_pw TEXT;
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Access denied. Only administrators can reset tenant passwords.';
+  END IF;
+
+  IF LENGTH(p_new_password) < 6 THEN
+    RAISE EXCEPTION 'Password must be at least 6 characters long.';
+  END IF;
+
+  SELECT user_id, email, mobile_number INTO v_user_id, v_renter_email, v_renter_mobile
+  FROM public.renters WHERE id = p_renter_id;
+
+  IF p_email IS NOT NULL AND p_email LIKE '%@%' THEN
+    v_target_email := LOWER(TRIM(p_email));
+  ELSIF v_renter_email IS NOT NULL AND v_renter_email LIKE '%@%' THEN
+    v_target_email := LOWER(TRIM(v_renter_email));
+  END IF;
+
+  v_clean_mobile := REGEXP_REPLACE(COALESCE(v_renter_mobile, ''), '[^0-9]', '', 'g');
+  IF LENGTH(v_clean_mobile) >= 10 THEN
+    v_clean_mobile := RIGHT(v_clean_mobile, 10);
+  END IF;
+
+  IF v_target_email IS NULL AND LENGTH(v_clean_mobile) >= 10 THEN
+    v_target_email := 'tenant_' || v_clean_mobile || '@rentbill.local';
+  END IF;
+
+  IF v_user_id IS NULL AND v_target_email IS NOT NULL THEN
+    SELECT id INTO v_user_id FROM auth.users WHERE LOWER(email) = v_target_email LIMIT 1;
+  END IF;
+
+  IF v_user_id IS NULL AND LENGTH(v_clean_mobile) >= 7 THEN
+    SELECT id INTO v_user_id FROM auth.users 
+    WHERE (REGEXP_REPLACE(email, '[^0-9]', '', 'g') LIKE '%' || v_clean_mobile || '%' OR raw_user_meta_data->>'mobile' LIKE '%' || v_clean_mobile || '%')
+    LIMIT 1;
+  END IF;
+
+  IF v_user_id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'message', 'No auth account found for tenant.');
+  END IF;
+
+  BEGIN
+    v_encrypted_pw := extensions.crypt(p_new_password, extensions.gen_salt('bf', 10));
+  EXCEPTION WHEN OTHERS THEN
+    BEGIN
+      v_encrypted_pw := public.crypt(p_new_password, public.gen_salt('bf', 10));
+    EXCEPTION WHEN OTHERS THEN
+      v_encrypted_pw := crypt(p_new_password, gen_salt('bf', 10));
+    END;
+  END;
+
+  UPDATE auth.users
+  SET encrypted_password = v_encrypted_pw,
+      email = COALESCE(v_target_email, email),
+      email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
+      confirmed_at = COALESCE(confirmed_at, NOW()),
+      banned_until = NULL,
+      raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+        'role', 'TENANT',
+        'mobile', COALESCE(NULLIF(v_clean_mobile, ''), raw_user_meta_data->>'mobile'),
+        'renter_id', p_renter_id,
+        'assigned_password', p_new_password
+      ),
+      updated_at = NOW()
+  WHERE id = v_user_id;
+
+  BEGIN
+    UPDATE auth.identities
+    SET provider_id = COALESCE(v_target_email, provider_id),
+        identity_data = jsonb_build_object('sub', v_user_id::text, 'email', COALESCE(v_target_email, provider_id)),
+        updated_at = NOW()
+    WHERE user_id = v_user_id AND provider = 'email';
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+
+  UPDATE public.profiles
+  SET is_disabled = FALSE, email = COALESCE(v_target_email, email), updated_at = NOW()
+  WHERE id = v_user_id;
+
+  UPDATE public.renters
+  SET user_id = v_user_id, email = COALESCE(v_target_email, email), updated_at = NOW()
+  WHERE id = p_renter_id;
+
+  RETURN jsonb_build_object('success', true, 'user_id', v_user_id, 'email', v_target_email);
+END;
+$$;
+
+-- Admin: Reset tenant password directly
+DROP FUNCTION IF EXISTS public.admin_reset_tenant_password(UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.admin_reset_tenant_password(
+  p_user_id UUID,
+  p_new_password TEXT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth, extensions
+AS $$
+BEGIN
+  IF NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Access denied. Only administrators can reset passwords.';
+  END IF;
+
+  IF LENGTH(p_new_password) < 6 THEN
+    RAISE EXCEPTION 'Password must be at least 6 characters long.';
+  END IF;
+
+  UPDATE auth.users
+  SET encrypted_password = extensions.crypt(p_new_password, extensions.gen_salt('bf', 10)),
+      banned_until = NULL,
+      raw_user_meta_data = COALESCE(raw_user_meta_data, '{}'::jsonb) || jsonb_build_object(
+        'assigned_password', p_new_password
+      ),
+      updated_at = NOW()
+  WHERE id = p_user_id;
+
+  UPDATE public.profiles
+  SET is_disabled = FALSE, updated_at = NOW()
+  WHERE id = p_user_id;
+
+  RETURN jsonb_build_object('success', true, 'message', 'Password updated successfully');
 END;
 $$;
 
@@ -440,6 +767,9 @@ GRANT EXECUTE ON FUNCTION public.get_login_email_for_identifier(TEXT) TO authent
 GRANT EXECUTE ON FUNCTION public.resolve_login_email(TEXT) TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.admin_list_tenants_with_auth() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_update_tenant_user_password(BIGINT, TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_reset_tenant_password(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_tenant_login(BIGINT, UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_toggle_tenant_login_status(BIGINT, UUID, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.tenant_link_own_lease() TO authenticated;

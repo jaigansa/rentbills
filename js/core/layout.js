@@ -6,7 +6,6 @@
 export async function loadLayout() {
   const replaceMounts = [
     { id: 'auth-mount', url: 'layout/auth.html' },
-    { id: 'sidebar-mount', url: 'layout/sidebar.html' },
     { id: 'mobile-nav-mount', url: 'layout/mobile-nav.html' },
     { id: 'header-mount', url: 'layout/header.html' },
     { id: 'modals-mount', url: 'layout/modals.html' }

@@ -79,23 +79,30 @@ export function setupFormSubmitHandlers() {
       // If user typed a mobile number or name without '@'
       if (!emailToLogin.includes('@')) {
         const cleanDigits = identifierInput.replace(/[^0-9]/g, '');
+        const tenDigitMobile = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
         const cleanName = identifierInput.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-        // 1. Try public RPC lookup if available (support both function names)
-        try {
-          const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: identifierInput });
-          if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
-            emailToLogin = rpcEmail.toLowerCase();
-          }
-        } catch (e) {}
+        // 1. Try public RPC lookup with both raw identifier and 10-digit mobile
+        const lookupTerms = [identifierInput];
+        if (tenDigitMobile && tenDigitMobile !== identifierInput) lookupTerms.push(tenDigitMobile);
 
-        if (!emailToLogin.includes('@')) {
+        for (const term of lookupTerms) {
+          if (emailToLogin.includes('@')) break;
           try {
-            const { data: rpcEmail } = await client.rpc('get_login_email_for_identifier', { p_identifier: identifierInput });
+            const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: term });
             if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
               emailToLogin = rpcEmail.toLowerCase();
             }
           } catch (e) {}
+
+          if (!emailToLogin.includes('@')) {
+            try {
+              const { data: rpcEmail } = await client.rpc('get_login_email_for_identifier', { p_identifier: term });
+              if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
+                emailToLogin = rpcEmail.toLowerCase();
+              }
+            } catch (e) {}
+          }
         }
 
         // 2. Try looking up in profiles or renters
@@ -111,8 +118,8 @@ export function setupFormSubmitHandlers() {
         if (!emailToLogin.includes('@')) {
           try {
             let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
-            if (cleanDigits.length >= 7) {
-              query = query.or(`mobile_number.ilike."%${cleanDigits.slice(-10)}%",email.ilike."%${cleanDigits.slice(-10)}%"`);
+            if (tenDigitMobile.length >= 7) {
+              query = query.or(`mobile_number.ilike."%${tenDigitMobile}%",email.ilike."%${tenDigitMobile}%"`);
             } else {
               query = query.ilike('name', `%${identifierInput}%`);
             }
@@ -128,8 +135,8 @@ export function setupFormSubmitHandlers() {
 
         // 3. Fallback pattern for username / mobile
         if (!emailToLogin.includes('@')) {
-          if (cleanDigits.length >= 10) {
-            emailToLogin = `tenant_${cleanDigits.slice(-10)}@rentbill.local`;
+          if (tenDigitMobile.length >= 10) {
+            emailToLogin = `tenant_${tenDigitMobile}@rentbill.local`;
           } else if (cleanName) {
             emailToLogin = `${cleanName}@rentbill.local`;
           } else {
@@ -307,7 +314,8 @@ export function setupFormSubmitHandlers() {
         
         let tenantPassword = (document.getElementById('tenant-password')?.value || '').trim();
         if (!tenantPassword || tenantPassword.length < 6) {
-          tenantPassword = (cleanMobileDigits && cleanMobileDigits.length >= 6) ? cleanMobileDigits.slice(-10) : 'Tenant@123';
+          const tenDigitMobile = cleanMobileDigits.length >= 10 ? cleanMobileDigits.slice(-10) : cleanMobileDigits;
+          tenantPassword = (tenDigitMobile && tenDigitMobile.length >= 6) ? tenDigitMobile : 'Tenant@123';
         }
 
         try {
@@ -361,7 +369,7 @@ export function setupFormSubmitHandlers() {
       if (!tenant) { alert('Tenant not found'); return; }
 
       const { data: lastBills } = await client.from('bills')
-        .select('*').eq('renter_id', renter_id).order('created_at', { ascending: false }).limit(1);
+        .select('*').eq('renter_id', renter_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1);
 
       let prev_eb = tenant.initial_eb || 0;
       let prev_water = tenant.initial_water || 0;
@@ -842,6 +850,16 @@ export function setupFormSubmitHandlers() {
             email = matchedRenters[0].email.toLowerCase();
           }
         } catch (e) {}
+      }
+
+      // Tenant accounts (phone-generated emails) cannot receive reset links.
+      // Route them to contact the property manager for a password reset instead.
+      if (/@rentbill\.local$/i.test(email)) {
+        if (errorDiv) {
+          errorDiv.textContent = 'Tenant accounts use phone-number logins managed by the property manager. Please contact your property manager to reset your password.';
+          errorDiv.style.display = 'flex';
+        }
+        return;
       }
 
       if (submitBtn) {

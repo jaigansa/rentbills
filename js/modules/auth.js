@@ -90,12 +90,26 @@ export async function checkAuth(passedSession = null) {
 
         try {
           const safeEmail = (session.user.email || '').replace(/"/g, '').toLowerCase().trim();
-          const cleanDigits = safeEmail.replace(/[^0-9]/g, '');
+          const metaRenterId = session.user.user_metadata?.renter_id;
+          const metaMobile = session.user.user_metadata?.mobile || '';
+          const rawDigits = (safeEmail + metaMobile).replace(/[^0-9]/g, '');
+          const tenDigitMobile = rawDigits.length >= 10 ? rawDigits.slice(-10) : rawDigits;
 
           let renterRecs = [];
+
+          // 0. Try direct metadata renter_id match first
+          if (metaRenterId) {
+            const { data: d0 } = await supabaseClient
+              .from('renters')
+              .select('id, name')
+              .eq('id', metaRenterId)
+              .is('deleted_at', null)
+              .limit(1);
+            renterRecs = d0 || [];
+          }
           
           // 1. Try user_id or email match
-          if (safeEmail.includes('@')) {
+          if ((!renterRecs || renterRecs.length === 0) && safeEmail.includes('@')) {
             const { data: d1 } = await supabaseClient
               .from('renters')
               .select('id, name')
@@ -106,11 +120,11 @@ export async function checkAuth(passedSession = null) {
           }
 
           // 2. Try mobile digits match if user_id/email yielded no results
-          if ((!renterRecs || renterRecs.length === 0) && cleanDigits.length >= 7) {
+          if ((!renterRecs || renterRecs.length === 0) && tenDigitMobile.length >= 7) {
             const { data: d2 } = await supabaseClient
               .from('renters')
               .select('id, name')
-              .or(`user_id.eq.${session.user.id},mobile_number.ilike."%${cleanDigits.slice(-10)}%"`)
+              .or(`user_id.eq.${session.user.id},mobile_number.ilike."%${tenDigitMobile}%"`)
               .is('deleted_at', null)
               .limit(1);
             renterRecs = d2 || [];
@@ -212,7 +226,7 @@ export async function checkAuth(passedSession = null) {
     if (targetSection) targetSection.classList.add('active');
 
     // Update active nav styling
-    document.querySelectorAll('.nav-item, .mobile-nav-item').forEach(nav => {
+    document.querySelectorAll('.nav-item').forEach(nav => {
       if (nav.getAttribute('data-target') === savedPage) {
         nav.classList.add('active');
       } else {

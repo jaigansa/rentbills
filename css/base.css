@@ -55,14 +55,9 @@ body {
   display: inline-block;
 }
 
-.sidebar-nav [data-lucide], .sidebar-nav svg.lucide {
+.mobile-menu-nav [data-lucide], .mobile-menu-nav svg.lucide {
   width: 18px;
   height: 18px;
-}
-
-.mobile-nav [data-lucide], .mobile-nav svg.lucide {
-  width: 20px;
-  height: 20px;
 }
 
 .center-fab [data-lucide], .center-fab svg.lucide {
