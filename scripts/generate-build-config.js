@@ -18,23 +18,28 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rawUrl =
-  process.env.RENTBILL_SUPABASE_URL ||
-  process.env.SUPABASE_URL ||
-  process.env.VITE_SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.PUBLIC_SUPABASE_URL ||
-  '';
+function findEnv(explicitList, fuzzyRegex) {
+  for (const name of explicitList) {
+    if (process.env[name]) return { val: process.env[name], name };
+  }
+  const keys = Object.keys(process.env);
+  for (const k of keys) {
+    if (fuzzyRegex.test(k.trim()) && process.env[k]) {
+      return { val: process.env[k], name: k };
+    }
+  }
+  return { val: '', name: '' };
+}
 
-const rawKey =
-  process.env.RENTBILL_SUPABASE_KEY ||
-  process.env.SUPABASE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  process.env.SUPABASE_PUBLISHABLE_KEY ||
-  process.env.VITE_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.PUBLIC_SUPABASE_ANON_KEY ||
-  '';
+const urlMatch = findEnv(
+  ['RENTBILL_SUPABASE_URL', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_URL'],
+  /supabase.*url|url.*supabase|rentbill.*url|supabase.*project/i
+);
+
+const keyMatch = findEnv(
+  ['RENTBILL_SUPABASE_KEY', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'PUBLIC_SUPABASE_ANON_KEY'],
+  /supabase.*key|key.*supabase|rentbill.*key|anon.*key|publishable.*key/i
+);
 
 function sanitize(val) {
   if (!val) return '';
@@ -46,8 +51,8 @@ function sanitize(val) {
   return s;
 }
 
-const url = sanitize(rawUrl);
-const key = sanitize(rawKey);
+const url = sanitize(urlMatch.val);
+const key = sanitize(keyMatch.val);
 
 const outPath = resolve(process.argv[2] || 'js/core/build-config.js');
 
@@ -70,5 +75,10 @@ const src = url.replace(/^https?:\/\//, '').replace(/\.supabase\.co\/?$/, '');
 const echoUrl = src ? `https://${src}.supabase.co` : '(unset)';
 const echoKey = key ? '***injected***' : '(unset)';
 console.log(`Generated ${outPath.replace(process.cwd() + '/', '')}`);
-console.log(`  URL: ${echoUrl}`);
-console.log(`  Key: ${echoKey}`);
+console.log(`  URL: ${echoUrl}${urlMatch.name ? ` (from ${urlMatch.name})` : ''}`);
+console.log(`  Key: ${echoKey}${keyMatch.name ? ` (from ${keyMatch.name})` : ''}`);
+
+if (!url || !key) {
+  const envKeys = Object.keys(process.env).filter(k => !/^(PATH|HOME|USER|SHELL|LANG|PWD|SHLVL|_|CF_|NODE_|CI|NVM_|GOPATH|GOROOT|DEBIAN_|APT_)/i.test(k));
+  console.log('  [Debug] Custom env vars visible in build container:', envKeys.length > 0 ? envKeys.join(', ') : '(none found)');
+}
