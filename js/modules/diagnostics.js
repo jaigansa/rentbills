@@ -268,7 +268,8 @@ export async function runDiagnosticsCheck() {
       { data: bills },
       { data: payments },
       { data: expenses },
-      { data: owner_withdrawals }
+      { data: owner_withdrawals },
+      { data: ledgerData, error: ledgerErr }
     ] = await Promise.all([
       supabaseClient.from('properties').select('id').is('deleted_at', null),
       supabaseClient.from('units').select('id, status').is('deleted_at', null),
@@ -276,7 +277,8 @@ export async function runDiagnosticsCheck() {
       supabaseClient.from('bills').select('id, net_amount, status, write_off_amount').is('deleted_at', null),
       supabaseClient.from('payments').select('id, amount').is('deleted_at', null),
       supabaseClient.from('expenses').select('id, amount').is('deleted_at', null),
-      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null)
+      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null),
+      supabaseClient.rpc('fn_reconcile_ledger').then(r => r).catch(() => ({ data: null, error: true }))
     ]);
     const endTime = performance.now();
     const latency = Math.round(endTime - startTime);
@@ -308,17 +310,33 @@ export async function runDiagnosticsCheck() {
     const rentersWithLogin = (renters || []).filter(r => r.user_id !== null).length;
     const missingLogins = totalRenters - rentersWithLogin;
 
-    const totalBilled = (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
-    const totalCollected = (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalWithdrawn = (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
-    const outstanding = totalBilled - totalCollected;
-
     const billStatus = {};
     (bills || []).forEach(b => {
       const s = (b.status || 'UNKNOWN').toUpperCase();
       billStatus[s] = (billStatus[s] || 0) + 1;
     });
+
+    // Ledger-backed exact figures (single authoritative source from fn_reconcile_ledger)
+    const ledger = (ledgerData && !ledgerErr && typeof ledgerData === 'object') ? ledgerData : null;
+    const totalBilled = ledger ? (Number(ledger.total_billed) || 0) : (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
+    const totalCollected = ledger ? (Number(ledger.total_collected) || 0) : (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const totalExpenses = ledger ? (Number(ledger.total_expenses) || 0) : (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalWithdrawn = ledger ? (Number(ledger.total_withdrawn) || 0) : (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
+    const totalWrittenOff = ledger ? (Number(ledger.total_written_off) || 0) : (bills || []).reduce((s, b) => s + (Number(b.write_off_amount) || 0), 0);
+    const outstanding = ledger ? (Number(ledger.outstanding) || 0) : (totalBilled + totalWrittenOff - totalCollected);
+    const netCashFlow = ledger ? (Number(ledger.net_cash_flow) || 0) : (totalCollected - totalExpenses - totalWithdrawn);
+    const ledgerIntegrity = (ledger && ledger.integrity) ? ledger.integrity : null;
+    const arenaMatch = ledgerIntegrity && ledgerIntegrity.billed_matches && ledgerIntegrity.collected_matches && ledgerIntegrity.written_off_matches;
+    const ledgerOk = !!ledger && arenaMatch && ledgerIntegrity.outstanding_non_negative !== false;
+    const ledgerBadge = ledger ? (ledgerOk ? '<span class="badge badge-success">✓ Ledger Balanced</span>' : '<span class="badge badge-warning">⚠ Mismatch Detected</span>') : '<span class="badge badge-muted" style="background:var(--bg-muted);color:var(--text-muted);">Not available</span>';
+    const ledgerBadgeNote = ledger && !ledgerOk && ledgerIntegrity ? (
+      [
+        ledgerIntegrity.billed_matches ? '' : 'billed total vs per-bill mismatch',
+        ledgerIntegrity.collected_matches ? '' : 'collected total vs per-bill mismatch',
+        ledgerIntegrity.written_off_matches ? '' : 'write-off total mismatch',
+        ledgerIntegrity.outstanding_non_negative === false ? 'negative outstanding' : ''
+      ].filter(Boolean).join(', ')
+    ) : '';
 
     const diagContainer = document.getElementById('diagnostics-info');
     const settingsDiagContainer = document.getElementById('settings-diagnostics-info');
@@ -344,6 +362,10 @@ export async function runDiagnosticsCheck() {
       <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Outstanding:</span><strong style="color:${outstanding > 0 ? 'var(--danger)' : 'var(--success)'};">${formatCurrency(outstanding)}</strong></div>
       <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Expenses:</span><strong>${formatCurrency(totalExpenses)}</strong></div>
       <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Withdrawals:</span><strong>${formatCurrency(totalWithdrawn)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Written Off:</span><strong>${formatCurrency(totalWrittenOff)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Net Cash Flow:</span><strong style="color:${netCashFlow >= 0 ? 'var(--success)' : 'var(--danger)'};">${formatCurrency(netCashFlow)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Ledger Reconciliation:</span>${ledgerBadge}</div>
+      ${ledgerBadgeNote ? `<div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Note:</span><strong style="color:var(--danger);">${escapeStr(ledgerBadgeNote)}</strong></div>` : ''}
       <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Payments Recorded:</span><strong>${payments ? payments.length : 0}</strong></div>
       <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>API Endpoint:</span><code>${localStorage.getItem('rentbill_sb_url') || 'Connected'}</code></div>
       <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Status:</span><span class="badge badge-success">HEALTHY</span></div>
