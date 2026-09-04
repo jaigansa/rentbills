@@ -14,9 +14,32 @@
  *   node scripts/generate-build-config.js [outPath]
  *     outPath defaults to js/core/build-config.js
  */
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Automatically load .env file if present
+for (const envFile of ['.env', '.env.local', '.env.production']) {
+  const envPath = resolve(process.cwd(), envFile);
+  if (existsSync(envPath)) {
+    try {
+      const lines = readFileSync(envPath, 'utf8').split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx !== -1) {
+          const k = trimmed.slice(0, eqIdx).trim();
+          let v = trimmed.slice(eqIdx + 1).trim();
+          v = v.replace(/^["']|["']$/g, '').trim();
+          if (!process.env[k] && v) {
+            process.env[k] = v;
+          }
+        }
+      }
+    } catch (e) {}
+  }
+}
 
 function findEnv(explicitList, isUrl = false) {
   const keys = Object.keys(process.env);
