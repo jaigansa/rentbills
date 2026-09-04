@@ -739,68 +739,6 @@
     </div>
   </div>
 
-  <!-- FORGOT PASSWORD MODAL -->
-  <div id="modal-forgot-password" class="modal-overlay" style="display: none;">
-    <div class="modal-card" style="max-width: 420px;">
-      <div class="modal-header">
-        <h3>Reset Password</h3>
-        <button class="modal-close" onclick="closeModal('modal-forgot-password')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-          Enter your registered email address and we will send you a secure password reset link. This works for admin &amp; staff accounts. Tenants should contact their property manager to reset their portal password.
-        </p>
-        <form id="form-forgot-password">
-          <div class="form-group">
-            <label for="forgot-email">Email Address or Mobile Number *</label>
-            <div class="input-icon-wrapper">
-              <i data-lucide="mail" class="input-leading-icon"></i>
-              <input type="text" id="forgot-email" class="form-control" placeholder="Email (admin@rentbill.com) or Mobile" required autocomplete="username">
-            </div>
-          </div>
-          <div id="forgot-error" class="auth-error-banner" style="display: none; margin-bottom: 12px;"></div>
-          <div id="forgot-success" style="display: none; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--success); padding: 12px; border-radius: var(--radius-md); font-size: 13px; font-weight: 500; margin-bottom: 12px;">
-            <i data-lucide="check-circle" style="display: inline-block; vertical-align: middle; margin-right: 4px;"></i>
-            <span>Password reset link sent! Please check your email inbox.</span>
-          </div>
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-forgot-password')" style="flex: 1; justify-content: center;">Cancel</button>
-            <button type="submit" class="btn btn-primary" id="btn-forgot-submit" style="flex: 1; justify-content: center;">Send Reset Link</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- PASSWORD RECOVERY MODAL (When clicking email link) -->
-  <div id="modal-reset-recovery-password" class="modal-overlay" style="display: none;">
-    <div class="modal-card" style="max-width: 420px;">
-      <div class="modal-header">
-        <h3>Create New Password</h3>
-        <button class="modal-close" onclick="closeModal('modal-reset-recovery-password')">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
-          Please choose a strong new password for your account.
-        </p>
-        <form id="form-reset-recovery-password">
-          <div class="form-group">
-            <label for="recovery-new-password">New Password *</label>
-            <input type="password" id="recovery-new-password" class="form-control" placeholder="Minimum 6 characters" required minlength="6" autocomplete="new-password">
-          </div>
-          <div class="form-group">
-            <label for="recovery-confirm-password">Confirm Password *</label>
-            <input type="password" id="recovery-confirm-password" class="form-control" placeholder="Confirm new password" required minlength="6" autocomplete="new-password">
-          </div>
-          <div id="recovery-error" class="auth-error-banner" style="display: none; margin-bottom: 12px;"></div>
-          <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Save New Password</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
   <!-- ADD / EDIT MAINTENANCE TASK MODAL -->
   <div id="modal-add-maintenance" class="modal-overlay">
     <div class="modal-content">

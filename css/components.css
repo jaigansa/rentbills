@@ -684,20 +684,6 @@ input[type="number"] {
   75% { transform: translateX(4px); }
 }
 
-.auth-forgot-link {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary);
-  text-decoration: none;
-  transition: color 0.2s;
-  cursor: pointer;
-}
-
-.auth-forgot-link:hover {
-  text-decoration: underline;
-  opacity: 0.85;
-}
-
 .auth-footer {
   margin-top: 22px;
   padding-top: 16px;

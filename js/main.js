@@ -16,7 +16,7 @@ import {
 } from './core/ui.js';
 import { initTheme, applyThemeMode, toggleTheme, setTheme } from './core/theme.js';
 import { loadTranslations, applyTranslations, toggleLanguage } from './core/i18n.js';
-import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask, openForgotPasswordModal } from './modules/auth.js';
+import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask } from './modules/auth.js';
 import {
   openMobileMenu,
   closeMobileMenu,
@@ -158,7 +158,6 @@ window.saveAppSettings = saveAppSettings;
 window.runDiagnosticsCheck = runDiagnosticsCheck;
 window.clearAppCache = clearAppCache;
 window.showSetupConfigModal = showSetupConfigModal;
-window.openForgotPasswordModal = openForgotPasswordModal;
 window.triggerEditProperty = triggerEditProperty;
 window.triggerDeleteProperty = triggerDeleteProperty;
 window.triggerEditUnit = triggerEditUnit;
@@ -299,9 +298,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const supabaseClient = getSupabaseClient();
     if (supabaseClient && supabaseClient.auth) {
       supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          openModal('modal-reset-recovery-password');
-        } else if (event === 'SIGNED_IN' && session) {
+        if (event === 'SIGNED_IN' && session) {
           await checkAuth(session);
         } else if (event === 'SIGNED_OUT') {
           showLogin();
