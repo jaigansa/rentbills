@@ -31,4 +31,17 @@ cp -r i18n "$DIST/i18n"
 # 2) Inject Supabase config from env vars (overwrites the committed safe stub).
 node scripts/generate-build-config.js "$DIST/js/core/build-config.js"
 
+# 3) Inject build timestamp cache-buster for build-config.js in output HTML files
+node -e "
+const fs = require('fs');
+const v = Date.now();
+['$DIST/index.html', '$DIST/paid.html', '$DIST/receipt.html'].forEach(f => {
+  if (fs.existsSync(f)) {
+    let content = fs.readFileSync(f, 'utf8');
+    content = content.replace(/js\/core\/build-config\.js(\?v=\d+)?/g, 'js/core/build-config.js?v=' + v);
+    fs.writeFileSync(f, content, 'utf8');
+  }
+});
+"
+
 echo "Cloudflare Pages build complete -> $DIST"
