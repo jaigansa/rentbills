@@ -16,11 +16,43 @@ export async function loadTranslations(lang) {
 export function applyTranslations() {
   const translations = getTranslations();
   const currentLang = getCurrentLang();
-  const elements = document.querySelectorAll('[id^="i18n-"]');
-  elements.forEach(el => {
+
+  // 1. Target elements with id="i18n-..."
+  const elementsById = document.querySelectorAll('[id^="i18n-"]');
+  elementsById.forEach(el => {
     const key = el.id.replace('i18n-', '').replace(/-/g, '_');
     if (translations[key]) {
-      el.textContent = translations[key];
+      if (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit')) {
+        el.value = translations[key];
+      } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        el.placeholder = translations[key];
+      } else {
+        el.textContent = translations[key];
+      }
+    }
+  });
+
+  // 2. Target elements with data-i18n="..."
+  const elementsByData = document.querySelectorAll('[data-i18n]');
+  elementsByData.forEach(el => {
+    const key = el.dataset.i18n;
+    if (translations[key]) {
+      if (el.tagName === 'INPUT' && (el.type === 'button' || el.type === 'submit')) {
+        el.value = translations[key];
+      } else if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+        el.placeholder = translations[key];
+      } else {
+        el.textContent = translations[key];
+      }
+    }
+  });
+
+  // 3. Target elements with data-i18n-placeholder="..."
+  const placeholders = document.querySelectorAll('[data-i18n-placeholder]');
+  placeholders.forEach(el => {
+    const key = el.dataset.i18nPlaceholder;
+    if (translations[key]) {
+      el.placeholder = translations[key];
     }
   });
 
@@ -30,6 +62,11 @@ export function applyTranslations() {
     btn.innerHTML = '<i data-lucide="globe"></i>';
     refreshLucideIcons();
   }
+}
+
+export function t(key, fallback = '') {
+  const translations = getTranslations();
+  return translations[key] || fallback || key;
 }
 
 export function toggleLanguage() {
