@@ -7,10 +7,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 
-# Prevent caching of build config (injected credentials)
-/js/core/build-config.js
-  Cache-Control: no-cache, no-store, must-revalidate
-
 # Cache CSS and JS assets for 1 day
 /css/*
   Cache-Control: public, max-age=86400

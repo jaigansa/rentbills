@@ -1,14 +1,13 @@
 {
   "name": "rentbill-pro",
   "version": "1.0.0",
-  "description": "RentBill Pro — rental billing & property management SPA (vanilla JS, Go embedded server, Supabase)",
+  "description": "RentBill Pro — rental billing & property management SPA (vanilla JS, Supabase)",
   "type": "module",
   "private": true,
   "scripts": {
     "test": "node --test \"test/*.test.js\"",
     "test:unit": "node --test \"test/format.test.js\" \"test/finance.test.js\"",
     "test:sql": "node --test \"test/sql-integrity.test.js\"",
-    "config": "node scripts/generate-build-config.js js/core/build-config.js",
     "check": "node --check js/modules/diagnostics.js && node --check js/modules/forms.js && node --check js/modules/properties.js && node --check js/modules/payments.js && node --check js/core/format.js && node --check js/core/finance.js"
   },
   "license": "UNLICENSED"

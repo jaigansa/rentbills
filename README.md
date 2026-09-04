@@ -18,9 +18,8 @@
 - [Step 6: Default Logins & Verification](#step-6-default-logins--verification)
 - [Database Reset / Maintenance Scripts](#database-reset--maintenance-scripts)
 - [Local Development](#local-development)
-- [Cross-Platform Single Binary Executable](#cross-platform-single-binary-executable)
 - [Deployment on Cloudflare Pages](#deployment-on-cloudflare-pages)
-- [How Tenants Log In](#how-tenants-log-in)
+- [Authentication & Landlord Login](#authentication--landlord-login)
 - [Custom Domain & Free SSL](#custom-domain--free-ssl)
 - [Security Checklist & Verification](#security-checklist--verification)
 
@@ -33,11 +32,10 @@
 - 💳 **Payments, partial payments, arrears, credit/advance tracking**
 - 🔧 **Maintenance work orders**
 - 📊 **Dashboard & financial overviews**
-- 🔐 **Multi-role access**: Admin, Staff, and scoped Resident Tenant Portal
-- 🌐 **Bilingual**: English & Tamil (তமிழ்)
+- 🔐 **Single-user Landlord architecture** backed by Supabase Auth
+- 🌐 **Bilingual**: English & Tamil (தமிழ்)
 - 📈 **Integer-based (paise) financial math** to prevent floating-point errors
 - ☁️ **Supabase-backed** database, auth, realtime & storage
-- 💻 **Cross-platform standalone binary** — zero runtime dependencies
 
 ---
 
@@ -55,8 +53,6 @@
 ```
 .
 ├── README.md
-├── build.sh
-├── main.go                  # Go embedded server
 ├── sql/                     # Database scripts — install / update / delete
 │   ├── install/             # Brand-new database: 00_master_schema.sql
 │   ├── update/              # Upgrade existing DB, keep data
@@ -190,52 +186,15 @@
 
 ## Local Development
 
-Run the application locally:
+Run the application locally using any static web server:
 
 ```bash
-go run main.go
-# or serve using any static server:
 python3 -m http.server 8080
+# or with Node.js:
+npx serve .
 ```
 
 Open `http://localhost:8080` in your browser.
-
----
-
-## Cross-Platform Single Binary Executable
-
-RentBill Pro can be built into a standalone executable binary file for **Windows, macOS, and Linux** with **zero runtime dependencies** (no Node.js, Python, or web server installation needed on target systems).
-
-### Building Executables
-
-Ensure [Go](https://go.dev) (1.18+) is installed on your build machine, then run:
-
-```bash
-./build.sh
-```
-
-This compiles single binary executables into the `dist/` directory:
-- `dist/rentbill-windows-amd64.exe` (Windows 64-bit)
-- `dist/rentbill-darwin-arm64` (macOS Apple Silicon M1/M2/M3)
-- `dist/rentbill-darwin-amd64` (macOS Intel)
-- `dist/rentbill-linux-amd64` (Linux 64-bit)
-
-### Running Portable Binary
-
-Simply double-click or run the binary from the terminal:
-
-```bash
-# On Linux:
-./dist/rentbill-linux-amd64
-
-# On macOS:
-./dist/rentbill-darwin-arm64
-
-# On Windows:
-.\dist\rentbill-windows-amd64.exe
-```
-
-The app will start a lightweight embedded web server and automatically open your default browser.
 
 ---
 
@@ -265,42 +224,16 @@ git push -u origin main
    - **Project Name**: `rentbill` (or any preferred name)
    - **Production Branch**: `main` (or `master`)
    - **Framework Preset**: `None`
-   - **Build Command**: `bash cloudflare-build.sh`
-   - **Build Output Directory**: `dist`
+   - **Build Command**: *(leave empty — pure static app)*
+   - **Build Output Directory**: `/` (or root)
 5. Click **Save and Deploy**. Within ~30 seconds, Cloudflare will deploy your application to a global edge address like `https://rentbill.pages.dev`.
-
-#### Configure Supabase credentials (encrypted env vars)
-
-Real Supabase credentials are **never committed** to the repo. The build script
-[`cloudflare-build.sh`](cloudflare-build.sh) injects them from Cloudflare Pages
-**encrypted environment variables** into a generated `dist/js/core/build-config.js`:
-
-1. In the Cloudflare dashboard for your Pages project, go to **Settings → Environment variables**.
-2. Add these two variables under **Production** (and **Preview** if you want previews to work):
-   - `RENTBILL_SUPABASE_URL` = your Supabase **Project URL**, e.g. `https://abcd1234.supabase.co`
-   - `RENTBILL_SUPABASE_KEY` = your Supabase **anon / publishable key**
-3. Enable **"Encrypt"** on both, then **Save**. Trigger a new build (**Deployments → Retry deployment**).
-
-> The anon key is public by design (browsers need it), so security comes from
-> Supabase **Row Level Security** — see [Security Checklist & Verification](#security-checklist--verification). The `service_role`
-> secret key must **never** be placed in these env vars or anywhere in the repo.
 
 ### Method 2: Direct CLI Deployment (Instant 1-Command Deploy)
 
 If you don't want to use Git, deploy directly from your computer using Cloudflare Wrangler:
 
 ```bash
-# Run from the project root:
-bash cloudflare-build.sh
-npx wrangler pages deploy dist --project-name=rentbill
-```
-
-Wrangler will ask you to log in to Cloudflare in your browser once, then upload and deploy your files immediately. Set the same `RENTBILL_SUPABASE_URL` / `RENTBILL_SUPABASE_KEY` environment variables (encrypted) in your Pages project **Settings → Environment variables** before deploying, or pass them to the build:
-
-```bash
-RENTBILL_SUPABASE_URL="https://abcd1234.supabase.co" \
-RENTBILL_SUPABASE_KEY="YOUR_ANON_KEY" \
-bash cloudflare-build.sh
+npx wrangler pages deploy . --project-name=rentbill
 ```
 
 ### Post-Deployment Checklist
@@ -313,28 +246,21 @@ Once your Cloudflare URL is live (e.g. `https://rentbill.pages.dev`):
    - In **Redirect URLs**, add: `https://rentbill.pages.dev/**`.
    - Click **Save**.
 
-### Included Cloudflare Configuration Files
+### Security Headers
 
 | File | Purpose |
 | :--- | :--- |
-| **[`_redirects`](_redirects)** | Single Page Application (SPA) routing fallback to `index.html` |
-| **[`_headers`](_headers)** | Security headers (`X-Frame-Options`, `XSS protection`) & 24hr static caching |
-| **[`wrangler.toml`](wrangler.toml)** | Direct CLI deployment configuration |
+| **[`_headers`](_headers)** | Security headers (`X-Frame-Options`, `XSS protection`) & static asset caching |
 
 ---
 
-## How Tenants Log In (Built-in Password Management & Universal Login)
+## Authentication & Landlord Login
 
-1. **Landlord creates tenant & sets password in RentBill Pro**:
-   - Navigate to **Documents** → **Tenants** → Click **+ Add Tenant**.
-   - Fill in details including the tenant's **Mobile Number**, **Email Address**, and optional **Portal Login Password**.
-   - Or, go to **Settings** → **Tenant Logins** tab: click **Create Login** / **Reset Password** on any tenant row to set/reset credentials anytime, copy login details, or share directly via WhatsApp in 1 click.
-2. **Tenant logs in (Email or Mobile Number)**:
-   - Tenant visits your RentBill Pro portal URL.
-   - Enters their **Email** OR **Registered Mobile Number** (or username) and their Password.
-   - The system automatically resolves their identifier, checks their credentials, matches their profile to their lease, and displays their scoped **Resident Tenant Portal**.
-   - The tenant sees their unit, current balance, monthly invoices, can download A4 PDF receipts, or submit a payment reference/proof.
-   - Landlord-only pages (Properties, Expenses, System Settings) are completely hidden and inaccessible.
+RentBill Pro uses a clean, secure **Single-User Landlord Architecture**:
+
+1. **Create Landlord Account**: In your Supabase Dashboard under **Authentication** → **Users**, create your admin account with your email and password.
+2. **Log In**: Open the app, enter your email and password, and sign in.
+3. **Strict Data Privacy**: All tables and records are strictly protected behind authentication with Row Level Security (RLS). Anonymous access is completely disabled.
 
 ---
 

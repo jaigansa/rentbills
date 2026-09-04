@@ -1,42 +1,10 @@
 -- ============================================================================
 -- 🧪 RentBill Pro — LIVE SQL INTEGRATION TESTS (run in Supabase SQL Editor)
--- Verify critical financial triggers + ledger reconciliation against your real
--- database. Safe to run: wraps everything in a transaction and rolls back, so
--- NO data is modified. Requires the ledger from section 7.5 (install) or 6.6
--- (update) to be installed first (fn_reconcile_ledger, v_ledger_entries...).
+-- Verify critical financial triggers against your real database.
+-- Safe to run: wraps everything in a transaction and rolls back, so NO data is modified.
 -- ============================================================================
 
 BEGIN;
-
-DO $$
-DECLARE
-  v_ok BOOLEAN;
-  v_fail TEXT := '';
-BEGIN
-  -- 1) Ledger view surfaces the same account constants the reconcile fn expects
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.views WHERE table_schema='public' AND table_name='v_ledger_entries'
-  ) THEN
-    RAISE EXCEPTION 'v_ledger_entries missing — run the ledger section first';
-  END IF;
-
-  SELECT COUNT(*) FROM information_schema.columns
-    WHERE table_schema='public' AND table_name='bills' AND column_name='write_off_amount';
-  IF NOT FOUND THEN NULL; END IF;
-
-  -- 2) fn_reconcile_ledger is executable and returns the expected shape
-  PERFORM public.fn_reconcile_ledger();
-
-  -- 3) sum(account balances) should equal billed+written_off+collected... sanity:
-  --    the function itself checks billed_matches etc. so just confirm it runs.
-  v_ok := (public.fn_reconcile_ledger()->'integrity' ? 'billed_matches');
-
-  IF NOT v_ok THEN
-    RAISE EXCEPTION 'reconcile result lacks integrity keys';
-  END IF;
-
-  RAISE NOTICE '✅ Ledger reconciliation function returned a valid snapshot';
-END $$;
 
 -- 4) Trigger behavior: bill status auto-calc on a throwaway renter (rolled back)
 DO $$

@@ -249,194 +249,7 @@ CREATE TRIGGER trg_sync_bill_paid_amount
   FOR EACH ROW EXECUTE FUNCTION public.sync_bill_paid_amount();
 
 -- ============================================================================
--- 5. FINANCIAL JOURNAL & LEDGER VIEWS
--- ============================================================================
-
-CREATE OR REPLACE VIEW public.v_ledger_entries
-WITH (security_invoker = true) AS
-  SELECT
-    'BILL'::text                                                                 AS source_type,
-    b.id                                                                         AS source_id,
-    b.uuid                                                                       AS source_uuid,
-    COALESCE(b.bill_date, b.created_at::date)                                   AS entry_date,
-    b.renter_id                                                                  AS renter_id,
-    r.name                                                                       AS renter_name,
-    r.unit_id                                                                    AS unit_id,
-    'RECEIVABLE_INVOICED'::text                                                  AS account,
-    b.net_amount                                                                 AS amount,
-    'INV ' || b.billing_period || ' net payable'                                 AS description,
-    b.created_at                                                                 AS created_at
-  FROM public.bills b
-  JOIN public.renters r ON r.id = b.renter_id
-  WHERE b.deleted_at IS NULL
-    AND b.status != 'VOID'
-    AND b.voided_at IS NULL
-
-  UNION ALL
-
-  SELECT
-    'BILL'::text                                                                 AS source_type,
-    b.id                                                                         AS source_id,
-    b.uuid                                                                       AS source_uuid,
-    COALESCE(b.bill_date, b.created_at::date)                                   AS entry_date,
-    b.renter_id                                                                  AS renter_id,
-    r.name                                                                       AS renter_name,
-    r.unit_id                                                                    AS unit_id,
-    'RECEIVABLE_WRITTEN_OFF'::text                                               AS account,
-    b.write_off_amount                                                           AS amount,
-    COALESCE('Write-off: ' || b.write_off_reason, 'Invoice balance written off') AS description,
-    b.created_at                                                                 AS created_at
-  FROM public.bills b
-  JOIN public.renters r ON r.id = b.renter_id
-  WHERE b.deleted_at IS NULL
-    AND b.status != 'VOID'
-    AND b.voided_at IS NULL
-    AND COALESCE(b.write_off_amount, 0) > 0
-
-  UNION ALL
-
-  SELECT
-    'PAYMENT'::text                                                              AS source_type,
-    p.id                                                                         AS source_id,
-    p.uuid                                                                       AS source_uuid,
-    p.payment_date::date                                                         AS entry_date,
-    p.renter_id                                                                  AS renter_id,
-    r.name                                                                       AS renter_name,
-    r.unit_id                                                                    AS unit_id,
-    'CASH_IN'::text                                                              AS account,
-    p.amount                                                                     AS amount,
-    COALESCE(p.payment_method, 'Payment') || ' against bill #' || p.bill_id      AS description,
-    p.created_at                                                                 AS created_at
-  FROM public.payments p
-  JOIN public.renters r ON r.id = p.renter_id
-  WHERE p.deleted_at IS NULL
-    AND p.reversed_at IS NULL
-    AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
-
-  UNION ALL
-
-  SELECT
-    'EXPENSE'::text                                                              AS source_type,
-    e.id                                                                         AS source_id,
-    e.uuid                                                                       AS source_uuid,
-    e.expense_date                                                               AS entry_date,
-    NULL::bigint                                                                 AS renter_id,
-    NULL::text                                                                   AS renter_name,
-    NULL::bigint                                                                 AS unit_id,
-    'CASH_OUT_EXPENSES'::text                                                    AS account,
-    e.amount                                                                     AS amount,
-    '[' || e.category || '] ' || COALESCE(e.description, 'Expense')              AS description,
-    e.created_at                                                                 AS created_at
-  FROM public.expenses e
-  WHERE e.deleted_at IS NULL
-
-  UNION ALL
-
-  SELECT
-    'WITHDRAWAL'::text                                                           AS source_type,
-    w.id                                                                         AS source_id,
-    w.uuid                                                                       AS source_uuid,
-    w.withdrawal_date                                                            AS entry_date,
-    NULL::bigint                                                                 AS renter_id,
-    o.name                                                                       AS renter_name,
-    NULL::bigint                                                                 AS unit_id,
-    'CASH_OUT_WITHDRAWALS'::text                                                 AS account,
-    w.amount                                                                     AS amount,
-    'Owner payout to ' || o.name || COALESCE(' (' || w.payment_method || ')', '') AS description,
-    w.created_at                                                                 AS created_at
-  FROM public.owner_withdrawals w
-  JOIN public.owners o ON o.id = w.owner_id
-  WHERE w.deleted_at IS NULL;
-
-CREATE OR REPLACE VIEW public.v_ledger_accounts
-WITH (security_invoker = true) AS
-  SELECT
-    account,
-    COUNT(*)                AS entry_count,
-    COALESCE(SUM(amount), 0) AS balance
-  FROM public.v_ledger_entries
-  GROUP BY account;
-
-CREATE OR REPLACE FUNCTION public.fn_reconcile_ledger()
-RETURNS JSONB
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = public
-AS $$
-  WITH totals AS (
-    SELECT
-      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_INVOICED'), 0)     AS total_billed,
-      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_WRITTEN_OFF'), 0)  AS total_written_off,
-      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_IN'), 0)                  AS total_collected,
-      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_EXPENSES'), 0)        AS total_expenses,
-      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_WITHDRAWALS'), 0)     AS total_withdrawn
-    FROM public.v_ledger_entries
-  ),
-  per_bill AS (
-    SELECT
-      b.id,
-      b.net_amount,
-      COALESCE(b.write_off_amount, 0) AS written_off,
-      COALESCE(SUM(p.amount), 0) AS collected
-    FROM public.bills b
-    LEFT JOIN public.payments p
-      ON p.bill_id = b.id
-      AND p.deleted_at IS NULL
-      AND p.reversed_at IS NULL
-      AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
-    WHERE b.deleted_at IS NULL
-      AND b.status != 'VOID'
-      AND b.voided_at IS NULL
-    GROUP BY b.id, b.net_amount, b.write_off_amount
-  ),
-  bill_snapshot AS (
-    SELECT
-      SUM(net_amount) AS billed,
-      SUM(written_off) AS written_off,
-      SUM(collected) AS collected,
-      SUM(net_amount) - SUM(written_off) - SUM(collected) AS outstanding
-    FROM per_bill
-  ),
-  calcs AS (
-    SELECT
-      t.total_billed,
-      t.total_written_off,
-      t.total_collected,
-      t.total_expenses,
-      t.total_withdrawn,
-      bs.billed AS per_bill_billed,
-      bs.written_off AS per_bill_written_off,
-      bs.collected AS per_bill_collected,
-      bs.outstanding AS outstanding,
-      (t.total_billed + t.total_written_off) - t.total_collected AS net_receivable,
-      t.total_collected - (t.total_expenses + t.total_withdrawn) AS net_cash_flow
-    FROM totals t, bill_snapshot bs
-  )
-  SELECT jsonb_build_object(
-    'total_billed',            calcs.total_billed,
-    'total_written_off',       calcs.total_written_off,
-    'total_collected',         calcs.total_collected,
-    'total_expenses',          calcs.total_expenses,
-    'total_withdrawn',         calcs.total_withdrawn,
-    'outstanding',             calcs.outstanding,
-    'net_receivable',          calcs.net_receivable,
-    'net_cash_flow',           calcs.net_cash_flow,
-    'accounts', (
-      SELECT jsonb_object_agg(account, balance) FROM public.v_ledger_accounts
-    ),
-    'integrity'::text, jsonb_build_object(
-      'billed_matches',        calcs.total_billed = calcs.per_bill_billed,
-      'collected_matches',     calcs.total_collected = calcs.per_bill_collected,
-      'written_off_matches',   calcs.total_written_off = calcs.per_bill_written_off,
-      'outstanding_non_negative', calcs.outstanding >= 0
-    )
-  )
-  FROM calcs;
-$$;
-
--- ============================================================================
--- 6. SECURITY & COMPATIBILITY RPC FUNCTIONS
+-- 5. SECURITY RPC FUNCTIONS & CLEANUP OF OBSOLETE FUNCTIONS
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.is_admin()
@@ -447,190 +260,37 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-CREATE OR REPLACE FUNCTION public.is_staff()
-RETURNS BOOLEAN AS $$
-BEGIN
-  IF auth.uid() IS NULL THEN RETURN FALSE; END IF;
-  RETURN COALESCE((SELECT role IN ('ADMIN', 'STAFF') FROM public.profiles WHERE id = auth.uid()), FALSE);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+-- Clean up obsolete ledger views and reconciliation function
+DROP VIEW IF EXISTS public.v_ledger_accounts CASCADE;
+DROP VIEW IF EXISTS public.v_ledger_entries CASCADE;
+DROP FUNCTION IF EXISTS public.fn_reconcile_ledger() CASCADE;
 
-CREATE OR REPLACE FUNCTION public.is_auditor()
-RETURNS BOOLEAN AS $$
-BEGIN
-  IF auth.uid() IS NULL THEN RETURN FALSE; END IF;
-  RETURN COALESCE((SELECT role IN ('ADMIN', 'AUDITOR') FROM public.profiles WHERE id = auth.uid()), FALSE);
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-CREATE OR REPLACE FUNCTION public.admin_list_all_users()
-RETURNS TABLE (
-  user_id UUID,
-  username TEXT,
-  email TEXT,
-  role TEXT,
-  is_disabled BOOLEAN,
-  created_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ,
-  last_sign_in_at TIMESTAMPTZ
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT 
-    p.id AS user_id,
-    p.username,
-    p.email,
-    p.role,
-    p.is_disabled,
-    p.created_at,
-    p.updated_at,
-    au.last_sign_in_at
-  FROM public.profiles p
-  LEFT JOIN auth.users au ON au.id = p.id
-  ORDER BY p.role, p.username;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.admin_create_user(
-  p_email TEXT,
-  p_password TEXT,
-  p_role TEXT DEFAULT 'ADMIN',
-  p_username TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  v_user_id UUID;
-  v_encrypted_pw TEXT;
-BEGIN
-  v_user_id := gen_random_uuid();
-  v_encrypted_pw := crypt(p_password, gen_salt('bf'));
-
-  INSERT INTO auth.users (
-    id, instance_id, email, encrypted_password, email_confirmed_at,
-    raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud
-  ) VALUES (
-    v_user_id, '00000000-0000-0000-0000-000000000000', LOWER(TRIM(p_email)), v_encrypted_pw, NOW(),
-    jsonb_build_object('provider', 'email', 'providers', jsonb_build_array('email')),
-    jsonb_build_object('username', COALESCE(p_username, SPLIT_PART(p_email, '@', 1)), 'role', p_role),
-    NOW(), NOW(), 'authenticated', 'authenticated'
-  );
-
-  INSERT INTO public.profiles (id, username, email, role)
-  VALUES (v_user_id, COALESCE(p_username, SPLIT_PART(p_email, '@', 1)), LOWER(TRIM(p_email)), p_role)
-  ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role;
-
-  RETURN jsonb_build_object('success', true, 'user_id', v_user_id);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.admin_update_user_password(
-  p_user_id UUID,
-  p_new_password TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-BEGIN
-  UPDATE auth.users
-  SET encrypted_password = crypt(p_new_password, gen_salt('bf')),
-      updated_at = NOW()
-  WHERE id = p_user_id;
-
-  RETURN jsonb_build_object('success', true);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.admin_change_user_role(
-  p_user_id UUID,
-  p_new_role TEXT
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  UPDATE public.profiles
-  SET role = p_new_role, updated_at = NOW()
-  WHERE id = p_user_id;
-
-  RETURN jsonb_build_object('success', true);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.admin_toggle_user_status(
-  p_user_id UUID,
-  p_disabled BOOLEAN
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  UPDATE public.profiles
-  SET is_disabled = p_disabled, updated_at = NOW()
-  WHERE id = p_user_id;
-
-  RETURN jsonb_build_object('success', true);
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.admin_delete_user(
-  p_user_id UUID
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-BEGIN
-  UPDATE public.renters SET user_id = NULL WHERE user_id = p_user_id;
-  UPDATE public.bills SET voided_by = NULL WHERE voided_by = p_user_id;
-  UPDATE public.payments SET verified_by = NULL WHERE verified_by = p_user_id;
-  UPDATE public.payments SET reversed_by = NULL WHERE reversed_by = p_user_id;
-  UPDATE public.expenses SET created_by = NULL WHERE created_by = p_user_id;
-  UPDATE public.owner_withdrawals SET created_by = NULL WHERE created_by = p_user_id;
-  UPDATE public.documents SET created_by = NULL WHERE created_by = p_user_id;
-  UPDATE public.maintenance_tasks SET reported_by = NULL WHERE reported_by = p_user_id;
-
-  DELETE FROM public.profiles WHERE id = p_user_id;
-  DELETE FROM auth.users WHERE id = p_user_id;
-
-  RETURN jsonb_build_object('success', true, 'deleted_user_id', p_user_id);
-END;
-$$;
+-- Clean up obsolete multi-user, staff, auditor, and tenant RPC functions
+DROP FUNCTION IF EXISTS public.is_staff() CASCADE;
+DROP FUNCTION IF EXISTS public.is_auditor() CASCADE;
+DROP FUNCTION IF EXISTS public.admin_list_all_users() CASCADE;
+DROP FUNCTION IF EXISTS public.admin_create_user(TEXT, TEXT, TEXT, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_update_user_password(UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_change_user_role(UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_toggle_user_status(UUID, BOOLEAN) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_delete_user(UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_list_tenants_with_auth() CASCADE;
+DROP FUNCTION IF EXISTS public.admin_create_tenant_user(TEXT, TEXT, TEXT, BIGINT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_reset_tenant_password(UUID, TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_delete_tenant_login(BIGINT, UUID) CASCADE;
+DROP FUNCTION IF EXISTS public.admin_toggle_tenant_login_status(BIGINT, UUID, BOOLEAN) CASCADE;
+DROP FUNCTION IF EXISTS public.get_login_email_for_identifier(TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.resolve_login_email(TEXT) CASCADE;
+DROP FUNCTION IF EXISTS public.tenant_link_own_lease() CASCADE;
 
 -- ============================================================================
--- 7. PERMISSIONS & GRANTS
+-- 6. PERMISSIONS & GRANTS
 -- ============================================================================
 
-GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION public.is_auditor() TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION public.is_staff() TO authenticated, anon;
-GRANT EXECUTE ON FUNCTION public.fn_reconcile_ledger() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_list_all_users() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_create_user(TEXT, TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_update_user_password(UUID, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_change_user_role(UUID, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_toggle_user_status(UUID, BOOLEAN) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated;
-
-GRANT SELECT ON public.v_ledger_entries TO authenticated;
-GRANT SELECT ON public.v_ledger_accounts TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
 
 -- ============================================================================
--- 8. ROW LEVEL SECURITY REFRESH
+-- 7. ROW LEVEL SECURITY REFRESH
 -- ============================================================================
 
 DO $$
@@ -647,6 +307,14 @@ BEGIN
   ALTER TABLE public.owner_withdrawals ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.maintenance_tasks ENABLE ROW LEVEL SECURITY;
   ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+
+  -- Drop public anonymous access policies (ensure 100% login required)
+  DROP POLICY IF EXISTS "Anon read public bills" ON public.bills;
+  DROP POLICY IF EXISTS "Anon read public payments" ON public.payments;
+  DROP POLICY IF EXISTS "Anon read public renters" ON public.renters;
+  DROP POLICY IF EXISTS "Anon read public units" ON public.units;
+  DROP POLICY IF EXISTS "Anon read public properties" ON public.properties;
+  DROP POLICY IF EXISTS "Anon read public owners" ON public.owners;
 EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;

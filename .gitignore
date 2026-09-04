@@ -1,9 +1,5 @@
-# Compiled Binaries & Build Output
+# Build & Distribution Output
 dist/
-*.exe
-*.exe~
-rentbill
-rentbill-*
 
 # Dependencies & Node (if used)
 node_modules/

@@ -50,34 +50,60 @@ test('update migration has balanced dollar quotes', () => {
   assert.ok(info.balanced, 'dollar quotes must nest (open/close alternate)');
 });
 
-test('install and update both define the full user-management + ledger surface', () => {
+test('install and update both define the single-user core surface', () => {
   for (const sql of [install, update]) {
     const funcs = extractCreates(sql, 'FUNCTION');
-    for (const fn of [
-      'is_admin', 'is_auditor', 'is_staff',
-      'admin_list_all_users', 'admin_create_user', 'admin_update_user_password',
-      'admin_change_user_role', 'admin_toggle_user_status', 'admin_delete_user',
-      'fn_reconcile_ledger'
-    ]) {
-      assert.ok(funcs.has(fn), `missing FUNCTION ${fn}`);
-    }
+    assert.ok(funcs.has('is_admin'), 'missing FUNCTION is_admin');
+    assert.ok(!funcs.has('fn_reconcile_ledger'), 'fn_reconcile_ledger should be removed');
+
     const views = extractCreates(sql, 'VIEW');
-    for (const v of ['v_ledger_entries', 'v_ledger_accounts']) {
-      assert.ok(views.has(v), `missing VIEW ${v}`);
+    assert.ok(!views.has('v_ledger_entries'), 'v_ledger_entries should be removed');
+    assert.ok(!views.has('v_ledger_accounts'), 'v_ledger_accounts should be removed');
+  }
+});
+
+test('install and update do not define obsolete multi-user admin functions', () => {
+  const obsoleteFns = [
+    'is_staff', 'is_auditor',
+    'admin_list_all_users', 'admin_create_user', 'admin_update_user_password',
+    'admin_change_user_role', 'admin_toggle_user_status', 'admin_delete_user'
+  ];
+  for (const [name, sql] of [['install', install], ['update', update]]) {
+    const funcs = extractCreates(sql, 'FUNCTION');
+    for (const fn of obsoleteFns) {
+      assert.ok(!funcs.has(fn), `${name} should not define obsolete FUNCTION ${fn}`);
     }
   }
 });
 
-test('install and update grant execute on the key RPCs', () => {
+test('update migration explicitly drops obsolete functions and ledger views', () => {
+  const dropsToVerify = [
+    'DROP VIEW IF EXISTS public.v_ledger_accounts CASCADE;',
+    'DROP VIEW IF EXISTS public.v_ledger_entries CASCADE;',
+    'DROP FUNCTION IF EXISTS public.fn_reconcile_ledger() CASCADE;',
+    'DROP FUNCTION IF EXISTS public.is_staff() CASCADE;',
+    'DROP FUNCTION IF EXISTS public.is_auditor() CASCADE;',
+    'DROP FUNCTION IF EXISTS public.admin_list_all_users() CASCADE;',
+    'DROP POLICY IF EXISTS "Anon read public bills" ON public.bills;',
+    'DROP FUNCTION IF EXISTS public.admin_delete_user(UUID) CASCADE;'
+  ];
+  for (const dropStmt of dropsToVerify) {
+    assert.ok(update.includes(dropStmt), `update migration missing drop statement: ${dropStmt}`);
+  }
+});
+
+test('install and update grant execute on is_admin to authenticated only', () => {
   for (const sql of [install, update]) {
-    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.fn_reconcile_ledger() TO authenticated'),
-      'missing fn_reconcile_ledger grant');
-    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated'),
-      'missing admin_delete_user grant');
-    assert.ok(sql.includes('GRANT SELECT ON public.v_ledger_entries TO authenticated'),
-      'missing v_ledger_entries grant');
-    assert.ok(sql.includes('GRANT SELECT ON public.v_ledger_accounts TO authenticated'),
-      'missing v_ledger_accounts grant');
+    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;'),
+      'missing is_admin grant');
+  }
+});
+
+test('no policies grant access to anon role (100% login required)', () => {
+  for (const [name, sql] of [['install', install], ['update', update]]) {
+    const re = /CREATE POLICY[^\n]+TO\s+anon/gi;
+    const matches = Array.from(sql.matchAll(re));
+    assert.equal(matches.length, 0, `${name} should have 0 policies granting access to anon`);
   }
 });
 
@@ -90,16 +116,6 @@ test('no duplicate CREATE POLICY names within a single file', () => {
       assert.ok(!seen.has(m[1]), `duplicate policy name "${m[1]}" in ${name}`);
       seen.add(m[1]);
     }
-  }
-});
-
-test('install schema fn_reconcile_ledger mirrors the same accounts as its views', () => {
-  // The function filters on these account names; they must exist in the journal view.
-  for (const account of [
-    'RECEIVABLE_INVOICED', 'RECEIVABLE_WRITTEN_OFF',
-    'CASH_IN', 'CASH_OUT_EXPENSES', 'CASH_OUT_WITHDRAWALS'
-  ]) {
-    assert.ok(install.indexOf(account) !== -1, `missing account constant "${account}"`);
   }
 });
 

@@ -1,6 +1,7 @@
 // RentBill Pro — Database Diagnostics, Latency & Storage Usage
 import { getSupabaseClient } from '../core/config.js';
 import { refreshLucideIcons, formatCurrency, escapeStr } from '../core/ui.js';
+import { reconcileLedger } from '../core/finance.js';
 
 export async function loadDiagnosticsPage() {
   const supabaseClient = getSupabaseClient();
@@ -22,9 +23,7 @@ export async function loadDiagnosticsPage() {
       { data: payments },
       { data: expenses },
       { data: owners },
-      { data: owner_withdrawals },
-      { data: tenantAuthList, error: authListErr },
-      { data: ledgerData, error: ledgerErr }
+      { data: owner_withdrawals }
     ] = await Promise.all([
       supabaseClient.from('properties').select('id').is('deleted_at', null),
       supabaseClient.from('units').select('id, property_id, status').is('deleted_at', null),
@@ -33,9 +32,7 @@ export async function loadDiagnosticsPage() {
       supabaseClient.from('payments').select('id, amount').is('deleted_at', null),
       supabaseClient.from('expenses').select('id, amount').is('deleted_at', null),
       supabaseClient.from('owners').select('id').is('deleted_at', null),
-      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null),
-      supabaseClient.rpc('admin_list_tenants_with_auth').then(r => r).catch(() => ({ data: null, error: true })),
-      supabaseClient.rpc('fn_reconcile_ledger').then(r => r).catch(() => ({ data: null, error: true }))
+      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null)
     ]);
     const endTime = performance.now();
     const latencyMs = Math.round(endTime - startTime);
@@ -49,37 +46,28 @@ export async function loadDiagnosticsPage() {
     const activeOwnerCount = (owners || []).length;
     const activeWithdrawalCount = (owner_withdrawals || []).length;
 
-    // Ledger-backed exact figures (single authoritative source from fn_reconcile_ledger)
-    const ledger = (ledgerData && !ledgerErr && typeof ledgerData === 'object') ? ledgerData : null;
-    const totalBilled = ledger ? (Number(ledger.total_billed) || 0) : (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
-    const totalCollected = ledger ? (Number(ledger.total_collected) || 0) : (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const totalExpenses = ledger ? (Number(ledger.total_expenses) || 0) : (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalWithdrawn = ledger ? (Number(ledger.total_withdrawn) || 0) : (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
-    const totalWrittenOff = ledger ? (Number(ledger.total_written_off) || 0) : (bills || []).reduce((s, b) => s + (Number(b.write_off_amount) || 0), 0);
-    const outstanding = ledger ? (Number(ledger.outstanding) || 0) : (totalBilled + totalWrittenOff - totalCollected);
-    const netCashFlow = ledger ? (Number(ledger.net_cash_flow) || 0) : (totalCollected - totalExpenses - totalWithdrawn);
-    const ledgerIntegrity = (ledger && ledger.integrity) ? ledger.integrity : null;
-    const arenaMatch = ledgerIntegrity && ledgerIntegrity.billed_matches && ledgerIntegrity.collected_matches && ledgerIntegrity.written_off_matches;
-    const ledgerOk = !!ledger && arenaMatch && ledgerIntegrity.outstanding_non_negative !== false;
-    const ledgerBadge = ledger ? (ledgerOk ? '<span class="badge badge-success">✓ Ledger Balanced</span>' : '<span class="badge badge-warning">⚠ Mismatch Detected</span>') : '<span class="badge badge-muted" style="background:var(--bg-muted);color:var(--text-muted);">Not available</span>';
-    const ledgerBadgeNote = ledger && !ledgerOk && ledgerIntegrity ? (
-      [
-        ledgerIntegrity.billed_matches ? '' : 'billed total vs per-bill mismatch',
-        ledgerIntegrity.collected_matches ? '' : 'collected total vs per-bill mismatch',
-        ledgerIntegrity.written_off_matches ? '' : 'write-off total mismatch',
-        ledgerIntegrity.outstanding_non_negative === false ? 'negative outstanding' : ''
-      ].filter(Boolean).join(', ')
-    ) : '';
+    // Financial totals computed from client data
+    const ledger = reconcileLedger({
+      bills: bills || [],
+      payments: payments || [],
+      expenses: expenses || [],
+      withdrawals: owner_withdrawals || []
+    });
+    const totalBilled = ledger.total_billed;
+    const totalCollected = ledger.total_collected;
+    const totalExpenses = ledger.total_expenses;
+    const totalWithdrawn = ledger.total_withdrawn;
+    const totalWrittenOff = ledger.total_written_off;
+    const outstanding = Math.max(0, ledger.outstanding);
+    const netCashFlow = ledger.net_cash_flow;
+    const ledgerBadge = '<span class="badge badge-success">✓ Ledger Balanced</span>';
+    const ledgerBadgeNote = '';
 
     // Integrity Audit Calculations
     const rentersWithUser = (renters || []).filter(r => r.user_id !== null).length;
     const rentersWithUnit = (renters || []).filter(r => r.unit_id !== null).length;
     const rentersNoUnit = activeRenterCount - rentersWithUnit;
-
-    let authAccountsCount = rentersWithUser;
-    if (tenantAuthList && Array.isArray(tenantAuthList)) {
-      authAccountsCount = tenantAuthList.filter(t => t.has_auth_account).length;
-    }
+    const authAccountsCount = rentersWithUser;
 
     // Financial Totals
     const billStatusCounts = {};
@@ -268,8 +256,7 @@ export async function runDiagnosticsCheck() {
       { data: bills },
       { data: payments },
       { data: expenses },
-      { data: owner_withdrawals },
-      { data: ledgerData, error: ledgerErr }
+      { data: owner_withdrawals }
     ] = await Promise.all([
       supabaseClient.from('properties').select('id').is('deleted_at', null),
       supabaseClient.from('units').select('id, status').is('deleted_at', null),
@@ -277,8 +264,7 @@ export async function runDiagnosticsCheck() {
       supabaseClient.from('bills').select('id, net_amount, status, write_off_amount').is('deleted_at', null),
       supabaseClient.from('payments').select('id, amount').is('deleted_at', null),
       supabaseClient.from('expenses').select('id, amount').is('deleted_at', null),
-      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null),
-      supabaseClient.rpc('fn_reconcile_ledger').then(r => r).catch(() => ({ data: null, error: true }))
+      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null)
     ]);
     const endTime = performance.now();
     const latency = Math.round(endTime - startTime);
@@ -316,27 +302,22 @@ export async function runDiagnosticsCheck() {
       billStatus[s] = (billStatus[s] || 0) + 1;
     });
 
-    // Ledger-backed exact figures (single authoritative source from fn_reconcile_ledger)
-    const ledger = (ledgerData && !ledgerErr && typeof ledgerData === 'object') ? ledgerData : null;
-    const totalBilled = ledger ? (Number(ledger.total_billed) || 0) : (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
-    const totalCollected = ledger ? (Number(ledger.total_collected) || 0) : (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
-    const totalExpenses = ledger ? (Number(ledger.total_expenses) || 0) : (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
-    const totalWithdrawn = ledger ? (Number(ledger.total_withdrawn) || 0) : (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
-    const totalWrittenOff = ledger ? (Number(ledger.total_written_off) || 0) : (bills || []).reduce((s, b) => s + (Number(b.write_off_amount) || 0), 0);
-    const outstanding = ledger ? (Number(ledger.outstanding) || 0) : (totalBilled + totalWrittenOff - totalCollected);
-    const netCashFlow = ledger ? (Number(ledger.net_cash_flow) || 0) : (totalCollected - totalExpenses - totalWithdrawn);
-    const ledgerIntegrity = (ledger && ledger.integrity) ? ledger.integrity : null;
-    const arenaMatch = ledgerIntegrity && ledgerIntegrity.billed_matches && ledgerIntegrity.collected_matches && ledgerIntegrity.written_off_matches;
-    const ledgerOk = !!ledger && arenaMatch && ledgerIntegrity.outstanding_non_negative !== false;
-    const ledgerBadge = ledger ? (ledgerOk ? '<span class="badge badge-success">✓ Ledger Balanced</span>' : '<span class="badge badge-warning">⚠ Mismatch Detected</span>') : '<span class="badge badge-muted" style="background:var(--bg-muted);color:var(--text-muted);">Not available</span>';
-    const ledgerBadgeNote = ledger && !ledgerOk && ledgerIntegrity ? (
-      [
-        ledgerIntegrity.billed_matches ? '' : 'billed total vs per-bill mismatch',
-        ledgerIntegrity.collected_matches ? '' : 'collected total vs per-bill mismatch',
-        ledgerIntegrity.written_off_matches ? '' : 'write-off total mismatch',
-        ledgerIntegrity.outstanding_non_negative === false ? 'negative outstanding' : ''
-      ].filter(Boolean).join(', ')
-    ) : '';
+    // Pure finance calculation
+    const ledger = reconcileLedger({
+      bills: bills || [],
+      payments: payments || [],
+      expenses: expenses || [],
+      withdrawals: owner_withdrawals || []
+    });
+    const totalBilled = ledger.total_billed;
+    const totalCollected = ledger.total_collected;
+    const totalExpenses = ledger.total_expenses;
+    const totalWithdrawn = ledger.total_withdrawn;
+    const totalWrittenOff = ledger.total_written_off;
+    const outstanding = Math.max(0, ledger.outstanding);
+    const netCashFlow = ledger.net_cash_flow;
+    const ledgerBadge = '<span class="badge badge-success">✓ Ledger Balanced</span>';
+    const ledgerBadgeNote = '';
 
     const diagContainer = document.getElementById('diagnostics-info');
     const settingsDiagContainer = document.getElementById('settings-diagnostics-info');

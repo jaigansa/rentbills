@@ -1,12 +1,11 @@
 // RentBill Pro — Supabase Configuration & Initialization Engine
 
-// Real credentials are NOT committed. They are injected at deploy time:
-//   Cloudflare Pages -> js/core/build-config.js (generated from env vars)
-// or per-browser via Settings (stored in localStorage).
-// These placeholders make the app run but never expose a live key in git.
+// Supabase project credentials (can also be customized in-browser via Settings):
 export const SUPABASE_CONFIG = {
-  projectIdOrUrl: 'https://kkixhxrniodyndgzkqgq.supabase.co',
-  publishableOrAnonKey: 'sb_publishable_zy5YRiETmug7i0qUII8pJQ_fVrF1th-'
+  url: 'https://kkixhxrniodyndgzkqgq.supabase.co',
+  anonKey: 'sb_publishable_zy5YRiETmug7i0qUII8pJQ_fVrF1th-',
+  get projectIdOrUrl() { return this.url; },
+  get publishableOrAnonKey() { return this.anonKey; }
 };
 
 let supabaseClient = null;
@@ -33,11 +32,8 @@ export function initSupabaseClient() {
   const storedUrl = sanitizeConfigVal(localStorage.getItem('rentbill_sb_url'));
   const storedKey = sanitizeConfigVal(localStorage.getItem('rentbill_sb_key'));
 
-  const injectedUrl = sanitizeConfigVal(typeof window !== 'undefined' ? window.__RENTBILL_SB_URL__ : '');
-  const injectedKey = sanitizeConfigVal(typeof window !== 'undefined' ? window.__RENTBILL_SB_KEY__ : '');
-
-  const rawInput = injectedUrl || storedUrl || SUPABASE_CONFIG.projectIdOrUrl;
-  const keyInput = injectedKey || storedKey || SUPABASE_CONFIG.publishableOrAnonKey;
+  const rawInput = storedUrl || SUPABASE_CONFIG.projectIdOrUrl;
+  const keyInput = storedKey || SUPABASE_CONFIG.publishableOrAnonKey;
 
   const finalUrl = normalizeSupabaseUrl(rawInput);
   const finalKey = sanitizeConfigVal(keyInput);

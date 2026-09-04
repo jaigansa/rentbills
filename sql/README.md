@@ -5,10 +5,20 @@ They are split into three folders — pick the one that matches what you're doin
 
 ```
 sql/
-├── install/   → build a brand-new database
-├── update/    → upgrade an existing database (keeps your data)
-└── delete/    → wipe data or reset everything
+├── step1_reset_database.sql   → Step 1: Wipe & reset database + auth users
+├── step2_master_schema.sql    → Step 2: Fresh master schema install
+├── install/                   → master schema source
+├── update/                    → upgrade existing database
+└── delete/                    → teardown scripts
 ```
+
+---
+
+## ⚡ Quick Fresh Setup (2 Steps)
+
+1. **Step 1:** Run [`sql/step1_reset_database.sql`](step1_reset_database.sql) in Supabase SQL Editor (wipes all tables, storage, and auth users).
+2. **Step 2:** Run [`sql/step2_master_schema.sql`](step2_master_schema.sql) in Supabase SQL Editor (creates clean tables, triggers, and secure policies).
+3. **Step 3:** Go to Supabase Dashboard → **Authentication** → **Users** → **Add User** (Create user with your email & password) to create your Landlord Admin account!
 
 ---
 
