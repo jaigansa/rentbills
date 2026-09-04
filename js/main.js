@@ -16,12 +16,25 @@ import {
 } from './core/ui.js';
 import { initTheme, applyThemeMode, toggleTheme, setTheme } from './core/theme.js';
 import { loadTranslations, applyTranslations, toggleLanguage } from './core/i18n.js';
-import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask, toggleLoginPasswordMask } from './modules/auth.js';
+import {
+  showLogin,
+  hideLoader,
+  checkAuth,
+  handleLogout,
+  showSetupConfigModal,
+  toggleKeyMask,
+  toggleLoginPasswordMask,
+  toggleUserProfileDropdown,
+  closeUserProfileDropdown,
+  openProfileSettings,
+  openProfileDiagnostics
+} from './modules/auth.js';
 import {
   openMobileMenu,
   closeMobileMenu,
   toggleMobileMenu,
   setupNavigation,
+  navigateToPage,
   switchPropertiesSubTab,
   handleMobileFabClick,
   triggerDynamicSubTabAdd,
@@ -174,6 +187,11 @@ window.triggerEditMaintenance = triggerEditMaintenance;
 window.triggerUpdateMaintenanceStatus = triggerUpdateMaintenanceStatus;
 window.triggerDeleteMaintenance = triggerDeleteMaintenance;
 window.exportMaintenanceCSV = exportMaintenanceCSV;
+window.toggleUserProfileDropdown = toggleUserProfileDropdown;
+window.closeUserProfileDropdown = closeUserProfileDropdown;
+window.openProfileSettings = openProfileSettings;
+window.openProfileDiagnostics = openProfileDiagnostics;
+window.navigateToPage = navigateToPage;
 
 // Global Event Listeners
 document.addEventListener('click', (e) => {
@@ -188,6 +206,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     closeAllDropdowns();
+    closeUserProfileDropdown();
   }
 });
 

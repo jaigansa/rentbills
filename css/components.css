@@ -217,6 +217,7 @@ tr:last-child td {
 .badge-warning { background-color: var(--warning-bg); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.25); }
 .badge-danger { background-color: var(--danger-bg); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.25); }
 .badge-info { background-color: var(--info-bg); color: var(--info); border: 1px solid rgba(59, 130, 246, 0.25); }
+.badge-xs { padding: 1px 7px; font-size: 10px; letter-spacing: 0.04em; }
 
 /* Buttons System */
 .btn {

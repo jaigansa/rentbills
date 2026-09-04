@@ -170,8 +170,26 @@ export async function checkAuth(passedSession = null) {
 
     const badgeEl = document.getElementById('user-profile-badge');
     const avatarTxt = document.getElementById('user-avatar-text');
-    if (badgeEl) badgeEl.title = `${activeUser.username} (${activeUser.role})`;
-    if (avatarTxt) avatarTxt.textContent = (activeUser.username || 'A').charAt(0).toUpperCase();
+    const nameEl = document.getElementById('user-profile-name');
+    const roleEl = document.getElementById('user-profile-role');
+
+    const dropAvatar = document.getElementById('dropdown-avatar-text');
+    const dropName = document.getElementById('dropdown-user-name');
+    const dropEmail = document.getElementById('dropdown-user-email');
+    const dropRole = document.getElementById('dropdown-user-role');
+
+    const initial = (activeUser.username || 'A').charAt(0).toUpperCase();
+
+    if (badgeEl) badgeEl.title = `Signed in as ${activeUser.username || 'User'} (${activeUser.role || 'ADMIN'}) — Click to view details`;
+    if (avatarTxt) avatarTxt.textContent = initial;
+    if (nameEl) nameEl.textContent = activeUser.username || 'Admin';
+    if (roleEl) roleEl.textContent = activeUser.role || 'ADMIN';
+
+    if (dropAvatar) dropAvatar.textContent = initial;
+    if (dropName) dropName.textContent = activeUser.username || 'Admin';
+    if (dropEmail) dropEmail.textContent = activeUser.email || '';
+    if (dropRole) dropRole.textContent = activeUser.role || 'ADMIN';
+    updateConnectionStatus(navigator.onLine);
 
     // Handle Auditor Banner Element
     let auditorBanner = document.getElementById('auditor-mode-banner');
@@ -302,5 +320,68 @@ export function toggleLoginPasswordMask() {
     eyeIcon.setAttribute('data-lucide', isHidden ? 'eye-off' : 'eye');
     refreshLucideIcons();
   }
+}
+
+export function toggleUserProfileDropdown(event) {
+  if (event) event.stopPropagation();
+  const dropdown = document.getElementById('user-profile-dropdown');
+  if (!dropdown) return;
+  const isHidden = dropdown.style.display === 'none';
+  dropdown.style.display = isHidden ? 'block' : 'none';
+  if (isHidden) {
+    refreshLucideIcons();
+  }
+}
+
+export function closeUserProfileDropdown() {
+  const dropdown = document.getElementById('user-profile-dropdown');
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+export function openProfileSettings() {
+  closeUserProfileDropdown();
+  if (window.navigateToPage) {
+    window.navigateToPage('page-settings');
+  } else {
+    document.querySelectorAll('[data-target="page-settings"]').forEach(el => el.click());
+  }
+  if (window.switchSettingsSubTab) {
+    const authBtn = document.querySelectorAll('.settings-tab-btn')[1];
+    window.switchSettingsSubTab('auth', authBtn);
+  }
+}
+
+export function openProfileDiagnostics() {
+  closeUserProfileDropdown();
+  if (window.navigateToPage) {
+    window.navigateToPage('page-diagnostics');
+  } else {
+    document.querySelectorAll('[data-target="page-diagnostics"]').forEach(el => el.click());
+  }
+}
+
+export function updateConnectionStatus(isOnline) {
+  const statusDot = document.getElementById('user-status-dot');
+  const dropdownIndicator = document.getElementById('dropdown-status-indicator');
+  if (statusDot) {
+    statusDot.className = `avatar-status-dot ${isOnline ? 'online' : 'offline'}`;
+    statusDot.title = isOnline ? 'Online • Realtime Synced' : 'Offline • Local Mode';
+  }
+  if (dropdownIndicator) {
+    dropdownIndicator.className = `status-indicator-badge ${isOnline ? 'online' : 'offline'}`;
+    dropdownIndicator.innerHTML = `<span class="status-dot ${isOnline ? 'online' : 'offline'}"></span> ${isOnline ? 'Realtime Synced' : 'Offline Mode'}`;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    const wrapper = document.getElementById('user-profile-wrapper');
+    if (wrapper && !wrapper.contains(e.target)) {
+      closeUserProfileDropdown();
+    }
+  });
+
+  window.addEventListener('online', () => updateConnectionStatus(true));
+  window.addEventListener('offline', () => updateConnectionStatus(false));
 }
 

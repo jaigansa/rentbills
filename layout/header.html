@@ -1,8 +1,57 @@
   <!-- Main Top Bar Header -->
   <header class="top-bar compact">
     <div class="top-bar-left">
-      <div class="user-profile-badge icon-only" id="user-profile-badge" title="Admin">
-        <div class="avatar-circle sync-indicator synced" id="user-avatar-text">A</div>
+      <div class="user-profile-wrapper" id="user-profile-wrapper">
+        <button type="button" class="user-profile-badge" id="user-profile-badge" title="View Profile Details" onclick="toggleUserProfileDropdown(event)">
+          <div class="avatar-circle-wrapper">
+            <div class="avatar-circle sync-indicator synced" id="user-avatar-text">A</div>
+            <span class="avatar-status-dot online" id="user-status-dot" title="Online • Realtime Synced"></span>
+          </div>
+          <div class="user-profile-label">
+            <span class="user-profile-name" id="user-profile-name">Admin</span>
+            <span class="badge badge-success badge-xs" id="user-profile-role">ADMIN</span>
+          </div>
+          <i data-lucide="chevron-down" class="profile-dropdown-arrow"></i>
+        </button>
+
+        <!-- User Profile Details Dropdown Card -->
+        <div class="user-profile-dropdown" id="user-profile-dropdown" style="display: none;">
+          <div class="user-dropdown-header">
+            <div class="avatar-circle large" id="dropdown-avatar-text">A</div>
+            <div class="user-dropdown-info">
+              <div class="user-dropdown-name" id="dropdown-user-name">Admin</div>
+              <div class="user-dropdown-email" id="dropdown-user-email">admin@rentbill.local</div>
+              <div class="user-dropdown-tags">
+                <span class="badge badge-success badge-xs" id="dropdown-user-role">ADMIN</span>
+                <span class="status-indicator-badge online" id="dropdown-status-indicator">
+                  <span class="status-dot online"></span> Realtime Synced
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="user-dropdown-divider"></div>
+          <div class="user-dropdown-menu">
+            <button type="button" class="user-dropdown-item" onclick="openProfileSettings()">
+              <i data-lucide="sliders"></i>
+              <span>Account & Security</span>
+            </button>
+            <button type="button" class="user-dropdown-item" onclick="openProfileDiagnostics()">
+              <i data-lucide="activity"></i>
+              <span>System Health & Diagnostics</span>
+            </button>
+            <button type="button" class="user-dropdown-item" onclick="toggleTheme()">
+              <i data-lucide="sun-medium"></i>
+              <span>Toggle Dark / Light Mode</span>
+            </button>
+          </div>
+          <div class="user-dropdown-divider"></div>
+          <div class="user-dropdown-footer">
+            <button type="button" class="user-dropdown-item danger" onclick="document.getElementById('logout-btn').click()">
+              <i data-lucide="log-out"></i>
+              <span>Logout Session</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="top-bar-actions">

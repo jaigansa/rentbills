@@ -48,32 +48,36 @@ export function setupNavigation() {
     item.addEventListener('click', () => {
       const target = item.getAttribute('data-target');
       if (!target) return;
-      
-      localStorage.setItem('rentbill_active_page', target);
-      closeMobileMenu();
-
-      items.forEach(nav => nav.classList.remove('active'));
-      document.querySelectorAll(`[data-target="${target}"]`).forEach(nav => nav.classList.add('active'));
-
-      document.querySelectorAll('.page-section').forEach(page => page.classList.remove('active'));
-      const targetPage = document.getElementById(target);
-      if (targetPage) targetPage.classList.add('active');
-
-      switch (target) {
-        case 'page-dashboard': loadDashboard(); break;
-        case 'page-properties': loadPropertiesPage(); break;
-        case 'page-tenants': loadTenantsPage(); break;
-        case 'page-owners': loadOwnersPage(); break;
-        case 'page-bills': loadBillsPage(); break;
-        case 'page-payments': loadPaymentsPage(); break;
-        case 'page-maintenance': loadMaintenancePage(); break;
-        case 'page-expenses': loadExpensesPage(); break;
-        case 'page-diagnostics': loadDiagnosticsPage(); break;
-        case 'page-settings': loadSettingsPage(); break;
-      }
-      refreshLucideIcons();
+      navigateToPage(target);
     });
   });
+}
+
+export function navigateToPage(target) {
+  if (!target) return;
+  localStorage.setItem('rentbill_active_page', target);
+  closeMobileMenu();
+
+  document.querySelectorAll('.nav-item').forEach(nav => nav.classList.remove('active'));
+  document.querySelectorAll(`[data-target="${target}"]`).forEach(nav => nav.classList.add('active'));
+
+  document.querySelectorAll('.page-section').forEach(page => page.classList.remove('active'));
+  const targetPage = document.getElementById(target);
+  if (targetPage) targetPage.classList.add('active');
+
+  switch (target) {
+    case 'page-dashboard': loadDashboard(); break;
+    case 'page-properties': loadPropertiesPage(); break;
+    case 'page-tenants': loadTenantsPage(); break;
+    case 'page-owners': loadOwnersPage(); break;
+    case 'page-bills': loadBillsPage(); break;
+    case 'page-payments': loadPaymentsPage(); break;
+    case 'page-maintenance': loadMaintenancePage(); break;
+    case 'page-expenses': loadExpensesPage(); break;
+    case 'page-diagnostics': loadDiagnosticsPage(); break;
+    case 'page-settings': loadSettingsPage(); break;
+  }
+  refreshLucideIcons();
 }
 
 export function switchPropertiesSubTab(tabName, groupEl) {
