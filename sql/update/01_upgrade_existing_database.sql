@@ -1255,7 +1255,8 @@ $$;
 --   CASH_OUT_WITHDRAWALS    (-) paid        owner withdrawals
 -- ============================================================================
 
-CREATE OR REPLACE VIEW public.v_ledger_entries AS
+CREATE OR REPLACE VIEW public.v_ledger_entries
+WITH (security_invoker = true) AS
 SELECT
   'BILL'::text AS source_type,
   b.id AS source_id,
@@ -1311,7 +1312,8 @@ SELECT
 FROM public.owner_withdrawals w
 WHERE w.deleted_at IS NULL;
 
-CREATE OR REPLACE VIEW public.v_ledger_accounts AS
+CREATE OR REPLACE VIEW public.v_ledger_accounts
+WITH (security_invoker = true) AS
 SELECT
   account,
   period,

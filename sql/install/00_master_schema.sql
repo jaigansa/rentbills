@@ -414,7 +414,8 @@ CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 -- ============================================================================
 
 -- 7.5.1 Ledger journal view: one line per financial event with a signed amount
-CREATE OR REPLACE VIEW public.v_ledger_entries AS
+CREATE OR REPLACE VIEW public.v_ledger_entries
+WITH (security_invoker = true) AS
 SELECT
   'BILL'::text AS source_type,
   b.id AS source_id,
@@ -471,7 +472,8 @@ FROM public.owner_withdrawals w
 WHERE w.deleted_at IS NULL;
 
 -- 7.5.2 Ledger account balances view (per account, overall + per period)
-CREATE OR REPLACE VIEW public.v_ledger_accounts AS
+CREATE OR REPLACE VIEW public.v_ledger_accounts
+WITH (security_invoker = true) AS
 SELECT
   account,
   period,
