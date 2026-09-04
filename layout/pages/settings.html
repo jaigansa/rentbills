@@ -27,10 +27,21 @@
                 </div>
                 <div class="form-group">
                   <label for="cfg-theme">UI Color Theme Mode</label>
-                  <select id="cfg-theme" class="form-control" onchange="setTheme(this.value)">
-                    <option value="system">💻 System Default</option>
-                    <option value="light">☀️ Light Theme</option>
-                    <option value="dark">🌙 Dark Midnight Theme</option>
+                  <div class="theme-button-group" style="display: flex; gap: 8px; margin-top: 4px;">
+                    <button type="button" class="btn btn-secondary theme-btn" data-theme-val="system" onclick="setTheme('system')" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                      <i data-lucide="laptop"></i> System
+                    </button>
+                    <button type="button" class="btn btn-secondary theme-btn" data-theme-val="light" onclick="setTheme('light')" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                      <i data-lucide="sun"></i> Light
+                    </button>
+                    <button type="button" class="btn btn-secondary theme-btn" data-theme-val="dark" onclick="setTheme('dark')" style="flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                      <i data-lucide="moon"></i> Dark
+                    </button>
+                  </div>
+                  <select id="cfg-theme" class="form-control" onchange="setTheme(this.value)" style="display: none;">
+                    <option value="system">System Default</option>
+                    <option value="light">Light Theme</option>
+                    <option value="dark">Dark Midnight Theme</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -40,7 +51,7 @@
                     <option value="USD">USD ($) — US Dollar</option>
                     <option value="EUR">EUR (€) — Euro</option>
                     <option value="GBP">GBP (£) — British Pound</option>
-                    <option value="AED">AED (🇦🇪) — UAE Dirham</option>
+                    <option value="AED">AED (د.إ) — UAE Dirham</option>
                   </select>
                 </div>
                 <div class="form-group">

@@ -19,6 +19,16 @@ export function applyThemeMode(theme) {
 
   if (themeSelect) themeSelect.value = theme;
 
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    if (btn.getAttribute('data-theme-val') === theme) {
+      btn.classList.add('btn-primary');
+      btn.classList.remove('btn-secondary');
+    } else {
+      btn.classList.remove('btn-primary');
+      btn.classList.add('btn-secondary');
+    }
+  });
+
   const loginThemeIcon = document.getElementById('login-theme-icon');
   if (themeIcon) {
     themeIcon.setAttribute('data-lucide', activeTheme === 'dark' ? 'sun' : 'moon');
