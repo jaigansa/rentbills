@@ -574,15 +574,18 @@ export function setupFormSubmitHandlers() {
       }
 
       if (!isTenant) {
-        const newPaid = (bill.paid_amount || 0) + amount;
-        let newStatus = 'PARTIAL';
-        if (newPaid >= bill.net_amount) newStatus = 'PAID';
-
-        await safeUpdate(client, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', bill_id);
-
-        const remainingDue = Math.max(0, bill.net_amount - newPaid);
-        if (bill.renter_id) {
-          await safeUpdate(client, 'renters', { pending_arrears: remainingDue }, 'id', bill.renter_id);
+        // The sync_bill_paid_amount trigger already recomputed bills.paid_amount
+        // (and status) to include this payment. Re-read the fresh value and sync
+        // the tenant's pending_arrears — never add amount to the pre-insert
+        // paid_amount manually (which drifted from the trigger's authoritative sum).
+        const { data: freshBill } = await client
+          .from('bills')
+          .select('id, renter_id, net_amount, paid_amount')
+          .eq('id', bill_id)
+          .single();
+        const remainingDue = Math.max(0, (Number(freshBill?.net_amount) || 0) - (Number(freshBill?.paid_amount) || 0));
+        if (freshBill && freshBill.renter_id) {
+          await safeUpdate(client, 'renters', { pending_arrears: remainingDue }, 'id', freshBill.renter_id);
         }
       }
 

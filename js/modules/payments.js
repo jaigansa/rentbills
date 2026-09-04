@@ -2,7 +2,7 @@
 import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
-import { formatCurrency, formatInvoiceNumber, numberToWordsINR, renderEmptyState, openModal, refreshLucideIcons, deriveBillStatusAfterPayment } from '../core/ui.js';
+import { formatCurrency, formatInvoiceNumber, numberToWordsINR, renderEmptyState, openModal, refreshLucideIcons, escapeStr } from '../core/ui.js';
 import { loadBillsPage, shareInvoiceWhatsApp, copyInvoiceToClipboard } from './bills.js';
 import { loadDashboard } from './dashboard.js';
 
@@ -18,6 +18,9 @@ export async function loadPaymentsPage() {
       if (currentUser && currentUser.role === 'TENANT') {
         if (currentUser.renter_id) {
           query = query.eq('renter_id', currentUser.renter_id);
+        } else {
+          // No resolved renter_id -> force an empty result, never widen scope.
+          query = query.eq('renter_id', -1);
         }
       }
       const { data: pData } = await query;
@@ -67,13 +70,13 @@ export async function loadPaymentsPage() {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td data-label="Invoice Number & UUID">
-              <strong>${invoiceNo}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${uuidSuffix}</span>
+              <strong>${escapeStr(invoiceNo)}</strong>
+              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(uuidSuffix)}</span>
             </td>
-            <td data-label="Renter Name"><strong>${tenantName}</strong></td>
+            <td data-label="Renter Name"><strong>${escapeStr(tenantName)}</strong></td>
             <td data-label="Amount"><strong>${formatCurrency(p.amount)}</strong></td>
-            <td data-label="Method">${p.payment_method || '-'}</td>
-            <td data-label="Ref No">${p.transaction_reference || '-'}</td>
+            <td data-label="Method">${escapeStr(p.payment_method || '-')}</td>
+            <td data-label="Ref No">${escapeStr(p.transaction_reference || '-')}</td>
             <td data-label="Payment Date">${p.payment_date ? new Date(p.payment_date).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : '-')}</td>
             <td data-label="Verification">${proofBadge}</td>
             <td data-label="Actions">
@@ -81,12 +84,12 @@ export async function loadPaymentsPage() {
                 <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
                 <div class="dropdown-menu">
                   ${p.proof_photo ? `<button class="dropdown-item" onclick="viewPaymentProofImage(${p.id})"><i data-lucide="image"></i> View Receipt Photo</button>` : ''}
-                  ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item success" onclick="triggerApprovePaymentProof(${p.id}, ${p.bill_id}, ${p.amount})"><i data-lucide="check-circle"></i> Approve Proof</button>` : ''}
+                  ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item success" onclick="triggerApprovePaymentProof(${p.id}, ${p.bill_id})"><i data-lucide="check-circle"></i> Approve Proof</button>` : ''}
                   ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item danger" onclick="triggerRejectPaymentProof(${p.id})"><i data-lucide="x-circle"></i> Reject Proof</button>` : ''}
                   <button class="dropdown-item" onclick="printPaidReceipt(${p.bill_id}, ${p.id})"><i data-lucide="printer"></i> Print Payment Receipt</button>
                   <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${p.bill_id})"><i data-lucide="message-square"></i> WhatsApp Invoice</button>
                   <button class="dropdown-item" onclick="copyInvoiceToClipboard(${p.bill_id})"><i data-lucide="copy"></i> Copy Invoice Text</button>
-                  ${currentUser && currentUser.role !== 'TENANT' ? `<button class="dropdown-item danger" onclick="triggerDeletePayment(${p.id}, ${p.bill_id}, ${p.amount})"><i data-lucide="trash-2"></i> Delete Payment</button>` : ''}
+                  ${currentUser && currentUser.role !== 'TENANT' ? `<button class="dropdown-item danger" onclick="triggerDeletePayment(${p.id}, ${p.bill_id})"><i data-lucide="trash-2"></i> Delete Payment</button>` : ''}
                 </div>
               </div>
             </td>
@@ -123,7 +126,25 @@ export function filterPaymentsTable() {
   });
 }
 
-export async function triggerDeletePayment(paymentId, billId, amountPaise) {
+// After a payment insert/delete/approve/reject the sync_bill_paid_amount trigger
+// keeps bills.paid_amount (and status) authoritative. This helper refreshes the
+// tenant's pending_arrears from the post-trigger bill value without manually
+// re-deriving paid_amount (which previously double-counted on approve and
+// double-decremented on delete).
+async function syncPaymentArrears(client, billId) {
+  if (!client || !billId) return;
+  const { data: bill } = await client
+    .from('bills')
+    .select('id, renter_id, net_amount, paid_amount, status')
+    .eq('id', billId)
+    .single();
+  if (bill && bill.renter_id) {
+    const remainingDue = Math.max(0, (Number(bill.net_amount) || 0) - (Number(bill.paid_amount) || 0));
+    await safeUpdate(client, 'renters', { pending_arrears: remainingDue }, 'id', bill.renter_id);
+  }
+}
+
+export async function triggerDeletePayment(paymentId, billId) {
   const supabaseClient = getSupabaseClient();
   if (!confirm('Are you sure you want to delete/revoke this payment record?')) return;
   try {
@@ -133,14 +154,10 @@ export async function triggerDeletePayment(paymentId, billId, amountPaise) {
       return;
     }
 
+    // The trigger already recomputed bills.paid_amount/status excluding this
+    // payment; only refresh the tenant's pending_arrears from the fresh value.
     if (billId) {
-      const { data: bill } = await supabaseClient.from('bills').select('*').eq('id', billId).single();
-      if (bill) {
-        const newPaid = Math.max(0, (bill.paid_amount || 0) - amountPaise);
-        const newStatus = deriveBillStatusAfterPayment(bill.net_amount, newPaid);
-
-        await safeUpdate(supabaseClient, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', billId);
-      }
+      await syncPaymentArrears(supabaseClient, billId);
     }
 
     alert('Payment deleted and bill balance updated successfully');
@@ -170,29 +187,21 @@ export async function printReceipt(billId) {
   window.open(`receipt.html?id=${billId}&autoprint=1`, '_blank');
 }
 
-export async function triggerApprovePaymentProof(paymentId, billId, amount) {
+export async function triggerApprovePaymentProof(paymentId, billId) {
   if (!confirm('Approve this tenant payment proof verification?')) return;
   const client = getSupabaseClient();
   if (!client) return;
 
   try {
-    const { data: bill } = await client.from('bills').select('*').eq('id', billId).maybeSingle();
     await safeUpdate(client, 'payments', {
       proof_status: 'VERIFIED',
       verified_at: new Date().toISOString()
     }, 'id', paymentId);
 
-    if (bill) {
-      const newPaid = (bill.paid_amount || 0) + amount;
-      const newStatus = deriveBillStatusAfterPayment(bill.net_amount, newPaid);
-
-      await safeUpdate(client, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', billId);
-
-      const remainingDue = Math.max(0, bill.net_amount - newPaid);
-      if (bill.renter_id) {
-        await safeUpdate(client, 'renters', { pending_arrears: remainingDue }, 'id', bill.renter_id);
-      }
-    }
+    // The payment was already counted in bills.paid_amount while PENDING, and the
+    // trigger re-sums on the PENDING->VERIFIED transition (sum is unchanged).
+    // Simply refresh arrears — never add the amount again (was double-counting).
+    await syncPaymentArrears(client, billId);
 
     alert('✅ Payment proof approved successfully! Invoice updated.');
     loadPaymentsPage();
@@ -209,7 +218,15 @@ export async function triggerRejectPaymentProof(paymentId) {
   if (!client) return;
 
   try {
+    const { data: payment } = await client.from('payments').select('bill_id').eq('id', paymentId).maybeSingle();
     await safeUpdate(client, 'payments', { proof_status: 'REJECTED' }, 'id', paymentId);
+
+    // REJECTED payments are excluded by the sync trigger, so paid_amount drops;
+    // refresh the tenant's pending_arrears to match.
+    if (payment && payment.bill_id) {
+      await syncPaymentArrears(client, payment.bill_id);
+    }
+
     alert('⚠️ Payment proof rejected.');
     loadPaymentsPage();
     loadBillsPage();
