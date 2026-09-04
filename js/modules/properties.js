@@ -162,7 +162,6 @@ export async function loadTenantsPage() {
                 <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
                 <div class="dropdown-menu">
                   <button class="dropdown-item" onclick="triggerEditTenant(${t.id})"><i data-lucide="edit-2"></i> Edit Tenant</button>
-                  <button class="dropdown-item" onclick="triggerTenantPasswordModal(${t.id}, '${escapeStr(t.name)}', '${escapeStr(t.email || '')}', '${escapeStr(t.mobile_number || '')}', '${t.user_id || ''}')"><i data-lucide="key-round"></i> Login & Password</button>
                   <button class="dropdown-item" onclick="triggerAdjustArrears(${t.id})"><i data-lucide="sliders"></i> Adjust Pending Arrears</button>
                   <button class="dropdown-item" onclick="triggerTransferModal(${t.id}, '${escapeStr(t.name)}', ${t.unit_id})"><i data-lucide="arrow-right-left"></i> Transfer Unit</button>
                   <button class="dropdown-item" onclick="triggerMeterResetModal(${t.id}, '${escapeStr(t.name)}')"><i data-lucide="zap"></i> Reset Meter</button>

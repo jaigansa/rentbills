@@ -16,7 +16,7 @@ import {
 } from './core/ui.js';
 import { initTheme, applyThemeMode, toggleTheme, setTheme } from './core/theme.js';
 import { loadTranslations, applyTranslations, toggleLanguage } from './core/i18n.js';
-import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask } from './modules/auth.js';
+import { showLogin, hideLoader, checkAuth, handleLogout, showSetupConfigModal, toggleKeyMask, toggleLoginPasswordMask } from './modules/auth.js';
 import {
   openMobileMenu,
   closeMobileMenu,
@@ -99,41 +99,6 @@ import {
 } from './modules/backups.js';
 import { setupFormSubmitHandlers } from './modules/forms.js';
 import { setupRealtimeSubscriptions } from './modules/realtime.js';
-import {
-  loadTenantLoginsSettings,
-  renderTenantLoginsTable,
-  filterTenantLoginsTable,
-  triggerTenantPasswordModal,
-  submitTenantPasswordForm,
-  saveAndShareTenantWhatsApp,
-  copyTenantCredentials,
-  copyTenantCredentialsFromRow,
-  shareTenantCredentialsWhatsApp,
-  shareTenantCredentialsFromRow,
-  toggleTenantPasswordMask,
-  toggleTenantModalPasswordMask,
-  toggleLoginPasswordMask,
-  triggerDeleteTenantLogin,
-  triggerDeleteTenantLoginFromModal,
-  triggerToggleTenantLoginStatus,
-  triggerToggleTenantLoginStatusFromModal,
-  fillMobilePassword,
-  generateRandomPassword
-} from './modules/tenantAuth.js';
-import {
-  loadUserLoginsSettings,
-  renderUserLoginsTable,
-  filterUserLoginsTable,
-  openCreateUserModal,
-  openEditUserModal,
-  submitUserForm,
-  triggerResetUserPassword,
-  triggerChangeUserRole,
-  triggerToggleUserStatus,
-  triggerDeleteUser,
-  toggleUserPasswordMask,
-  generateUserPassword
-} from './modules/userManagement.js';
 
 // Register public handlers to window for HTML inline event listeners
 window.openModal = openModal;
@@ -199,37 +164,7 @@ window.triggerRestoreData = triggerRestoreData;
 window.handleRestoreFileUpload = handleRestoreFileUpload;
 window.triggerAdjustArrears = triggerAdjustArrears;
 window.toggleLanguage = toggleLanguage;
-window.loadTenantLoginsSettings = loadTenantLoginsSettings;
-window.renderTenantLoginsTable = renderTenantLoginsTable;
-window.filterTenantLoginsTable = filterTenantLoginsTable;
-window.triggerTenantPasswordModal = triggerTenantPasswordModal;
-window.submitTenantPasswordForm = submitTenantPasswordForm;
-window.saveAndShareTenantWhatsApp = saveAndShareTenantWhatsApp;
-window.copyTenantCredentials = copyTenantCredentials;
-window.copyTenantCredentialsFromRow = copyTenantCredentialsFromRow;
-window.shareTenantCredentialsWhatsApp = shareTenantCredentialsWhatsApp;
-window.shareTenantCredentialsFromRow = shareTenantCredentialsFromRow;
-window.toggleTenantPasswordMask = toggleTenantPasswordMask;
-window.toggleTenantModalPasswordMask = toggleTenantModalPasswordMask;
 window.toggleLoginPasswordMask = toggleLoginPasswordMask;
-window.triggerDeleteTenantLogin = triggerDeleteTenantLogin;
-window.triggerDeleteTenantLoginFromModal = triggerDeleteTenantLoginFromModal;
-window.triggerToggleTenantLoginStatus = triggerToggleTenantLoginStatus;
-window.triggerToggleTenantLoginStatusFromModal = triggerToggleTenantLoginStatusFromModal;
-window.fillMobilePassword = fillMobilePassword;
-window.generateRandomPassword = generateRandomPassword;
-window.loadUserLoginsSettings = loadUserLoginsSettings;
-window.renderUserLoginsTable = renderUserLoginsTable;
-window.filterUserLoginsTable = filterUserLoginsTable;
-window.openCreateUserModal = openCreateUserModal;
-window.openEditUserModal = openEditUserModal;
-window.submitUserForm = submitUserForm;
-window.triggerResetUserPassword = triggerResetUserPassword;
-window.triggerChangeUserRole = triggerChangeUserRole;
-window.triggerToggleUserStatus = triggerToggleUserStatus;
-window.triggerDeleteUser = triggerDeleteUser;
-window.toggleUserPasswordMask = toggleUserPasswordMask;
-window.generateUserPassword = generateUserPassword;
 window.triggerApprovePaymentProof = triggerApprovePaymentProof;
 window.triggerRejectPaymentProof = triggerRejectPaymentProof;
 window.viewPaymentProofImage = viewPaymentProofImage;

@@ -2,6 +2,7 @@
 import { getSupabaseClient } from '../core/config.js';
 import { getCurrentUser, setCurrentUser, getCurrentLang } from '../core/state.js';
 import { loadTranslations } from '../core/i18n.js';
+import { refreshLucideIcons } from '../core/ui.js';
 import { loadDashboard } from './dashboard.js';
 import { loadBillsPage } from './bills.js';
 import { loadPaymentsPage } from './payments.js';
@@ -290,3 +291,16 @@ export function toggleKeyMask() {
   if (!input) return;
   input.type = input.type === 'password' ? 'text' : 'password';
 }
+
+export function toggleLoginPasswordMask() {
+  const pwInput = document.getElementById('login-password');
+  const eyeIcon = document.getElementById('login-eye-icon');
+  if (!pwInput) return;
+  const isHidden = pwInput.type === 'password';
+  pwInput.type = isHidden ? 'text' : 'password';
+  if (eyeIcon) {
+    eyeIcon.setAttribute('data-lucide', isHidden ? 'eye-off' : 'eye');
+    refreshLucideIcons();
+  }
+}
+

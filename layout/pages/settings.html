@@ -11,8 +11,7 @@
           <!-- Settings Tab Sub-Navigation Pills -->
           <div class="settings-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; overflow-x: auto;">
             <button class="btn btn-secondary settings-tab-btn active" onclick="switchSettingsSubTab('app', this)"><i data-lucide="sliders"></i> App Settings</button>
-            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('users', this)"><i data-lucide="users"></i> User Logins</button>
-            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('auth', this)"><i data-lucide="shield-check"></i> Auth & API Keys</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('auth', this)"><i data-lucide="shield-check"></i> Account & Security</button>
             <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('data', this)"><i data-lucide="database"></i> Data & Backups</button>
             <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('diagnostics', this)"><i data-lucide="activity"></i> Diagnostics & Latency</button>
           </div>
@@ -72,66 +71,7 @@
             </div>
           </div>
 
-          <!-- TAB 2: USER LOGINS & ACCESS MANAGEMENT (All Roles) -->
-          <div id="settings-tab-users" class="settings-sub-section" style="display: none;">
-            <div class="card" style="margin-bottom: 24px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
-                <div>
-                  <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="users" style="color: var(--primary);"></i>
-                    <span>User Logins & Access Manager</span>
-                  </h3>
-                  <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;" id="user-logins-count">
-                    Manage all user accounts — Admin, Staff, Auditor, and Tenant portals.
-                  </p>
-                </div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                  <button class="btn btn-secondary" onclick="loadUserLoginsSettings()">
-                    <i data-lucide="refresh-cw"></i> Refresh
-                  </button>
-                  <button class="btn btn-primary" onclick="openCreateUserModal()">
-                    <i data-lucide="user-plus"></i> + Add User
-                  </button>
-                </div>
-              </div>
-
-              <!-- Search & Role Filter Bar -->
-              <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
-                <div style="position: relative; flex: 1; min-width: 220px;">
-                  <input type="text" id="search-user-logins" class="form-control" placeholder="Filter by name or email..." oninput="filterUserLoginsTable()" autocomplete="off">
-                </div>
-                <div style="width: 180px;">
-                  <select id="filter-user-role" class="form-control" onchange="filterUserLoginsTable()">
-                    <option value="ALL">All Roles</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="STAFF">Staff</option>
-                    <option value="AUDITOR">Auditor</option>
-                    <option value="TENANT">Tenant</option>
-                  </select>
-                </div>
-              </div>
-
-              <!-- User Accounts Table -->
-              <div class="table-container table-responsive-cards">
-                <table class="data-table">
-                  <thead>
-                    <tr>
-                      <th>User & Role</th>
-                      <th>Email</th>
-                      <th>Status</th>
-                      <th>Last Activity</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody id="table-body-user-logins">
-                    <!-- Populated dynamically by userManagement.js -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <!-- TAB 3: AUTH & API KEYS -->
+          <!-- TAB 2: ACCOUNT & SECURITY -->
           <div id="settings-tab-auth" class="settings-sub-section" style="display: none;">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
               <div class="card">

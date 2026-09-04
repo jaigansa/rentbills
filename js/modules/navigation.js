@@ -11,7 +11,6 @@ import { loadMaintenancePage } from './maintenance.js';
 import { loadDiagnosticsPage, runDiagnosticsCheck } from './diagnostics.js';
 import { loadSettingsPage } from './backups.js';
 import { openAddDocumentModal } from './documents.js';
-import { loadUserLoginsSettings } from './userManagement.js';
 
 export function openMobileMenu() {
   const menu = document.getElementById('mobile-menu');
@@ -140,8 +139,6 @@ export function switchSettingsSubTab(tabName, btn) {
 
   if (tabName === 'diagnostics') {
     runDiagnosticsCheck();
-  } else if (tabName === 'users') {
-    loadUserLoginsSettings();
   }
   refreshLucideIcons();
 }

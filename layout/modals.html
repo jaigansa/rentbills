@@ -98,14 +98,6 @@
               <input type="email" id="tenant-email" class="form-control" placeholder="Optional (e.g. tenant@example.com)" autocomplete="email">
             </div>
             <div class="form-group">
-              <label>Portal Login Password</label>
-              <div style="display: flex; gap: 8px; position: relative;">
-                <input type="password" id="tenant-password" class="form-control" placeholder="Default: Tenant@123" minlength="6" style="flex: 1; padding-right: 42px;" autocomplete="new-password">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleTenantModalPasswordMask()" title="Show/Hide Password" style="position: absolute; right: 4px; top: 4px; bottom: 4px; border: none; background: transparent; padding: 0 10px; font-size: 14px;">👁️</button>
-              </div>
-              <small style="color: var(--success); font-size: 11px;">⚡ Login account created automatically (Default: Tenant@123)</small>
-            </div>
-            <div class="form-group">
               <label>Aadhaar Card No</label>
               <input type="text" id="tenant-aadhar" class="form-control" autocomplete="off">
             </div>
@@ -161,110 +153,6 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-tenant')">Cancel</button>
           <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Set / Reset Tenant Password Modal -->
-  <div id="modal-tenant-password" class="modal-overlay">
-    <div class="modal-content" style="max-width: 460px;">
-      <div class="modal-header">
-        <h2><i data-lucide="key-round" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Tenant Portal Login</h2>
-        <button class="close-btn" onclick="closeModal('modal-tenant-password')" aria-label="Close modal"><i data-lucide="x"></i></button>
-      </div>
-      <form id="form-tenant-password">
-        <input type="hidden" id="tp-renter-id">
-        <input type="hidden" id="tp-user-id">
-        <input type="hidden" id="tp-tenant-email">
-        <div class="modal-body">
-          <div style="background: var(--bg-card-header); padding: 14px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); margin-bottom: 16px;">
-            <div style="font-weight: 700; font-size: 15px; color: var(--text-main); display: flex; align-items: center; gap: 10px;">
-              <span style="width: 38px; height: 38px; border-radius: 10px; background: rgba(79, 70, 229, 0.12); color: var(--primary); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 16px; flex-shrink: 0;">A</span>
-              <span id="tp-tenant-name">-</span>
-            </div>
-            <div style="font-size: 13px; color: var(--text-muted); margin-top: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <span id="tp-tenant-unit" class="badge badge-secondary" style="font-size: 11px;">-</span>
-              <span style="opacity: 0.5;">•</span>
-              <span id="tp-tenant-mobile" style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">-</span>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="tp-tenant-password"><i data-lucide="lock" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i> New Password *</label>
-            <div style="position: relative; display: flex; align-items: center;">
-              <input type="password" id="tp-tenant-password" class="form-control" placeholder="Enter new password" minlength="6" required style="padding-right: 42px;" autocomplete="new-password">
-              <button type="button" onclick="toggleTenantPasswordMask()" title="Show/Hide Password" style="position: absolute; right: 4px; top: 4px; bottom: 4px; border: none; background: transparent; padding: 0 10px; cursor: pointer; font-size: 14px; color: var(--text-muted);"><i data-lucide="eye"></i></button>
-            </div>
-            <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-secondary" onclick="generateRandomPassword()" style="font-size: 11px; padding: 3px 8px;"><i data-lucide="dice-5"></i> Generate Strong</button>
-            </div>
-            <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Minimum 6 characters. The tenant signs in with their registered mobile number using this password.</small>
-          </div>
-
-          <div id="tp-status-msg" style="display: none; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;"></div>
-        </div>
-        <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-secondary" onclick="closeModal('modal-tenant-password')">Cancel</button>
-            <button type="button" id="tp-toggle-status-btn" class="btn btn-secondary" onclick="triggerToggleTenantLoginStatusFromModal()" style="display: none;"><i data-lucide="shield-off"></i></button>
-            <button type="button" id="tp-delete-btn" class="btn btn-danger" onclick="triggerDeleteTenantLoginFromModal()" style="display: none;"><i data-lucide="user-x"></i></button>
-          </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-secondary" onclick="saveAndShareTenantWhatsApp()" style="color: #25d366; border-color: rgba(37, 211, 102, 0.4);"><i data-lucide="message-circle"></i> Share</button>
-            <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save</button>
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Add / Edit User Account Modal (Admin / Staff / Auditor) -->
-  <div id="modal-add-edit-user" class="modal-overlay">
-    <div class="modal-content" style="max-width: 520px;">
-      <div class="modal-header">
-        <h2 id="eu-title"><i data-lucide="user-cog" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; color: var(--primary);"></i> Add New User Account</h2>
-        <button class="close-btn" onclick="closeModal('modal-add-edit-user')" aria-label="Close modal"><i data-lucide="x"></i></button>
-      </div>
-      <form id="form-add-edit-user" onsubmit="event.preventDefault(); submitUserForm(event);">
-        <input type="hidden" id="eu-user-id">
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="eu-username">Display Name *</label>
-            <input type="text" id="eu-username" class="form-control" placeholder="e.g. Ramesh Kumar / Accountant / Site Manager" required autocomplete="off">
-          </div>
-          <div class="form-group">
-            <label for="eu-email">Login Email *</label>
-            <input type="email" id="eu-email" class="form-control" placeholder="e.g. user@example.com" required autocomplete="off">
-          </div>
-          <div id="eu-password-group">
-            <div class="form-group">
-              <label for="eu-password" id="eu-password-label">Password *</label>
-              <div style="position: relative; display: flex; align-items: center;" class="eu-pw-wrapper">
-                <input type="password" id="eu-password" class="form-control" placeholder="Minimum 6 characters" minlength="6" required style="padding-right: 42px;" autocomplete="new-password">
-                <button type="button" onclick="toggleUserPasswordMask()" title="Show/Hide Password" style="position: absolute; right: 4px; top: 4px; bottom: 4px; border: none; background: transparent; padding: 0 10px; cursor: pointer; font-size: 14px; color: var(--text-muted);"><i data-lucide="eye"></i></button>
-              </div>
-              <div style="display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-secondary" onclick="generateUserPassword()" style="font-size: 11px; padding: 3px 8px;"><i data-lucide="dice-5"></i> Generate Strong</button>
-              </div>
-              <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Minimum 6 characters. In edit mode, leave blank to keep the current password.</small>
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="eu-role">Account Role *</label>
-            <select id="eu-role" class="form-control">
-              <option value="ADMIN">Admin — Full System Access</option>
-              <option value="STAFF" selected>Staff — Maintenance & Work Orders</option>
-              <option value="AUDITOR">Auditor — Read-Only Financial Access</option>
-            </select>
-            <small style="color: var(--text-muted); font-size: 11px; margin-top: 4px; display: block;">Tenant portal accounts are managed from the tenant profile / Properties page.</small>
-          </div>
-
-          <div id="eu-status-msg" style="display: none; padding: 10px; border-radius: var(--radius-sm); font-size: 13px; margin-top: 10px;"></div>
-        </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-add-edit-user')">Cancel</button>
-          <button type="submit" class="btn btn-primary"><i data-lucide="check"></i> Save User Account</button>
         </div>
       </form>
     </div>

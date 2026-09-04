@@ -12,7 +12,6 @@ import { loadPaymentsPage } from './payments.js';
 import { loadExpensesPage } from './expenses.js';
 import { loadDocumentsPage } from './documents.js';
 import { submitMaintenanceForm, submitMaintenanceStatusForm } from './maintenance.js';
-import { saveTenantCredentials, submitTenantPasswordForm, loadTenantLoginsSettings } from './tenantAuth.js';
 
 export function setupFormSubmitHandlers() {
   const supabaseClient = getSupabaseClient();
@@ -301,38 +300,11 @@ export function setupFormSubmitHandlers() {
           await safeUpdate(client, 'units', { status: 'OCCUPIED' }, 'id', unit_id);
         }
 
-        // Automatically provision tenant login credentials in Supabase Auth (1-Step Automatic Portal Account)
-        let loginEmail = (email || '').trim();
-        const cleanMobileDigits = (mobile_number || '').replace(/[^0-9]/g, '');
-        if (!loginEmail || !loginEmail.includes('@')) {
-          if (cleanMobileDigits.length >= 10) {
-            loginEmail = `tenant_${cleanMobileDigits.slice(-10)}@rentbill.local`;
-          } else {
-            loginEmail = `tenant_${savedRenterId || Date.now()}@rentbill.local`;
-          }
-        }
-        
-        let tenantPassword = (document.getElementById('tenant-password')?.value || '').trim();
-        if (!tenantPassword || tenantPassword.length < 6) {
-          const tenDigitMobile = cleanMobileDigits.length >= 10 ? cleanMobileDigits.slice(-10) : cleanMobileDigits;
-          tenantPassword = (tenDigitMobile && tenDigitMobile.length >= 6) ? tenDigitMobile : 'Tenant@123';
-        }
-
-        try {
-          await saveTenantCredentials(savedRenterId, loginEmail, tenantPassword, name, mobile_number);
-        } catch (authErr) {
-          console.warn('Tenant credential auto-save notice:', authErr.message);
-          alert('Tenant saved, but the automatic login account could NOT be created:\n\n' + (authErr.message || 'Unknown error') + '\n\nOpen Settings → User Logins to set up the login manually.');
-        }
-
         formAddTenant.reset();
         document.getElementById('edit-tenant-id').value = '';
-        const pwEl = document.getElementById('tenant-password');
-        if (pwEl) pwEl.value = '';
         closeModal('modal-add-tenant');
         loadTenantsPage();
         loadPropertiesPage();
-        loadTenantLoginsSettings();
       }
     });
   }
@@ -773,13 +745,7 @@ export function setupFormSubmitHandlers() {
     });
   }
 
-  // 12. TENANT PASSWORD FORM
-  const formTenantPw = document.getElementById('form-tenant-password');
-  if (formTenantPw) {
-    formTenantPw.addEventListener('submit', submitTenantPasswordForm);
-  }
-
-  // 13. ADMIN CHANGE PASSWORD FORM
+  // 12. ADMIN CHANGE PASSWORD FORM
   const formChangePassword = document.getElementById('form-change-password');
   if (formChangePassword) {
     formChangePassword.addEventListener('submit', async (e) => {
