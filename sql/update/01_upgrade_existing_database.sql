@@ -1219,6 +1219,165 @@ BEGIN
 END;
 $$;
 
+-- 6.6 LEDGER & FINANCIAL RECONCILIATION
+-- A virtual double-entry-style ledger derived live from the source tables.
+-- Because the app uses soft deletes (deleted_at) and derived caches, the
+-- account balances are computed directly from source rows on read so they can
+-- NEVER drift from actual transactions. This gives an exact auditable
+-- "billed vs collected vs spent" reconciliation.
+--
+-- Account map (signed so the ledger balances):
+--   RECEIVABLE_INVOICED     (+) billed      bills net_amount (non-voided)
+--   RECEIVABLE_WRITTEN_OFF  (-) writeoff    bills write_off_amount
+--   CASH_IN                 (+) received    verified rent payments
+--   CASH_OUT_EXPENSES       (-) paid        operating expenses
+--   CASH_OUT_WITHDRAWALS    (-) paid        owner withdrawals
+-- ============================================================================
+
+CREATE OR REPLACE VIEW public.v_ledger_entries AS
+SELECT
+  'BILL'::text AS source_type,
+  b.id AS source_id,
+  b.renter_id,
+  'RECEIVABLE_INVOICED'::text AS account,
+  b.billing_period AS period,
+  b.bill_date AS entry_date,
+  b.net_amount AS amount
+FROM public.bills b
+WHERE b.deleted_at IS NULL
+  AND b.status != 'VOID'
+  AND b.voided_at IS NULL
+UNION ALL
+SELECT
+  'BILL_WRITE_OFF'::text,
+  b.id, b.renter_id,
+  'RECEIVABLE_WRITTEN_OFF'::text,
+  b.billing_period, b.bill_date,
+  -(COALESCE(b.write_off_amount, 0))
+FROM public.bills b
+WHERE b.deleted_at IS NULL
+  AND b.status != 'VOID'
+  AND b.voided_at IS NULL
+  AND COALESCE(b.write_off_amount, 0) <> 0
+UNION ALL
+SELECT
+  'PAYMENT'::text,
+  p.id, p.renter_id,
+  'CASH_IN'::text,
+  b.billing_period, p.payment_date,
+  p.amount
+FROM public.payments p
+JOIN public.bills b ON b.id = p.bill_id
+WHERE p.deleted_at IS NULL
+  AND p.reversed_at IS NULL
+  AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
+UNION ALL
+SELECT
+  'EXPENSE'::text,
+  e.id, NULL::bigint,
+  'CASH_OUT_EXPENSES'::text,
+  to_char(e.date, 'YYYY-MM'), e.date,
+  e.amount
+FROM public.expenses e
+WHERE e.deleted_at IS NULL
+UNION ALL
+SELECT
+  'WITHDRAWAL'::text,
+  w.id, NULL::bigint,
+  'CASH_OUT_WITHDRAWALS'::text,
+  to_char(w.date, 'YYYY-MM'), w.date,
+  w.amount
+FROM public.owner_withdrawals w
+WHERE w.deleted_at IS NULL;
+
+CREATE OR REPLACE VIEW public.v_ledger_accounts AS
+SELECT
+  account,
+  period,
+  COUNT(*) AS entries,
+  SUM(amount) AS balance,
+  SUM(amount) FILTER (WHERE amount >= 0) AS debit_total,
+  SUM(amount) FILTER (WHERE amount < 0) AS credit_total
+FROM public.v_ledger_entries
+GROUP BY account, period;
+
+CREATE OR REPLACE FUNCTION public.fn_reconcile_ledger()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  WITH totals AS (
+    SELECT
+      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_INVOICED'), 0)      AS total_billed,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_WRITTEN_OFF'), 0)   AS total_written_off,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_IN'), 0)                  AS total_collected,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_EXPENSES'), 0)        AS total_expenses,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_WITHDRAWALS'), 0)     AS total_withdrawn
+    FROM public.v_ledger_entries
+  ),
+  per_bill AS (
+    SELECT
+      b.id,
+      b.net_amount,
+      COALESCE(b.write_off_amount, 0) AS written_off,
+      COALESCE(SUM(p.amount), 0) AS collected
+    FROM public.bills b
+    LEFT JOIN public.payments p
+      ON p.bill_id = b.id
+      AND p.deleted_at IS NULL
+      AND p.reversed_at IS NULL
+      AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
+    WHERE b.deleted_at IS NULL
+      AND b.status != 'VOID'
+      AND b.voided_at IS NULL
+    GROUP BY b.id, b.net_amount, b.write_off_amount
+  ),
+  bill_snapshot AS (
+    SELECT
+      SUM(net_amount) AS billed,
+      SUM(written_off) AS written_off,
+      SUM(collected) AS collected,
+      SUM(net_amount) - SUM(written_off) - SUM(collected) AS outstanding
+    FROM per_bill
+  ),
+  calcs AS (
+    SELECT
+      t.total_billed,
+      t.total_written_off,
+      t.total_collected,
+      t.total_expenses,
+      t.total_withdrawn,
+      bs.billed AS per_bill_billed,
+      bs.written_off AS per_bill_written_off,
+      bs.collected AS per_bill_collected,
+      bs.outstanding AS outstanding,
+      (t.total_billed + t.total_written_off) - t.total_collected AS net_receivable,
+      t.total_collected - (t.total_expenses + t.total_withdrawn) AS net_cash_flow
+    FROM totals t, bill_snapshot bs
+  )
+  SELECT jsonb_build_object(
+    'total_billed',            calcs.total_billed,
+    'total_written_off',       calcs.total_written_off,
+    'total_collected',         calcs.total_collected,
+    'total_expenses',          calcs.total_expenses,
+    'total_withdrawn',         calcs.total_withdrawn,
+    'outstanding',             calcs.outstanding,
+    'net_receivable',          calcs.net_receivable,
+    'net_cash_flow',           calcs.net_cash_flow,
+    'accounts', (
+      SELECT jsonb_object_agg(account, balance) FROM public.v_ledger_accounts
+    ),
+    'integrity'::text, jsonb_build_object(
+      'billed_matches',        calcs.total_billed = calcs.per_bill_billed,
+      'collected_matches',     calcs.total_collected = calcs.per_bill_collected,
+      'written_off_matches',   calcs.total_written_off = calcs.per_bill_written_off,
+      'outstanding_non_negative', calcs.outstanding >= 0
+    )
+  )
+  FROM calcs;
+$$;
+
 -- 7. Grant execution permissions
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION public.is_auditor() TO authenticated, anon;
@@ -1239,6 +1398,9 @@ GRANT EXECUTE ON FUNCTION public.admin_update_user_password(UUID, TEXT) TO authe
 GRANT EXECUTE ON FUNCTION public.admin_change_user_role(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_toggle_user_status(UUID, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fn_reconcile_ledger() TO authenticated;
+GRANT SELECT ON public.v_ledger_entries TO authenticated;
+GRANT SELECT ON public.v_ledger_accounts TO authenticated;
 
 -- 8. Default Administrator Account (idempotent — only created if missing)
 -- Customize the email/password below before running on a fresh database.

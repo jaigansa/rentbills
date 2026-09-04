@@ -1,6 +1,6 @@
 // RentBill Pro — Database Diagnostics, Latency & Storage Usage
 import { getSupabaseClient } from '../core/config.js';
-import { refreshLucideIcons } from '../core/ui.js';
+import { refreshLucideIcons, formatCurrency, escapeStr } from '../core/ui.js';
 
 export async function loadDiagnosticsPage() {
   const supabaseClient = getSupabaseClient();
@@ -23,17 +23,19 @@ export async function loadDiagnosticsPage() {
       { data: expenses },
       { data: owners },
       { data: owner_withdrawals },
-      { data: tenantAuthList, error: authListErr }
+      { data: tenantAuthList, error: authListErr },
+      { data: ledgerData, error: ledgerErr }
     ] = await Promise.all([
       supabaseClient.from('properties').select('id').is('deleted_at', null),
-      supabaseClient.from('units').select('id, property_id').is('deleted_at', null),
+      supabaseClient.from('units').select('id, property_id, status').is('deleted_at', null),
       supabaseClient.from('renters').select('id, user_id, unit_id, is_active').is('deleted_at', null),
-      supabaseClient.from('bills').select('id, status').is('deleted_at', null),
+      supabaseClient.from('bills').select('id, status, net_amount, write_off_amount').is('deleted_at', null),
       supabaseClient.from('payments').select('id, amount').is('deleted_at', null),
       supabaseClient.from('expenses').select('id, amount').is('deleted_at', null),
       supabaseClient.from('owners').select('id').is('deleted_at', null),
-      supabaseClient.from('owner_withdrawals').select('id').is('deleted_at', null),
-      supabaseClient.rpc('admin_list_tenants_with_auth').then(r => r).catch(() => ({ data: null, error: true }))
+      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null),
+      supabaseClient.rpc('admin_list_tenants_with_auth').then(r => r).catch(() => ({ data: null, error: true })),
+      supabaseClient.rpc('fn_reconcile_ledger').then(r => r).catch(() => ({ data: null, error: true }))
     ]);
     const endTime = performance.now();
     const latencyMs = Math.round(endTime - startTime);
@@ -47,6 +49,28 @@ export async function loadDiagnosticsPage() {
     const activeOwnerCount = (owners || []).length;
     const activeWithdrawalCount = (owner_withdrawals || []).length;
 
+    // Ledger-backed exact figures (single authoritative source from fn_reconcile_ledger)
+    const ledger = (ledgerData && !ledgerErr && typeof ledgerData === 'object') ? ledgerData : null;
+    const totalBilled = ledger ? (Number(ledger.total_billed) || 0) : (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
+    const totalCollected = ledger ? (Number(ledger.total_collected) || 0) : (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const totalExpenses = ledger ? (Number(ledger.total_expenses) || 0) : (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalWithdrawn = ledger ? (Number(ledger.total_withdrawn) || 0) : (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
+    const totalWrittenOff = ledger ? (Number(ledger.total_written_off) || 0) : (bills || []).reduce((s, b) => s + (Number(b.write_off_amount) || 0), 0);
+    const outstanding = ledger ? (Number(ledger.outstanding) || 0) : (totalBilled + totalWrittenOff - totalCollected);
+    const netCashFlow = ledger ? (Number(ledger.net_cash_flow) || 0) : (totalCollected - totalExpenses - totalWithdrawn);
+    const ledgerIntegrity = (ledger && ledger.integrity) ? ledger.integrity : null;
+    const arenaMatch = ledgerIntegrity && ledgerIntegrity.billed_matches && ledgerIntegrity.collected_matches && ledgerIntegrity.written_off_matches;
+    const ledgerOk = !!ledger && arenaMatch && ledgerIntegrity.outstanding_non_negative !== false;
+    const ledgerBadge = ledger ? (ledgerOk ? '<span class="badge badge-success">✓ Ledger Balanced</span>' : '<span class="badge badge-warning">⚠ Mismatch Detected</span>') : '<span class="badge badge-muted" style="background:var(--bg-muted);color:var(--text-muted);">Not available</span>';
+    const ledgerBadgeNote = ledger && !ledgerOk && ledgerIntegrity ? (
+      [
+        ledgerIntegrity.billed_matches ? '' : 'billed total vs per-bill mismatch',
+        ledgerIntegrity.collected_matches ? '' : 'collected total vs per-bill mismatch',
+        ledgerIntegrity.written_off_matches ? '' : 'write-off total mismatch',
+        ledgerIntegrity.outstanding_non_negative === false ? 'negative outstanding' : ''
+      ].filter(Boolean).join(', ')
+    ) : '';
+
     // Integrity Audit Calculations
     const rentersWithUser = (renters || []).filter(r => r.user_id !== null).length;
     const rentersWithUnit = (renters || []).filter(r => r.unit_id !== null).length;
@@ -56,6 +80,34 @@ export async function loadDiagnosticsPage() {
     if (tenantAuthList && Array.isArray(tenantAuthList)) {
       authAccountsCount = tenantAuthList.filter(t => t.has_auth_account).length;
     }
+
+    // Financial Totals
+    const billStatusCounts = {};
+    (bills || []).forEach(b => {
+      const s = (b.status || 'UNKNOWN').toUpperCase();
+      billStatusCounts[s] = (billStatusCounts[s] || 0) + 1;
+    });
+    const statusPaid = billStatusCounts['PAID'] || 0;
+    const statusUnpaid = billStatusCounts['UNPAID'] || 0;
+    const statusPartial = billStatusCounts['PARTIAL'] || 0;
+    const statusVoid = billStatusCounts['VOID'] || 0;
+
+    // Occupancy Analysis
+    const occupiedUnits = (units || []).filter(u => (u.status || '').toUpperCase() === 'OCCUPIED').length;
+    const vacantUnits = (units || []).filter(u => (u.status || '').toUpperCase() === 'VACANT').length;
+    const totalUnits = activeUnitCount;
+    const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+    const rentersNoLogin = activeRenterCount - authAccountsCount;
+
+    const integrityIssues = [];
+    if (rentersNoUnit > 0) integrityIssues.push(`${rentersNoUnit} tenants have no unit assigned`);
+    if (activeRenterCount > 0 && authAccountsCount === 0) integrityIssues.push('No tenant portal logins provisioned');
+    if (outstanding < 0) integrityIssues.push('Collected amount exceeds total billed');
+    if ((bills || []).length > 0 && statusUnpaid === 0 && activeRenterCount > 0) integrityIssues.push('No unpaid invoices recorded');
+
+    const integrityBadge = integrityIssues.length === 0
+      ? '<span class="badge badge-success">✓ 100% Passed</span>'
+      : `<span class="badge badge-warning">${integrityIssues.length} Warning(s)</span>`;
 
     let slaBadge = '<span class="badge badge-success">⚡ Excellent (&lt;150ms)</span>';
     if (latencyMs > 400) {
@@ -83,12 +135,18 @@ export async function loadDiagnosticsPage() {
           <strong>${activeUnitCount}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Unit Occupancy:</span>
+          <div><strong>${occupancyRate}%</strong> <span class="badge badge-info">${occupiedUnits} Occupied / ${vacantUnits} Vacant</span></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Active Tenants:</span>
           <strong>${activeRenterCount}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Tenant Portal Logins Provisioned:</span>
-          <strong>${authAccountsCount} / ${activeRenterCount}</strong>
+          <div><strong>${authAccountsCount} / ${activeRenterCount}</strong>
+            ${rentersNoLogin > 0 ? `<span class="badge badge-warning">${rentersNoLogin} Missing</span>` : ''}
+          </div>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Tenants Linked to Units:</span>
@@ -100,21 +158,68 @@ export async function loadDiagnosticsPage() {
           <strong>${activeBillCount}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Invoice Breakdown:</span>
+          <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <span class="badge badge-success">${statusPaid} Paid</span>
+            <span class="badge badge-warning">${statusUnpaid} Unpaid</span>
+            <span class="badge badge-info">${statusPartial} Partial</span>
+            ${statusVoid > 0 ? `<span class="badge badge-muted" style="background:var(--bg-muted);color:var(--text-muted);">${statusVoid} Void</span>` : ''}
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Total Billed:</span>
+          <strong>${formatCurrency(totalBilled)}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Total Collected:</span>
+          <strong>${formatCurrency(totalCollected)}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Outstanding Balance:</span>
+          <strong style="color: ${outstanding > 0 ? 'var(--danger)' : 'var(--success)'};">${formatCurrency(outstanding)}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Recorded Payments:</span>
           <strong>${activePaymentCount}</strong>
         </div>
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Logged Operating Expenses:</span>
-          <strong>${activeExpenseCount}</strong>
+          <strong>${formatCurrency(totalExpenses)}</strong>
         </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Owner Withdrawals:</span>
+          <strong>${formatCurrency(totalWithdrawn)}</strong>
+        </div>
+        ${totalWrittenOff > 0 ? `
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Written-Off (Adjustments):</span>
+          <strong>${formatCurrency(totalWrittenOff)}</strong>
+        </div>
+        ` : ''}
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Net Cash Flow:</span>
+          <strong style="color: ${netCashFlow >= 0 ? 'var(--success)' : 'var(--danger)'};">${formatCurrency(netCashFlow)}</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
+          <span>Ledger Reconciliation:</span>
+          ${ledgerBadge}
+        </div>
+        ${ledgerBadgeNote ? `
+        <div style="padding: 8px 0; color: var(--danger); font-size: 12px;">⚠ ${escapeStr(ledgerBadgeNote)}</div>
+        ` : ''}
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Database Subsystem Status:</span>
           <span class="badge badge-success">RPC & Schemas Operational</span>
         </div>
-        <div style="display: flex; justify-content: space-between; padding: 10px 0;">
+        <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Database Integrity Check:</span>
-          <span class="badge badge-success">100% Passed</span>
+          ${integrityBadge}
         </div>
+        ${integrityIssues.length > 0 ? `
+          <div style="padding: 10px 0; color: var(--text-muted); font-size: 12px;">
+            ${integrityIssues.map(issue => `<div>• ${escapeStr(issue)}</div>`).join('')}
+          </div>
+        ` : ''}
       `;
     }
 
@@ -161,13 +266,17 @@ export async function runDiagnosticsCheck() {
       { data: units },
       { data: renters },
       { data: bills },
-      { data: payments }
+      { data: payments },
+      { data: expenses },
+      { data: owner_withdrawals }
     ] = await Promise.all([
-      supabaseClient.from('properties').select('id'),
-      supabaseClient.from('units').select('id'),
-      supabaseClient.from('renters').select('id'),
-      supabaseClient.from('bills').select('id'),
-      supabaseClient.from('payments').select('id')
+      supabaseClient.from('properties').select('id').is('deleted_at', null),
+      supabaseClient.from('units').select('id, status').is('deleted_at', null),
+      supabaseClient.from('renters').select('id, user_id, is_active').is('deleted_at', null),
+      supabaseClient.from('bills').select('id, net_amount, status, write_off_amount').is('deleted_at', null),
+      supabaseClient.from('payments').select('id, amount').is('deleted_at', null),
+      supabaseClient.from('expenses').select('id, amount').is('deleted_at', null),
+      supabaseClient.from('owner_withdrawals').select('id, amount').is('deleted_at', null)
     ]);
     const endTime = performance.now();
     const latency = Math.round(endTime - startTime);
@@ -189,17 +298,55 @@ export async function runDiagnosticsCheck() {
     const browserSpan = document.getElementById('diag-browser-val');
     if (browserSpan) browserSpan.textContent = `${navigator.userAgent.split(' ')[0]} / ${navigator.platform}`;
 
+    // Computed metrics
+    const countProps = props ? props.length : 0;
+    const totalUnits = units ? units.length : 0;
+    const occupiedUnits = (units || []).filter(u => (u.status || '').toUpperCase() === 'OCCUPIED').length;
+    const vacantUnits = (units || []).filter(u => (u.status || '').toUpperCase() === 'VACANT').length;
+    const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+    const totalRenters = renters ? renters.length : 0;
+    const rentersWithLogin = (renters || []).filter(r => r.user_id !== null).length;
+    const missingLogins = totalRenters - rentersWithLogin;
+
+    const totalBilled = (bills || []).reduce((s, b) => s + (Number(b.net_amount) || 0), 0);
+    const totalCollected = (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    const totalExpenses = (expenses || []).reduce((s, e) => s + (Number(e.amount) || 0), 0);
+    const totalWithdrawn = (owner_withdrawals || []).reduce((s, w) => s + (Number(w.amount) || 0), 0);
+    const outstanding = totalBilled - totalCollected;
+
+    const billStatus = {};
+    (bills || []).forEach(b => {
+      const s = (b.status || 'UNKNOWN').toUpperCase();
+      billStatus[s] = (billStatus[s] || 0) + 1;
+    });
+
     const diagContainer = document.getElementById('diagnostics-info');
     const settingsDiagContainer = document.getElementById('settings-diagnostics-info');
-    
+
     const diagHtml = `
-      <div><strong>Total Properties:</strong> ${props ? props.length : 0}</div>
-      <div><strong>Total Units:</strong> ${units ? units.length : 0}</div>
-      <div><strong>Total Renters:</strong> ${renters ? renters.length : 0}</div>
-      <div><strong>Invoices Generated:</strong> ${bills ? bills.length : 0}</div>
-      <div><strong>Payments Verified:</strong> ${payments ? payments.length : 0}</div>
-      <div><strong>API Endpoint:</strong> <code>${localStorage.getItem('rentbill_sb_url') || 'Connected'}</code></div>
-      <div><strong>Status:</strong> <span class="badge badge-success">HEALTHY</span></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>API Response Latency:</span><strong>${latency} ms</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Registered Properties:</span><strong>${countProps}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Total Units:</span><strong>${totalUnits}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Unit Occupancy:</span><strong>${occupancyRate}%</strong> <span class="badge badge-info">${occupiedUnits} Occ / ${vacantUnits} Vac</span></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Total Tenants:</span><strong>${totalRenters}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Tenant Logins:</span><strong>${rentersWithLogin} / ${totalRenters}</strong> ${missingLogins > 0 ? `<span class="badge badge-warning">${missingLogins} Missing</span>` : ''}</div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Invoices Generated:</span><strong>${bills ? bills.length : 0}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);">
+        <span>Invoice Breakdown:</span>
+        <span style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+          <span class="badge badge-success">${billStatus['PAID'] || 0} Paid</span>
+          <span class="badge badge-warning">${billStatus['UNPAID'] || 0} Unpaid</span>
+          <span class="badge badge-info">${billStatus['PARTIAL'] || 0} Partial</span>
+        </span>
+      </div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Total Billed:</span><strong>${formatCurrency(totalBilled)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Collected:</span><strong>${formatCurrency(totalCollected)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Outstanding:</span><strong style="color:${outstanding > 0 ? 'var(--danger)' : 'var(--success)'};">${formatCurrency(outstanding)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Expenses:</span><strong>${formatCurrency(totalExpenses)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Withdrawals:</span><strong>${formatCurrency(totalWithdrawn)}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>Payments Recorded:</span><strong>${payments ? payments.length : 0}</strong></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);"><span>API Endpoint:</span><code>${localStorage.getItem('rentbill_sb_url') || 'Connected'}</code></div>
+      <div style="display: flex; justify-content: space-between; padding: 6px 0;"><span>Status:</span><span class="badge badge-success">HEALTHY</span></div>
     `;
 
     if (diagContainer) diagContainer.innerHTML = diagHtml;

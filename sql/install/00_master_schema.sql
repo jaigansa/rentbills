@@ -398,6 +398,171 @@ CREATE INDEX IF NOT EXISTS idx_expenses_date ON public.expenses(date);
 CREATE INDEX IF NOT EXISTS idx_profiles_role ON public.profiles(role);
 
 -- ============================================================================
+-- 7.5 LEDGER & FINANCIAL RECONCILIATION
+-- A virtual double-entry-style ledger derived live from the source tables.
+-- Because every page uses soft deletes (deleted_at) and derived caches, the
+-- account balances below are computed directly from source rows on read — so
+-- they can NEVER drift from the actual transactions. This gives an exact,
+-- auditable "billed vs collected vs spent" reconciliation.
+--
+-- Account map (values signed so the ledger always balances):
+--   RECEIVABLE_INVOICED  (+ billed)   Rent/bills generated (net_amount)
+--   RECEIVABLE_WRITTEN_OFF (- writeoff) Discounts/adjustments written off
+--   CASH_IN               (+ received) Verified rent payments collected
+--   CASH_OUT_EXPENSES     (- paid)     Operating expenses actually incurred
+--   CASH_OUT_WITHDRAWALS  (- paid)     Owner withdrawals distributed
+-- ============================================================================
+
+-- 7.5.1 Ledger journal view: one line per financial event with a signed amount
+CREATE OR REPLACE VIEW public.v_ledger_entries AS
+SELECT
+  'BILL'::text AS source_type,
+  b.id AS source_id,
+  b.renter_id,
+  'RECEIVABLE_INVOICED'::text AS account,
+  b.billing_period AS period,
+  b.bill_date AS entry_date,
+  b.net_amount AS amount
+FROM public.bills b
+WHERE b.deleted_at IS NULL
+  AND b.status != 'VOID'
+  AND b.voided_at IS NULL
+UNION ALL
+SELECT
+  'BILL_WRITE_OFF'::text,
+  b.id, b.renter_id,
+  'RECEIVABLE_WRITTEN_OFF'::text,
+  b.billing_period, b.bill_date,
+  -(COALESCE(b.write_off_amount, 0))
+FROM public.bills b
+WHERE b.deleted_at IS NULL
+  AND b.status != 'VOID'
+  AND b.voided_at IS NULL
+  AND COALESCE(b.write_off_amount, 0) <> 0
+UNION ALL
+SELECT
+  'PAYMENT'::text,
+  p.id, p.renter_id,
+  'CASH_IN'::text,
+  b.billing_period, p.payment_date,
+  p.amount
+FROM public.payments p
+JOIN public.bills b ON b.id = p.bill_id
+WHERE p.deleted_at IS NULL
+  AND p.reversed_at IS NULL
+  AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
+UNION ALL
+SELECT
+  'EXPENSE'::text,
+  e.id, NULL::bigint,
+  'CASH_OUT_EXPENSES'::text,
+  to_char(e.date, 'YYYY-MM'), e.date,
+  e.amount
+FROM public.expenses e
+WHERE e.deleted_at IS NULL
+UNION ALL
+SELECT
+  'WITHDRAWAL'::text,
+  w.id, NULL::bigint,
+  'CASH_OUT_WITHDRAWALS'::text,
+  to_char(w.date, 'YYYY-MM'), w.date,
+  w.amount
+FROM public.owner_withdrawals w
+WHERE w.deleted_at IS NULL;
+
+-- 7.5.2 Ledger account balances view (per account, overall + per period)
+CREATE OR REPLACE VIEW public.v_ledger_accounts AS
+SELECT
+  account,
+  period,
+  COUNT(*) AS entries,
+  SUM(amount) AS balance,
+  SUM(amount) FILTER (WHERE amount >= 0) AS debit_total,
+  SUM(amount) FILTER (WHERE amount < 0) AS credit_total
+FROM public.v_ledger_entries
+GROUP BY account, period;
+
+-- 7.5.3 Exact reconciliation snapshot function.
+-- Returns a single JSON with the authoritative financial state and integrity
+-- flags. THIS is the single source of truth for "collected vs billed".
+CREATE OR REPLACE FUNCTION public.fn_reconcile_ledger()
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  WITH totals AS (
+    SELECT
+      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_INVOICED'), 0)      AS total_billed,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'RECEIVABLE_WRITTEN_OFF'), 0)   AS total_written_off,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_IN'), 0)                  AS total_collected,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_EXPENSES'), 0)        AS total_expenses,
+      COALESCE(SUM(amount) FILTER (WHERE account = 'CASH_OUT_WITHDRAWALS'), 0)     AS total_withdrawn
+    FROM public.v_ledger_entries
+  ),
+  per_bill AS (
+    SELECT
+      b.id,
+      b.net_amount,
+      COALESCE(b.write_off_amount, 0) AS written_off,
+      COALESCE(SUM(p.amount), 0) AS collected
+    FROM public.bills b
+    LEFT JOIN public.payments p
+      ON p.bill_id = b.id
+      AND p.deleted_at IS NULL
+      AND p.reversed_at IS NULL
+      AND (p.proof_status IS NULL OR p.proof_status IN ('NONE', 'VERIFIED'))
+    WHERE b.deleted_at IS NULL
+      AND b.status != 'VOID'
+      AND b.voided_at IS NULL
+    GROUP BY b.id, b.net_amount, b.write_off_amount
+  ),
+  bill_snapshot AS (
+    SELECT
+      SUM(net_amount) AS billed,
+      SUM(written_off) AS written_off,
+      SUM(collected) AS collected,
+      SUM(net_amount) - SUM(written_off) - SUM(collected) AS outstanding
+    FROM per_bill
+  ),
+  calcs AS (
+    SELECT
+      t.total_billed,
+      t.total_written_off,
+      t.total_collected,
+      t.total_expenses,
+      t.total_withdrawn,
+      bs.billed AS per_bill_billed,
+      bs.written_off AS per_bill_written_off,
+      bs.collected AS per_bill_collected,
+      bs.outstanding AS outstanding,
+      (t.total_billed + t.total_written_off) - t.total_collected AS net_receivable,
+      t.total_collected - (t.total_expenses + t.total_withdrawn) AS net_cash_flow
+    FROM totals t, bill_snapshot bs
+  )
+  SELECT jsonb_build_object(
+    'total_billed',            calcs.total_billed,
+    'total_written_off',       calcs.total_written_off,
+    'total_collected',         calcs.total_collected,
+    'total_expenses',          calcs.total_expenses,
+    'total_withdrawn',         calcs.total_withdrawn,
+    'outstanding',             calcs.outstanding,
+    'net_receivable',          calcs.net_receivable,
+    'net_cash_flow',           calcs.net_cash_flow,
+    'accounts', (
+      SELECT jsonb_object_agg(account, balance) FROM public.v_ledger_accounts
+    ),
+    'integrity'::text, jsonb_build_object(
+      'billed_matches',        calcs.total_billed = calcs.per_bill_billed,
+      'collected_matches',     calcs.total_collected = calcs.per_bill_collected,
+      'written_off_matches',   calcs.total_written_off = calcs.per_bill_written_off,
+      'outstanding_non_negative', calcs.outstanding >= 0
+    )
+  )
+  FROM calcs;
+$$;
+
+-- ============================================================================
 -- 8. ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 
@@ -1615,6 +1780,11 @@ GRANT EXECUTE ON FUNCTION public.admin_update_user_password(UUID, TEXT) TO authe
 GRANT EXECUTE ON FUNCTION public.admin_change_user_role(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_toggle_user_status(UUID, BOOLEAN) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.admin_delete_user(UUID) TO authenticated;
+
+-- 10.10 Ledger & Reconciliation Permissions
+GRANT EXECUTE ON FUNCTION public.fn_reconcile_ledger() TO authenticated;
+GRANT SELECT ON public.v_ledger_entries TO authenticated;
+GRANT SELECT ON public.v_ledger_accounts TO authenticated;
 
 -- ============================================================================
 -- 11. DEFAULT ADMIN USER CREATION (CUSTOMIZABLE)
