@@ -131,7 +131,12 @@ console.log(`  Key: ${echoKey}${keyMatch.name ? ` (from ${keyMatch.name})` : ''}
 if (!url || !key) {
   const envKeys = Object.keys(process.env).filter(k => !/^(PATH|HOME|USER|SHELL|LANG|PWD|SHLVL|_|CF_|NODE_|CI|NVM_|GOPATH|GOROOT|DEBIAN_|APT_)/i.test(k));
   console.log('  [Debug] Custom env vars visible in build container:', envKeys.length > 0 ? envKeys.join(', ') : '(none found)');
-  if (urlMatch.name && !url) {
-    console.log(`  [Debug] Note: ${urlMatch.name} was found but its value was empty or contained placeholder string.`);
+  for (const k of ['RENTBILL_SUPABASE_URL', 'RENTBILL_SUPABASE_KEY', 'SUPABASE_URL', 'SUPABASE_KEY']) {
+    if (k in process.env) {
+      const len = (process.env[k] || '').length;
+      console.log(`  [Debug] ${k}: present in Cloudflare (${len} characters)`);
+    } else {
+      console.log(`  [Debug] ${k}: NOT FOUND in Cloudflare`);
+    }
   }
 }
