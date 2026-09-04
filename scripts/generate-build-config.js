@@ -52,28 +52,58 @@ function findEnv(explicitList, isUrl = false) {
   return { val: '', name: '' };
 }
 
+function formatSupabaseUrl(input) {
+  if (!input) return '';
+  let s = String(input).trim().replace(/^["']|["']$/g, '').trim();
+  if (!s || /^(YOUR_PROJECT_ID|YOUR_SUPABASE_URL)$/i.test(s)) return '';
+  if (!s.startsWith('http://') && !s.startsWith('https://')) {
+    if (s.includes('.')) {
+      s = 'https://' + s;
+    } else {
+      s = 'https://' + s + '.supabase.co';
+    }
+  }
+  return s.replace(/\/+$/, '');
+}
+
 const urlMatch = findEnv(
-  ['RENTBILL_SUPABASE_URL', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_URL'],
+  [
+    'RENTBILL_SUPABASE_URL',
+    'SUPABASE_URL',
+    'PUBLIC_SUPABASE_URL',
+    'ASTRO_PUBLIC_SUPABASE_URL',
+    'ASTRO_SUPABASE_URL',
+    'VITE_SUPABASE_URL',
+    'NEXT_PUBLIC_SUPABASE_URL'
+  ],
   true
 );
 
 const keyMatch = findEnv(
-  ['RENTBILL_SUPABASE_KEY', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'PUBLIC_SUPABASE_ANON_KEY'],
+  [
+    'RENTBILL_SUPABASE_KEY',
+    'SUPABASE_KEY',
+    'SUPABASE_ANON_KEY',
+    'PUBLIC_SUPABASE_ANON_KEY',
+    'PUBLIC_SUPABASE_KEY',
+    'ASTRO_PUBLIC_SUPABASE_ANON_KEY',
+    'ASTRO_PUBLIC_SUPABASE_KEY',
+    'SUPABASE_PUBLISHABLE_KEY',
+    'VITE_SUPABASE_ANON_KEY',
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
+  ],
   false
 );
 
-function sanitize(val) {
+function sanitizeKey(val) {
   if (!val) return '';
-  let s = String(val).trim();
-  s = s.replace(/^["']|["']$/g, '').trim();
-  if (/^(YOUR_PROJECT_ID|YOUR_KEY|YOUR_SUPABASE_URL|YOUR_ANON_KEY)$/i.test(s)) {
-    return '';
-  }
+  let s = String(val).trim().replace(/^["']|["']$/g, '').trim();
+  if (/^(YOUR_KEY|YOUR_ANON_KEY)$/i.test(s)) return '';
   return s;
 }
 
-const url = sanitize(urlMatch.val);
-const key = sanitize(keyMatch.val);
+const url = formatSupabaseUrl(urlMatch.val);
+const key = sanitizeKey(keyMatch.val);
 
 const outPath = resolve(process.argv[2] || 'js/core/build-config.js');
 
@@ -92,8 +122,7 @@ const content = [
 mkdirSync(dirname(outPath), { recursive: true });
 writeFileSync(outPath, content, 'utf8');
 
-const src = url.replace(/^https?:\/\//, '').replace(/\.supabase\.co\/?$/, '');
-const echoUrl = src ? `https://${src}.supabase.co` : '(unset)';
+const echoUrl = url ? url : '(unset)';
 const echoKey = key ? '***injected***' : '(unset)';
 console.log(`Generated ${outPath.replace(process.cwd() + '/', '')}`);
 console.log(`  URL: ${echoUrl}${urlMatch.name ? ` (from ${urlMatch.name})` : ''}`);
