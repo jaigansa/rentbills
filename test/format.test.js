@@ -10,8 +10,10 @@ import {
   tenantLoginEmailFromMobile,
   defaultTenantPassword,
   extractBackupTables,
-  csvEscapeValue
+  csvEscapeValue,
+  parseFloorValue
 } from '../js/core/format.js';
+import { cleanPayload } from '../js/core/db.js';
 
 test('formatCurrency converts paise to INR rupees', () => {
   assert.equal(formatCurrency(0), '₹0.00');
@@ -169,3 +171,38 @@ test('csvEscapeValue preserves legitimate negative numbers', () => {
   assert.equal(csvEscapeValue(''), '');
   assert.equal(csvEscapeValue(null), '');
 });
+
+test('parseFloorValue handles empty strings, text ordinals, ground and basement', () => {
+  assert.equal(parseFloorValue(''), null);
+  assert.equal(parseFloorValue('   '), null);
+  assert.equal(parseFloorValue(null), null);
+  assert.equal(parseFloorValue(undefined), null);
+  assert.equal(parseFloorValue('1'), 1);
+  assert.equal(parseFloorValue(2), 2);
+  assert.equal(parseFloorValue('0'), 0);
+  assert.equal(parseFloorValue('-1'), -1);
+  assert.equal(parseFloorValue('1st Floor'), 1);
+  assert.equal(parseFloorValue('2nd'), 2);
+  assert.equal(parseFloorValue('3rd floor'), 3);
+  assert.equal(parseFloorValue('Ground'), 0);
+  assert.equal(parseFloorValue('ground floor'), 0);
+  assert.equal(parseFloorValue('G'), 0);
+  assert.equal(parseFloorValue('Basement'), -1);
+  assert.equal(parseFloorValue('B'), -1);
+});
+
+test('cleanPayload sanitizes empty strings to null for integer/numeric columns', () => {
+  const dirtyUnit = { property_id: 1, unit_name: 'Flat 101', floor: '' };
+  const cleanedUnit = cleanPayload('units', dirtyUnit);
+  assert.equal(cleanedUnit.floor, null);
+  assert.equal(cleanedUnit.unit_name, 'Flat 101');
+  assert.equal(cleanedUnit.property_id, 1);
+
+  const dirtyRenter = { unit_id: '', owner_id: '', name: 'John Doe', base_rent: '' };
+  const cleanedRenter = cleanPayload('renters', dirtyRenter);
+  assert.equal(cleanedRenter.unit_id, null);
+  assert.equal(cleanedRenter.owner_id, null);
+  assert.equal(cleanedRenter.name, 'John Doe');
+  assert.equal(cleanedRenter.base_rent, null);
+});
+

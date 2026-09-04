@@ -3,21 +3,56 @@
 
 const unsupportedColumns = new Map(); // table -> Set of unsupported column names
 
+// Columns known to be integer, bigint, or numeric in the database schema.
+// Passing an empty string "" to these columns causes Postgres type-casting failure:
+// "invalid input syntax for type integer: """
+const INTEGER_COLUMNS = {
+  units: new Set(['floor', 'property_id', 'monthly_rent']),
+  properties: new Set(['owner_id']),
+  renters: new Set([
+    'unit_id', 'owner_id', 'base_rent', 'advance_amount', 'pending_arrears',
+    'maint_charge', 'eb_unit_price', 'initial_eb', 'water_fixed_charge',
+    'water_unit_price', 'initial_water'
+  ]),
+  bills: new Set([
+    'renter_id', 'curr_eb_reading', 'curr_water_reading', 'late_fee',
+    'discount_amount', 'others', 'net_amount', 'rent_amount', 'maint_amount',
+    'eb_amount', 'water_amount', 'arrears_included'
+  ]),
+  payments: new Set(['bill_id', 'renter_id', 'amount']),
+  expenses: new Set(['property_id', 'amount']),
+  maintenance_tickets: new Set(['property_id', 'unit_id', 'renter_id', 'estimated_cost', 'actual_cost']),
+  owner_withdrawals: new Set(['owner_id', 'amount'])
+};
+
 /**
- * Filter out known unsupported columns for a given table
+ * Filter out known unsupported columns and sanitize empty strings for integer/numeric columns
  */
 export function cleanPayload(table, payload) {
-  const unsupported = unsupportedColumns.get(table);
-  if (!unsupported || !payload) return payload;
+  if (!payload) return payload;
 
   if (Array.isArray(payload)) {
-    return payload.map(item => cleanPayload(table, { ...item }));
+    return payload.map(item => cleanPayload(table, item));
   }
 
   const cleaned = { ...payload };
-  for (const col of unsupported) {
-    delete cleaned[col];
+  const unsupported = unsupportedColumns.get(table);
+  if (unsupported) {
+    for (const col of unsupported) {
+      delete cleaned[col];
+    }
   }
+
+  // Sanitize empty strings on numeric/integer columns to prevent Postgres syntax errors
+  const intCols = INTEGER_COLUMNS[table];
+  if (intCols) {
+    for (const key of Object.keys(cleaned)) {
+      if (intCols.has(key) && cleaned[key] === '') {
+        cleaned[key] = null;
+      }
+    }
+  }
+
   return cleaned;
 }
 

@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../core/config.js';
 import { safeInsert, safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser, setCurrentUser, getUploadedDocBase64, setUploadedDocBase64 } from '../core/state.js';
 import { closeModal, refreshLucideIcons } from '../core/ui.js';
+import { parseFloorValue } from '../core/format.js';
 import { checkAuth, showLogin } from './auth.js';
 import { loadDashboard } from './dashboard.js';
 import { loadPropertiesPage, loadTenantsPage } from './properties.js';
@@ -160,15 +161,40 @@ export function setupFormSubmitHandlers() {
       if (!client) return;
 
       const editId = document.getElementById('edit-unit-id').value;
-      const property_id = document.getElementById('unit-property-id').value;
-      const unit_name = document.getElementById('unit-name').value;
-      const floor = document.getElementById('unit-floor').value;
+      const rawPropId = document.getElementById('unit-property-id').value;
+      const unit_name = (document.getElementById('unit-name').value || '').trim();
+      const rawFloor = (document.getElementById('unit-floor').value || '').trim();
+
+      if (!rawPropId) {
+        alert('Please select a target property.');
+        return;
+      }
+
+      const property_id = parseInt(rawPropId, 10);
+      if (isNaN(property_id)) {
+        alert('Please select a valid target property.');
+        return;
+      }
+
+      if (!unit_name) {
+        alert('Please enter a unit name/number.');
+        return;
+      }
+
+      const floor = parseFloorValue(rawFloor);
+      const unitPayload = { property_id, unit_name };
+
+      if (floor !== null) {
+        unitPayload.floor = floor;
+      } else if (editId) {
+        unitPayload.floor = null;
+      }
 
       let result;
       if (editId) {
-        result = await safeUpdate(client, 'units', { property_id, unit_name, floor }, 'id', editId);
+        result = await safeUpdate(client, 'units', unitPayload, 'id', editId);
       } else {
-        result = await safeInsert(client, 'units', [{ property_id, unit_name, floor }]);
+        result = await safeInsert(client, 'units', [unitPayload]);
       }
 
       if (result.error) {

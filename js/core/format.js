@@ -126,3 +126,24 @@ export function extractBackupTables(backupData) {
   }
   return out;
 }
+
+// Safely parse user input for floor number into an integer or null.
+// Handles numeric strings ("1", "0", "-1"), ordinal words ("1st Floor" -> 1),
+// "Ground" / "G" -> 0, "Basement" -> -1, and converts empty/whitespace to null.
+export function parseFloorValue(val) {
+  if (val === null || val === undefined) return null;
+  const str = String(val).trim();
+  if (!str) return null;
+
+  const lower = str.toLowerCase();
+  if (lower === 'g' || lower.includes('ground')) return 0;
+  if (lower === 'b' || lower.includes('basement')) return -1;
+
+  const match = str.match(/-?\d+/);
+  if (match) {
+    const parsed = parseInt(match[0], 10);
+    if (!isNaN(parsed)) return parsed;
+  }
+
+  return null;
+}

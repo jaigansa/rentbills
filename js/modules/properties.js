@@ -94,7 +94,7 @@ export async function loadPropertiesPage() {
         const badgeClass = u.status === 'VACANT' ? 'badge-success' : 'badge-warning';
         tr.innerHTML = `
           <td data-label="Unit Name"><strong>${u.unit_name}</strong></td>
-          <td data-label="Floor">${u.floor || '-'}</td>
+          <td data-label="Floor">${(u.floor !== null && u.floor !== undefined && u.floor !== '') ? (u.floor === 0 ? 'Ground (0)' : u.floor) : '-'}</td>
           <td data-label="Status"><span class="badge ${badgeClass}">${u.status}</span></td>
           <td data-label="Actions">
             <div class="dropdown">
