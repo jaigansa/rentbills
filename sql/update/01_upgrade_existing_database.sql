@@ -88,6 +88,9 @@ CREATE INDEX IF NOT EXISTS idx_maint_status ON public.maintenance_tasks(status);
 -- 3. Dynamic Foreign Key Constraint Upgrade (Fix User Deletion Constraint Errors)
 DO $$
 BEGIN
+  ALTER TABLE public.renters DROP CONSTRAINT IF EXISTS renters_user_id_fkey;
+  ALTER TABLE public.renters ADD CONSTRAINT renters_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
   ALTER TABLE public.bills DROP CONSTRAINT IF EXISTS bills_voided_by_fkey;
   ALTER TABLE public.bills ADD CONSTRAINT bills_voided_by_fkey FOREIGN KEY (voided_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
@@ -105,9 +108,61 @@ BEGIN
 
   ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_created_by_fkey;
   ALTER TABLE public.documents ADD CONSTRAINT documents_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
+
+  ALTER TABLE public.maintenance_tasks DROP CONSTRAINT IF EXISTS maintenance_tasks_reported_by_fkey;
+  ALTER TABLE public.maintenance_tasks ADD CONSTRAINT maintenance_tasks_reported_by_fkey FOREIGN KEY (reported_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 EXCEPTION WHEN OTHERS THEN
   NULL;
 END $$;
+
+-- Triggers ensuring safe deletion from Supabase Dashboard (Authentication > Users)
+CREATE OR REPLACE FUNCTION public.handle_profile_before_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.renters SET user_id = NULL WHERE user_id = OLD.id;
+  UPDATE public.bills SET voided_by = NULL WHERE voided_by = OLD.id;
+  UPDATE public.payments SET verified_by = NULL WHERE verified_by = OLD.id;
+  UPDATE public.payments SET reversed_by = NULL WHERE reversed_by = OLD.id;
+  UPDATE public.expenses SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.owner_withdrawals SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.documents SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.maintenance_tasks SET reported_by = NULL WHERE reported_by = OLD.id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_handle_profile_before_delete ON public.profiles;
+CREATE TRIGGER trg_handle_profile_before_delete
+  BEFORE DELETE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.handle_profile_before_delete();
+
+CREATE OR REPLACE FUNCTION public.handle_auth_user_before_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.renters SET user_id = NULL WHERE user_id = OLD.id;
+  UPDATE public.bills SET voided_by = NULL WHERE voided_by = OLD.id;
+  UPDATE public.payments SET verified_by = NULL WHERE verified_by = OLD.id;
+  UPDATE public.payments SET reversed_by = NULL WHERE reversed_by = OLD.id;
+  UPDATE public.expenses SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.owner_withdrawals SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.documents SET created_by = NULL WHERE created_by = OLD.id;
+  UPDATE public.maintenance_tasks SET reported_by = NULL WHERE reported_by = OLD.id;
+
+  BEGIN
+    UPDATE storage.objects SET owner = NULL WHERE owner = OLD.id;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+
+  DELETE FROM public.profiles WHERE id = OLD.id;
+  RETURN OLD;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_deleted ON auth.users;
+CREATE TRIGGER on_auth_user_deleted
+  BEFORE DELETE ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_auth_user_before_delete();
 
 -- 4. Pure Admin Security Guard Function
 CREATE OR REPLACE FUNCTION public.is_admin()
