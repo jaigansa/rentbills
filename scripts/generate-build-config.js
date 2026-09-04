@@ -18,9 +18,9 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-function findEnv(explicitList, fuzzyRegex) {
+function findEnv(explicitList, isUrl = false) {
   const keys = Object.keys(process.env);
-  // 1. Exact match (with trim on key names)
+  // 1. Exact match
   for (const name of explicitList) {
     const foundKey = keys.find(k => k.trim() === name);
     if (foundKey && process.env[foundKey]) {
@@ -29,8 +29,24 @@ function findEnv(explicitList, fuzzyRegex) {
   }
   // 2. Fuzzy match
   for (const k of keys) {
-    if (fuzzyRegex.test(k.trim()) && process.env[k]) {
-      return { val: process.env[k], name: k };
+    const cleanKey = k.trim();
+    const val = (process.env[k] || '').trim();
+    if (!val) continue;
+
+    if (isUrl) {
+      // Must NOT be a key variable name
+      if (/key|secret|token|anon|publishable/i.test(cleanKey)) continue;
+      // Must NOT be a key value format
+      if (/^(sb_publishable_|eyJ)/i.test(val)) continue;
+      // Must match URL keywords
+      if (/supabase.*url|url.*supabase|rentbill.*url|supabase.*project|supabase.*uri|supabase.*host|supabase.*domain|rentbill.*uri|rentbill.*host|supabase.*id/i.test(cleanKey)) {
+        return { val: process.env[k], name: k };
+      }
+    } else {
+      // Key matching
+      if (/supabase.*key|key.*supabase|rentbill.*key|anon.*key|publishable.*key/i.test(cleanKey)) {
+        return { val: process.env[k], name: k };
+      }
     }
   }
   return { val: '', name: '' };
@@ -38,12 +54,12 @@ function findEnv(explicitList, fuzzyRegex) {
 
 const urlMatch = findEnv(
   ['RENTBILL_SUPABASE_URL', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_URL'],
-  /supabase.*url|url.*supabase|rentbill.*url|supabase.*project|supabase.*uri|supabase.*host|supabase.*domain|rentbill.*uri|rentbill.*host|rentbill.*supabase|supabase.*id|rentbill.*id/i
+  true
 );
 
 const keyMatch = findEnv(
   ['RENTBILL_SUPABASE_KEY', 'SUPABASE_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'PUBLIC_SUPABASE_ANON_KEY'],
-  /supabase.*key|key.*supabase|rentbill.*key|anon.*key|publishable.*key/i
+  false
 );
 
 function sanitize(val) {
