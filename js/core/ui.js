@@ -2,36 +2,34 @@
 import { populateBillingPeriods } from '../modules/bills.js';
 import { populateOwnerSelects } from '../modules/owners.js';
 import { populateTenantUnitSelect } from '../modules/properties.js';
+// Pure, testable formatters & financial rules (no browser deps) — re-exported
+// so the UI and the test suite share the exact same logic.
+import {
+  formatCurrency,
+  escapeStr,
+  formatInvoiceNumber,
+  deriveBillStatus,
+  deriveBillStatusAfterPayment,
+  normalizeTenDigitMobile,
+  tenantLoginEmailFromMobile,
+  defaultTenantPassword
+} from './format.js';
 
-export function formatCurrency(paise) {
-  const rupees = (paise || 0) / 100;
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(rupees);
-}
-
-export function escapeStr(str) {
-  if (!str) return '';
-  return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
-}
+export {
+  formatCurrency,
+  escapeStr,
+  formatInvoiceNumber,
+  deriveBillStatus,
+  deriveBillStatusAfterPayment,
+  normalizeTenDigitMobile,
+  tenantLoginEmailFromMobile,
+  defaultTenantPassword
+};
 
 export function refreshLucideIcons() {
   if (window.lucide && typeof window.lucide.createIcons === 'function') {
     window.lucide.createIcons();
   }
-}
-
-export function formatInvoiceNumber(b) {
-  if (!b) return 'INV-1001';
-  if (b.invoice_no) return b.invoice_no;
-  const num = parseInt(b.id, 10);
-  if (!isNaN(num)) {
-    return `INV-${1000 + num}`;
-  }
-  return `INV-${String(b.id || 1).padStart(4, '0')}`;
 }
 
 export function renderEmptyState(iconOrColspan = 6, title = 'No records found', subtitle = 'Use the action buttons above to create new entries.') {

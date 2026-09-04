@@ -2,7 +2,7 @@
 import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
-import { formatCurrency, formatInvoiceNumber, numberToWordsINR, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
+import { formatCurrency, formatInvoiceNumber, numberToWordsINR, renderEmptyState, openModal, refreshLucideIcons, deriveBillStatusAfterPayment } from '../core/ui.js';
 import { loadBillsPage, shareInvoiceWhatsApp, copyInvoiceToClipboard } from './bills.js';
 import { loadDashboard } from './dashboard.js';
 
@@ -137,9 +137,7 @@ export async function triggerDeletePayment(paymentId, billId, amountPaise) {
       const { data: bill } = await supabaseClient.from('bills').select('*').eq('id', billId).single();
       if (bill) {
         const newPaid = Math.max(0, (bill.paid_amount || 0) - amountPaise);
-        let newStatus = 'UNPAID';
-        if (newPaid >= bill.net_amount && bill.net_amount > 0) newStatus = 'PAID';
-        else if (newPaid > 0) newStatus = 'PARTIAL';
+        const newStatus = deriveBillStatusAfterPayment(bill.net_amount, newPaid);
 
         await safeUpdate(supabaseClient, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', billId);
       }
@@ -186,8 +184,7 @@ export async function triggerApprovePaymentProof(paymentId, billId, amount) {
 
     if (bill) {
       const newPaid = (bill.paid_amount || 0) + amount;
-      let newStatus = 'PARTIAL';
-      if (newPaid >= bill.net_amount) newStatus = 'PAID';
+      const newStatus = deriveBillStatusAfterPayment(bill.net_amount, newPaid);
 
       await safeUpdate(client, 'bills', { paid_amount: newPaid, status: newStatus }, 'id', billId);
 
