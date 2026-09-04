@@ -19,10 +19,15 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 function findEnv(explicitList, fuzzyRegex) {
-  for (const name of explicitList) {
-    if (process.env[name]) return { val: process.env[name], name };
-  }
   const keys = Object.keys(process.env);
+  // 1. Exact match (with trim on key names)
+  for (const name of explicitList) {
+    const foundKey = keys.find(k => k.trim() === name);
+    if (foundKey && process.env[foundKey]) {
+      return { val: process.env[foundKey], name: foundKey };
+    }
+  }
+  // 2. Fuzzy match
   for (const k of keys) {
     if (fuzzyRegex.test(k.trim()) && process.env[k]) {
       return { val: process.env[k], name: k };
@@ -33,7 +38,7 @@ function findEnv(explicitList, fuzzyRegex) {
 
 const urlMatch = findEnv(
   ['RENTBILL_SUPABASE_URL', 'SUPABASE_URL', 'VITE_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'PUBLIC_SUPABASE_URL'],
-  /supabase.*url|url.*supabase|rentbill.*url|supabase.*project/i
+  /supabase.*url|url.*supabase|rentbill.*url|supabase.*project|supabase.*uri|supabase.*host|supabase.*domain|rentbill.*uri|rentbill.*host|rentbill.*supabase|supabase.*id|rentbill.*id/i
 );
 
 const keyMatch = findEnv(
@@ -81,4 +86,7 @@ console.log(`  Key: ${echoKey}${keyMatch.name ? ` (from ${keyMatch.name})` : ''}
 if (!url || !key) {
   const envKeys = Object.keys(process.env).filter(k => !/^(PATH|HOME|USER|SHELL|LANG|PWD|SHLVL|_|CF_|NODE_|CI|NVM_|GOPATH|GOROOT|DEBIAN_|APT_)/i.test(k));
   console.log('  [Debug] Custom env vars visible in build container:', envKeys.length > 0 ? envKeys.join(', ') : '(none found)');
+  if (urlMatch.name && !url) {
+    console.log(`  [Debug] Note: ${urlMatch.name} was found but its value was empty or contained placeholder string.`);
+  }
 }
