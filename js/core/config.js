@@ -5,8 +5,8 @@
 // or per-browser via Settings (stored in localStorage).
 // These placeholders make the app run but never expose a live key in git.
 export const SUPABASE_CONFIG = {
-  projectIdOrUrl: 'YOUR_PROJECT_ID',
-  publishableOrAnonKey: 'YOUR_KEY'
+  projectIdOrUrl: 'https://kkixhxrniodyndgzkqgq.supabase.co',
+  publishableOrAnonKey: 'sb_publishable_zy5YRiETmug7i0qUII8pJQ_fVrF1th-'
 };
 
 let supabaseClient = null;

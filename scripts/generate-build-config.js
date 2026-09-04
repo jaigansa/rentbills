@@ -125,8 +125,27 @@ function sanitizeKey(val) {
   return s;
 }
 
-const url = formatSupabaseUrl(urlMatch.val);
-const key = sanitizeKey(keyMatch.val);
+let url = formatSupabaseUrl(urlMatch.val);
+let key = sanitizeKey(keyMatch.val);
+
+// If Cloudflare env vars are not set, preserve committed build-config.js
+if ((!url || !key) && existsSync(resolve('js/core/build-config.js'))) {
+  try {
+    const existing = readFileSync(resolve('js/core/build-config.js'), 'utf8');
+    const uMatch = existing.match(/window\.__RENTBILL_SB_URL__\s*=\s*['"]([^'"]+)['"]/);
+    const kMatch = existing.match(/window\.__RENTBILL_SB_KEY__\s*=\s*['"]([^'"]+)['"]/);
+    if (!url && uMatch && uMatch[1]) {
+      url = formatSupabaseUrl(uMatch[1]);
+    }
+    if (!key && kMatch && kMatch[1]) {
+      key = sanitizeKey(kMatch[1]);
+    }
+  } catch (e) {}
+}
+
+// Fallback to project credentials if still unset
+if (!url) url = 'https://kkixhxrniodyndgzkqgq.supabase.co';
+if (!key) key = 'sb_publishable_zy5YRiETmug7i0qUII8pJQ_fVrF1th-';
 
 const outPath = resolve(process.argv[2] || 'js/core/build-config.js');
 
