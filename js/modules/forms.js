@@ -63,7 +63,7 @@ export function setupFormSubmitHandlers() {
       const passwordInput = document.getElementById('login-password').value.trim();
 
       if (!identifierInput || !passwordInput) {
-        showError('Please enter both email/mobile and password');
+        showError('Please enter both email/username and password');
         return;
       }
 
@@ -73,75 +73,20 @@ export function setupFormSubmitHandlers() {
         return;
       }
 
-      let emailToLogin = identifierInput.toLowerCase();
+      let emailToLogin = identifierInput.trim().toLowerCase();
 
-      // If user typed a mobile number or name without '@'
+      // If user typed a username without '@', resolve to email via RPC
       if (!emailToLogin.includes('@')) {
-        const cleanDigits = identifierInput.replace(/[^0-9]/g, '');
-        const tenDigitMobile = cleanDigits.length >= 10 ? cleanDigits.slice(-10) : cleanDigits;
-        const cleanName = identifierInput.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-        // 1. Try public RPC lookup with both raw identifier and 10-digit mobile
-        const lookupTerms = [identifierInput];
-        if (tenDigitMobile && tenDigitMobile !== identifierInput) lookupTerms.push(tenDigitMobile);
-
-        for (const term of lookupTerms) {
-          if (emailToLogin.includes('@')) break;
-          try {
-            const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: term });
-            if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
-              emailToLogin = rpcEmail.toLowerCase();
-            }
-          } catch (e) {}
-
-          if (!emailToLogin.includes('@')) {
-            try {
-              const { data: rpcEmail } = await client.rpc('get_login_email_for_identifier', { p_identifier: term });
-              if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
-                emailToLogin = rpcEmail.toLowerCase();
-              }
-            } catch (e) {}
+        try {
+          const { data: rpcEmail } = await client.rpc('resolve_login_email', { p_identifier: identifierInput.trim() });
+          if (rpcEmail && typeof rpcEmail === 'string' && rpcEmail.includes('@')) {
+            emailToLogin = rpcEmail.toLowerCase().trim();
           }
-        }
-
-        // 2. Try looking up in profiles or renters
-        if (!emailToLogin.includes('@')) {
-          try {
-            const { data: pData } = await client.from('profiles').select('email').ilike('username', identifierInput).limit(1);
-            if (pData && pData.length > 0 && pData[0].email) {
-              emailToLogin = pData[0].email.toLowerCase();
-            }
-          } catch (pErr) {}
-        }
+        } catch (e) {}
 
         if (!emailToLogin.includes('@')) {
-          try {
-            let query = client.from('renters').select('email, mobile_number, name').is('deleted_at', null);
-            if (tenDigitMobile.length >= 7) {
-              query = query.or(`mobile_number.ilike."%${tenDigitMobile}%",email.ilike."%${tenDigitMobile}%"`);
-            } else {
-              query = query.ilike('name', `%${identifierInput}%`);
-            }
-            const { data: matchedRenters } = await query.limit(1);
-
-            if (matchedRenters && matchedRenters.length > 0) {
-              const r = matchedRenters[0];
-              if (r.email && r.email.includes('@')) emailToLogin = r.email.toLowerCase();
-              else if (r.mobile_number && r.mobile_number.includes('@')) emailToLogin = r.mobile_number.toLowerCase();
-            }
-          } catch (mErr) {}
-        }
-
-        // 3. Fallback pattern for username / mobile
-        if (!emailToLogin.includes('@')) {
-          if (tenDigitMobile.length >= 10) {
-            emailToLogin = `tenant_${tenDigitMobile}@rentbill.local`;
-          } else if (cleanName) {
-            emailToLogin = `${cleanName}@rentbill.local`;
-          } else {
-            showError('Please enter a valid email address (e.g. name@example.com) or 10-digit mobile number.');
-            return;
-          }
+          showError(`Could not find an account with username "${identifierInput.trim()}". Please use your email address or check the username.`);
+          return;
         }
       }
 

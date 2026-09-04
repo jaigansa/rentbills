@@ -99,6 +99,15 @@ test('install and update grant execute on is_admin to authenticated only', () =>
   }
 });
 
+test('install and update both define resolve_login_email granted to authenticated and anon', () => {
+  for (const [name, sql] of [['install', install], ['update', update]]) {
+    const funcs = extractCreates(sql, 'FUNCTION');
+    assert.ok(funcs.has('resolve_login_email'), `${name} missing FUNCTION resolve_login_email`);
+    assert.ok(sql.includes('GRANT EXECUTE ON FUNCTION public.resolve_login_email(TEXT) TO authenticated, anon;'),
+      `${name} missing resolve_login_email grant to authenticated, anon`);
+  }
+});
+
 test('no policies grant access to anon role (100% login required)', () => {
   for (const [name, sql] of [['install', install], ['update', update]]) {
     const re = /CREATE POLICY[^\n]+TO\s+anon/gi;

@@ -493,11 +493,63 @@ CREATE POLICY "Authenticated full access to expenses" ON public.expenses FOR ALL
 CREATE POLICY "Authenticated full access to owner_withdrawals" ON public.owner_withdrawals FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Authenticated full access to maintenance_tasks" ON public.maintenance_tasks FOR ALL TO authenticated USING (true) WITH CHECK (true);
 CREATE POLICY "Authenticated full access to documents" ON public.documents FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE OR REPLACE FUNCTION public.resolve_login_email(p_identifier TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_clean TEXT := TRIM(COALESCE(p_identifier, ''));
+  v_email TEXT;
+BEGIN
+  IF v_clean = '' THEN
+    RETURN NULL;
+  END IF;
+
+  -- 1. If identifier is already an email, return as-is
+  IF v_clean LIKE '%@%' THEN
+    RETURN LOWER(v_clean);
+  END IF;
+
+  -- 2. Lookup by username in public.profiles (case-insensitive)
+  SELECT email INTO v_email
+  FROM public.profiles
+  WHERE LOWER(username) = LOWER(v_clean)
+  LIMIT 1;
+
+  IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN
+    RETURN LOWER(v_email);
+  END IF;
+
+  -- 3. Lookup in auth.users by raw_user_meta_data->>'username'
+  SELECT email INTO v_email
+  FROM auth.users
+  WHERE LOWER(COALESCE(raw_user_meta_data->>'username', '')) = LOWER(v_clean)
+  LIMIT 1;
+
+  IF v_email IS NOT NULL AND v_email LIKE '%@%' THEN
+    RETURN LOWER(v_email);
+  END IF;
+
+  -- 4. Fallback lookup by renter name
+  SELECT email INTO v_email
+  FROM public.renters
+  WHERE LOWER(name) = LOWER(v_clean)
+    AND deleted_at IS NULL
+  ORDER BY is_active DESC
+  LIMIT 1;
+
+  RETURN LOWER(v_email);
+END;
+$$;
+
 -- ============================================================================
 -- 11. EXPLICIT GRANTS
 -- ============================================================================
 
 GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.resolve_login_email(TEXT) TO authenticated, anon;
 
 -- ============================================================================
 -- 12. DEFAULT ADMIN PROFILE SETUP (IF USERS ALREADY EXIST)
