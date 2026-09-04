@@ -18,8 +18,36 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const url = process.env.RENTBILL_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const key = process.env.RENTBILL_SUPABASE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const rawUrl =
+  process.env.RENTBILL_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.PUBLIC_SUPABASE_URL ||
+  '';
+
+const rawKey =
+  process.env.RENTBILL_SUPABASE_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.PUBLIC_SUPABASE_ANON_KEY ||
+  '';
+
+function sanitize(val) {
+  if (!val) return '';
+  let s = String(val).trim();
+  s = s.replace(/^["']|["']$/g, '').trim();
+  if (/^(YOUR_PROJECT_ID|YOUR_KEY|YOUR_SUPABASE_URL|YOUR_ANON_KEY)$/i.test(s)) {
+    return '';
+  }
+  return s;
+}
+
+const url = sanitize(rawUrl);
+const key = sanitize(rawKey);
 
 const outPath = resolve(process.argv[2] || 'js/core/build-config.js');
 

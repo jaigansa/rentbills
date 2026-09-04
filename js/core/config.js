@@ -11,37 +11,43 @@ export const SUPABASE_CONFIG = {
 
 let supabaseClient = null;
 
-export function normalizeSupabaseUrl(input) {
-  if (!input) return '';
-  const trimmed = input.trim();
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
+function sanitizeConfigVal(val) {
+  if (!val) return '';
+  let s = String(val).trim().replace(/^["']|["']$/g, '').trim();
+  if (/^(YOUR_PROJECT_ID|YOUR_KEY|YOUR_SUPABASE_URL|YOUR_ANON_KEY)$/i.test(s)) {
+    return '';
   }
-  return `https://${trimmed}.supabase.co`;
+  return s;
+}
+
+export function normalizeSupabaseUrl(input) {
+  const clean = sanitizeConfigVal(input);
+  if (!clean) return '';
+  if (clean.startsWith('http://') || clean.startsWith('https://')) {
+    return clean.replace(/\/+$/, '');
+  }
+  return `https://${clean}.supabase.co`;
 }
 
 export function initSupabaseClient() {
-  const storedUrl = localStorage.getItem('rentbill_sb_url');
-  const storedKey = localStorage.getItem('rentbill_sb_key');
+  const storedUrl = sanitizeConfigVal(localStorage.getItem('rentbill_sb_url'));
+  const storedKey = sanitizeConfigVal(localStorage.getItem('rentbill_sb_key'));
 
-  // Build-injected values (Cloudflare Pages env vars via config.js generation)
-  // take precedence, then per-browser localStorage override, then the committed
-  // fallback. Keeps real project credentials out of the repo.
-  const injectedUrl = (typeof window !== 'undefined' && window.__RENTBILL_SB_URL__) || '';
-  const injectedKey = (typeof window !== 'undefined' && window.__RENTBILL_SB_KEY__) || '';
+  const injectedUrl = sanitizeConfigVal(typeof window !== 'undefined' ? window.__RENTBILL_SB_URL__ : '');
+  const injectedKey = sanitizeConfigVal(typeof window !== 'undefined' ? window.__RENTBILL_SB_KEY__ : '');
 
-  const rawInput = injectedUrl || ((storedUrl && storedUrl !== 'YOUR_PROJECT_ID') ? storedUrl : SUPABASE_CONFIG.projectIdOrUrl);
-  const keyInput = injectedKey || ((storedKey && storedKey !== 'YOUR_KEY') ? storedKey : SUPABASE_CONFIG.publishableOrAnonKey);
+  const rawInput = injectedUrl || storedUrl || SUPABASE_CONFIG.projectIdOrUrl;
+  const keyInput = injectedKey || storedKey || SUPABASE_CONFIG.publishableOrAnonKey;
 
   const finalUrl = normalizeSupabaseUrl(rawInput);
-  const finalKey = keyInput ? keyInput.trim() : '';
+  const finalKey = sanitizeConfigVal(keyInput);
 
   if (!window.supabase) {
     console.error('Supabase CDN library (supabase-js) is not loaded.');
     return false;
   }
 
-  if (finalUrl && finalKey) {
+  if (finalUrl && finalKey && finalUrl !== 'https://YOUR_PROJECT_ID.supabase.co' && finalKey !== 'YOUR_KEY') {
     try {
       supabaseClient = window.supabase.createClient(finalUrl, finalKey, {
         auth: {
