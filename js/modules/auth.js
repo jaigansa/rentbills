@@ -183,7 +183,7 @@ export async function checkAuth(passedSession = null) {
         auditorBanner.innerHTML = `
           <div style="display: flex; align-items: center; gap: 8px;">
             <i data-lucide="eye"></i>
-            <span>🔍 Financial Auditor View — Read-Only Mode Active (Data modifications disabled)</span>
+            <span>Financial Auditor View — Read-Only Mode Active (Data modifications disabled)</span>
           </div>
           <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Auditor Mode</span>
         `;

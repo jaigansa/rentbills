@@ -60,7 +60,7 @@ export async function loadDiagnosticsPage() {
     const totalWrittenOff = ledger.total_written_off;
     const outstanding = Math.max(0, ledger.outstanding);
     const netCashFlow = ledger.net_cash_flow;
-    const ledgerBadge = '<span class="badge badge-success">✓ Ledger Balanced</span>';
+    const ledgerBadge = '<span class="badge badge-success"><i data-lucide="check" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Ledger Balanced</span>';
     const ledgerBadgeNote = '';
 
     // Integrity Audit Calculations
@@ -94,14 +94,14 @@ export async function loadDiagnosticsPage() {
     if ((bills || []).length > 0 && statusUnpaid === 0 && activeRenterCount > 0) integrityIssues.push('No unpaid invoices recorded');
 
     const integrityBadge = integrityIssues.length === 0
-      ? '<span class="badge badge-success">✓ 100% Passed</span>'
-      : `<span class="badge badge-warning">${integrityIssues.length} Warning(s)</span>`;
+      ? '<span class="badge badge-success"><i data-lucide="check" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> 100% Passed</span>'
+      : `<span class="badge badge-warning"><i data-lucide="alert-triangle" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> ${integrityIssues.length} Warning(s)</span>`;
 
-    let slaBadge = '<span class="badge badge-success">⚡ Excellent (&lt;150ms)</span>';
+    let slaBadge = '<span class="badge badge-success"><i data-lucide="zap" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Excellent (&lt;150ms)</span>';
     if (latencyMs > 400) {
-      slaBadge = '<span class="badge badge-warning">⚠️ High Latency (&gt;400ms)</span>';
+      slaBadge = '<span class="badge badge-warning"><i data-lucide="alert-triangle" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> High Latency (&gt;400ms)</span>';
     } else if (latencyMs > 150) {
-      slaBadge = '<span class="badge badge-info">⏱️ Good (&lt;400ms)</span>';
+      slaBadge = '<span class="badge badge-info"><i data-lucide="clock" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Good (&lt;400ms)</span>';
     }
 
     if (infoDiv) {
@@ -193,7 +193,7 @@ export async function loadDiagnosticsPage() {
           ${ledgerBadge}
         </div>
         ${ledgerBadgeNote ? `
-        <div style="padding: 8px 0; color: var(--danger); font-size: 12px;">⚠ ${escapeStr(ledgerBadgeNote)}</div>
+        <div style="padding: 8px 0; color: var(--danger); font-size: 12px; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="alert-triangle" style="width: 13px; height: 13px;"></i> ${escapeStr(ledgerBadgeNote)}</div>
         ` : ''}
         <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border);">
           <span>Database Subsystem Status:</span>
@@ -226,14 +226,14 @@ export async function loadDiagnosticsPage() {
             <div style="font-weight: 600; font-size: 13px;">Restore Database from JSON</div>
             <div style="font-size: 11px; color: var(--text-muted);">Import database records from JSON backup file</div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="triggerRestoreData()">🔄 Restore Data</button>
+          <button class="btn btn-primary btn-sm" onclick="triggerRestoreData()"><i data-lucide="rotate-ccw"></i> Restore Data</button>
         </li>
         <li style="padding: 12px 16px; background: var(--bg-main); border-radius: var(--radius-md); border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
           <div>
             <div style="font-weight: 600; font-size: 13px;">JSON Local Data Export</div>
             <div style="font-size: 11px; color: var(--text-muted);">Download a complete backup copy</div>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="triggerManualBackup()">Download</button>
+          <button class="btn btn-secondary btn-sm" onclick="triggerManualBackup()"><i data-lucide="download"></i> Download</button>
         </li>
       `;
     }
@@ -316,7 +316,7 @@ export async function runDiagnosticsCheck() {
     const totalWrittenOff = ledger.total_written_off;
     const outstanding = Math.max(0, ledger.outstanding);
     const netCashFlow = ledger.net_cash_flow;
-    const ledgerBadge = '<span class="badge badge-success">✓ Ledger Balanced</span>';
+    const ledgerBadge = '<span class="badge badge-success"><i data-lucide="check" style="width:12px;height:12px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Ledger Balanced</span>';
     const ledgerBadgeNote = '';
 
     const diagContainer = document.getElementById('diagnostics-info');
@@ -354,6 +354,7 @@ export async function runDiagnosticsCheck() {
 
     if (diagContainer) diagContainer.innerHTML = diagHtml;
     if (settingsDiagContainer) settingsDiagContainer.innerHTML = diagHtml;
+    refreshLucideIcons();
 
   } catch (err) {
     console.error('Diagnostics check failed', err);

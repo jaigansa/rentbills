@@ -34,7 +34,7 @@ export function refreshLucideIcons() {
 
 export function renderEmptyState(iconOrColspan = 6, title = 'No records found', subtitle = 'Use the action buttons above to create new entries.') {
   let colSpan = 6;
-  let iconHtml = '<div style="font-size: 28px; margin-bottom: 6px;">📋</div>';
+  let iconHtml = '<div style="font-size: 26px; margin-bottom: 8px; color: var(--text-muted);"><i data-lucide="clipboard-list"></i></div>';
 
   if (typeof iconOrColspan === 'number' || (!isNaN(parseInt(iconOrColspan)) && !String(iconOrColspan).match(/^[a-zA-Z]/))) {
     colSpan = parseInt(iconOrColspan, 10) || 6;

@@ -5,7 +5,7 @@
               <h1>Settings & System Control Center</h1>
               <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Configure application preferences, Supabase credentials, backups, and live system diagnostics.</p>
             </div>
-            <button class="btn btn-primary" onclick="saveAppSettings()">💾 Save App Settings</button>
+            <button class="btn btn-primary" onclick="saveAppSettings()"><i data-lucide="save"></i> Save App Settings</button>
           </div>
 
           <!-- Settings Tab Sub-Navigation Pills -->
@@ -85,12 +85,12 @@
                     <label for="cfg-sb-key">Supabase Publishable / Anon Key</label>
                     <div style="display: flex; gap: 8px;">
                       <input type="password" id="cfg-sb-key" class="form-control" placeholder="xxxx" autocomplete="off">
-                      <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKeyMask()">👁️</button>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKeyMask()" title="Show/Hide Key"><i data-lucide="eye" id="key-mask-icon"></i></button>
                     </div>
                   </div>
                   <div style="display: flex; gap: 12px; margin-top: 16px;">
-                    <button type="submit" class="btn btn-primary">Save Keys</button>
-                    <button type="button" class="btn btn-secondary" onclick="testSupabaseConnection()">🔌 Ping Connection</button>
+                    <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Save Keys</button>
+                    <button type="button" class="btn btn-secondary" onclick="testSupabaseConnection()"><i data-lucide="activity"></i> Ping Connection</button>
                   </div>
                   <div id="sb-ping-result" style="margin-top: 12px; font-weight: 600; font-size: 13px;"></div>
                 </form>
@@ -101,11 +101,11 @@
                 <div style="display: flex; flex-direction: column; gap: 12px; font-size: 13px;">
                   <div><strong>Email:</strong> <span id="settings-user-email">admin@rentbill.local</span></div>
                   <div><strong>Role:</strong> <span id="settings-user-role" class="badge badge-success">ADMIN</span></div>
-                  <div><strong>Session Status:</strong> <span style="color: var(--success); font-weight: 700;">🟢 Active</span></div>
+                  <div><strong>Session Status:</strong> <span style="color: var(--success); font-weight: 700; display: inline-flex; align-items: center; gap: 6px;"><span class="status-dot online"></span> Active</span></div>
                 </div>
                 <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; display: flex; gap: 12px;">
-                  <button class="btn btn-secondary" onclick="showSetupConfigModal()">⚙️ Re-configure Credentials</button>
-                  <button class="btn btn-danger" onclick="document.getElementById('logout-btn').click();">🚪 Logout Session</button>
+                  <button class="btn btn-secondary" onclick="showSetupConfigModal()"><i data-lucide="sliders"></i> Re-configure Credentials</button>
+                  <button class="btn btn-danger" onclick="document.getElementById('logout-btn').click();"><i data-lucide="log-out"></i> Logout Session</button>
                 </div>
               </div>
 
@@ -133,10 +133,10 @@
                 <h3 style="margin-bottom: 16px;">Backup & Data Export</h3>
                 <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Create a complete portable JSON database dump or export individual tables to CSV.</p>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                  <button class="btn btn-primary" onclick="triggerManualBackup()">📥 Download Full JSON Backup</button>
-                  <button class="btn btn-secondary" onclick="exportBillsCSV()">📊 Export Bills (CSV)</button>
-                  <button class="btn btn-secondary" onclick="exportPaymentsCSV()">💳 Export Payments (CSV)</button>
-                  <button class="btn btn-secondary" onclick="exportExpensesCSV()">💸 Export Expenses (CSV)</button>
+                  <button class="btn btn-primary" onclick="triggerManualBackup()"><i data-lucide="download"></i> Download Full JSON Backup</button>
+                  <button class="btn btn-secondary" onclick="exportBillsCSV()"><i data-lucide="file-spreadsheet"></i> Export Bills (CSV)</button>
+                  <button class="btn btn-secondary" onclick="exportPaymentsCSV()"><i data-lucide="credit-card"></i> Export Payments (CSV)</button>
+                  <button class="btn btn-secondary" onclick="exportExpensesCSV()"><i data-lucide="receipt"></i> Export Expenses (CSV)</button>
                 </div>
               </div>
 
@@ -144,8 +144,8 @@
                 <h3 style="margin-bottom: 16px;">Data Restore & Reset</h3>
                 <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">Restore database state from a backup JSON file or reset local cache.</p>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
-                  <button class="btn btn-primary" onclick="triggerRestoreData()"><i data-lucide="rotate-ccw"></i> 🔄 Restore Data (JSON File)</button>
-                  <button class="btn btn-warning" onclick="clearAppCache()"><i data-lucide="refresh-cw"></i> 🧹 Clear Local Cache & Reset State</button>
+                  <button class="btn btn-primary" onclick="triggerRestoreData()"><i data-lucide="rotate-ccw"></i> Restore Data (JSON File)</button>
+                  <button class="btn btn-warning" onclick="clearAppCache()"><i data-lucide="trash-2"></i> Clear Local Cache & Reset State</button>
                   <input type="file" id="json-restore-file-input" accept=".json" style="display: none;" onchange="handleRestoreFileUpload(event)">
                 </div>
               </div>
@@ -171,7 +171,7 @@
                   <div><strong>Browser Environment:</strong> <span id="diag-browser-val">-</span></div>
                 </div>
                 <div style="margin-top: 16px;">
-                  <button class="btn btn-secondary" onclick="runDiagnosticsCheck()">🔄 Re-run System Check</button>
+                  <button class="btn btn-secondary" onclick="runDiagnosticsCheck()"><i data-lucide="refresh-cw"></i> Re-run System Check</button>
                 </div>
               </div>
             </div>

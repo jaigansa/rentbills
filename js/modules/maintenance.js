@@ -111,14 +111,14 @@ function renderMaintenanceTable(tasks) {
     if (t.status === 'CANCELLED') statusBadge = 'badge-secondary';
 
     const categoryIcons = {
-      PLUMBING: '🔧 Plumbing',
-      ELECTRICAL: '⚡ Electrical',
-      APPLIANCE: '🔌 Appliance',
-      CLEANING: '🧹 Cleaning',
-      PAINTING: '🎨 Painting',
-      CARPENTRY: '🪚 Carpentry',
-      GENERAL: '🏢 General',
-      OTHER: '❓ Other'
+      PLUMBING: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="wrench" style="width:13px;height:13px;"></i> Plumbing</span>',
+      ELECTRICAL: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="zap" style="width:13px;height:13px;"></i> Electrical</span>',
+      APPLIANCE: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="tv" style="width:13px;height:13px;"></i> Appliance</span>',
+      CLEANING: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="sparkles" style="width:13px;height:13px;"></i> Cleaning</span>',
+      PAINTING: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="paintbrush" style="width:13px;height:13px;"></i> Painting</span>',
+      CARPENTRY: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="hammer" style="width:13px;height:13px;"></i> Carpentry</span>',
+      GENERAL: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="building" style="width:13px;height:13px;"></i> General</span>',
+      OTHER: '<span style="display:inline-flex;align-items:center;gap:4px;"><i data-lucide="help-circle" style="width:13px;height:13px;"></i> Other</span>'
     };
 
     const estCost = t.estimated_cost ? formatCurrency(t.estimated_cost) : '-';
