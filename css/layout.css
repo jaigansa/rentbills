@@ -61,8 +61,8 @@
 }
 
 .top-bar.compact {
-  height: 50px;
-  min-height: 50px;
+  height: 64px;
+  min-height: 64px;
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border);
   display: flex;
@@ -74,6 +74,15 @@
   top: 0;
   z-index: 800;
   box-shadow: var(--shadow-sm);
+  transition: height 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .top-bar.compact {
+    height: 58px;
+    min-height: 58px;
+    padding: 0 16px;
+  }
 }
 
 .top-bar-left {
