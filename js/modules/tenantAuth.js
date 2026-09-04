@@ -480,28 +480,56 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
     } catch (e) {}
   }
 
-  // Tier 4: Fallback to standard auth.signUp if user does NOT exist yet
+  // Tier 4: Fallback to auth.signUp (only if RPCs unavailable).
+  // signUp can switch the active session to the new tenant, which would log the
+  // admin out. We capture the admin session first and restore it afterwards.
   if (!passwordUpdated) {
-    const { data: authData, error: authErr } = await supabaseClient.auth.signUp({
-      email: loginEmail,
-      password,
-      options: {
-        data: {
-          role: 'TENANT',
-          username,
-          mobile: tenDigitMobile || null,
-          renter_id: parsedRenterId
-        }
-      }
-    });
+    let adminSession = null;
+    try {
+      const { data: sessData } = await supabaseClient.auth.getSession();
+      adminSession = sessData?.session || null;
+    } catch (se) {}
 
-    if (!authErr && authData?.user) {
-      createdUserId = authData.user.id;
-      passwordUpdated = true;
-    } else if (authErr && authErr.message.includes('already registered')) {
-      throw new Error(`The login account "${loginEmail}" already exists. Run sql/update/01_upgrade_existing_database.sql in Supabase SQL Editor to enable password updates.`);
-    } else if (authErr) {
-      throw authErr;
+    const restoreAdminSession = async () => {
+      try {
+        if (adminSession && adminSession.access_token && adminSession.refresh_token) {
+          await supabaseClient.auth.setSession({
+            access_token: adminSession.access_token,
+            refresh_token: adminSession.refresh_token
+          });
+        }
+      } catch (restoreErr) {
+        console.warn('Admin session restore notice:', restoreErr);
+      }
+    };
+
+    try {
+      const { data: authData, error: authErr } = await supabaseClient.auth.signUp({
+        email: loginEmail,
+        password,
+        options: {
+          data: {
+            role: 'TENANT',
+            username,
+            mobile: tenDigitMobile || null,
+            renter_id: parsedRenterId
+          }
+        }
+      });
+
+      await restoreAdminSession();
+
+      if (!authErr && authData?.user) {
+        createdUserId = authData.user.id;
+        passwordUpdated = true;
+      } else if (authErr && authErr.message.includes('already registered')) {
+        throw new Error(`The login account "${loginEmail}" already exists. Run sql/update/01_upgrade_existing_database.sql in Supabase SQL Editor to enable password updates.`);
+      } else if (authErr) {
+        throw authErr;
+      }
+    } catch (e) {
+      await restoreAdminSession();
+      throw e;
     }
   }
 

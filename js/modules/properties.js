@@ -167,8 +167,6 @@ export async function loadTenantsPage() {
                   <button class="dropdown-item" onclick="triggerTransferModal(${t.id}, '${escapeStr(t.name)}', ${t.unit_id})"><i data-lucide="arrow-right-left"></i> Transfer Unit</button>
                   <button class="dropdown-item" onclick="triggerMeterResetModal(${t.id}, '${escapeStr(t.name)}')"><i data-lucide="zap"></i> Reset Meter</button>
                   <button class="dropdown-item" onclick="triggerVacateModal(${t.id}, '${escapeStr(t.name)}')"><i data-lucide="log-out"></i> Vacate Tenant</button>
-                  <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
-                  <button class="dropdown-item danger" onclick="triggerDeleteTenant(${t.id}, '${escapeStr(t.name)}')"><i data-lucide="trash-2"></i> Delete Tenant</button>
                 </div>
               </div>
             `;

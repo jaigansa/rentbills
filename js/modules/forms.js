@@ -322,6 +322,7 @@ export function setupFormSubmitHandlers() {
           await saveTenantCredentials(savedRenterId, loginEmail, tenantPassword, name, mobile_number);
         } catch (authErr) {
           console.warn('Tenant credential auto-save notice:', authErr.message);
+          alert('Tenant saved, but the automatic login account could NOT be created:\n\n' + (authErr.message || 'Unknown error') + '\n\nOpen Settings → User Logins to set up the login manually.');
         }
 
         formAddTenant.reset();
