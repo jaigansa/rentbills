@@ -1,2 +1,2 @@
-# Cloudflare Pages SPA Routing Configuration
-/*    /   200
+# Cloudflare Pages Redirects
+# (SPA fallback is handled by 404.html to ensure static assets are served with proper MIME types)

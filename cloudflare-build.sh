@@ -21,6 +21,9 @@ mkdir -p "$DIST"
 
 # 1) Copy static application assets (the Go binary / tests / scripts are excluded).
 cp index.html "$DIST/index.html"
+cp index.html "$DIST/404.html"
+cp paid.html "$DIST/paid.html"
+cp receipt.html "$DIST/receipt.html"
 cp _headers "$DIST/_headers"
 cp _redirects "$DIST/_redirects"
 cp -r css "$DIST/css"
