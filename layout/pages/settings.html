@@ -11,7 +11,7 @@
           <!-- Settings Tab Sub-Navigation Pills -->
           <div class="settings-tabs-bar" style="display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 12px; overflow-x: auto;">
             <button class="btn btn-secondary settings-tab-btn active" onclick="switchSettingsSubTab('app', this)"><i data-lucide="sliders"></i> App Settings</button>
-            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('tenants', this)"><i data-lucide="key-round"></i> Tenant Logins</button>
+            <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('users', this)"><i data-lucide="users"></i> User Logins</button>
             <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('auth', this)"><i data-lucide="shield-check"></i> Auth & API Keys</button>
             <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('data', this)"><i data-lucide="database"></i> Data & Backups</button>
             <button class="btn btn-secondary settings-tab-btn" onclick="switchSettingsSubTab('diagnostics', this)"><i data-lucide="activity"></i> Diagnostics & Latency</button>
@@ -72,51 +72,59 @@
             </div>
           </div>
 
-          <!-- TAB 2: TENANT LOGINS & PASSWORDS -->
-          <div id="settings-tab-tenants" class="settings-sub-section" style="display: none;">
+          <!-- TAB 2: USER LOGINS & ACCESS MANAGEMENT (All Roles) -->
+          <div id="settings-tab-users" class="settings-sub-section" style="display: none;">
             <div class="card" style="margin-bottom: 24px;">
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
                 <div>
                   <h3 style="font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
-                    <i data-lucide="key-round" style="color: var(--primary);"></i>
-                    <span>Tenant Logins & Passwords Manager</span>
+                    <i data-lucide="users" style="color: var(--primary);"></i>
+                    <span>User Logins & Access Manager</span>
                   </h3>
-                  <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;" id="tenant-logins-count">
-                    Manage tenant portal logins, set or reset passwords, and share access credentials.
+                  <p style="color: var(--text-muted); font-size: 13px; margin-top: 4px;" id="user-logins-count">
+                    Manage all user accounts — Admin, Staff, Auditor, and Tenant portals.
                   </p>
                 </div>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                  <button class="btn btn-secondary" onclick="loadTenantLoginsSettings()">
+                  <button class="btn btn-secondary" onclick="loadUserLoginsSettings()">
                     <i data-lucide="refresh-cw"></i> Refresh
                   </button>
-                  <button class="btn btn-primary" onclick="openModal('modal-add-tenant')">
-                    <i data-lucide="user-plus"></i> + Add Tenant
+                  <button class="btn btn-primary" onclick="openCreateUserModal()">
+                    <i data-lucide="user-plus"></i> + Add User
                   </button>
                 </div>
               </div>
 
-              <!-- Search Filter Bar -->
-              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                <div style="position: relative; flex: 1;">
-                  <input type="text" id="search-tenant-logins" class="form-control" placeholder="Filter by tenant name, unit, phone or login email..." oninput="filterTenantLoginsTable()" autocomplete="off">
+              <!-- Search & Role Filter Bar -->
+              <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                <div style="position: relative; flex: 1; min-width: 220px;">
+                  <input type="text" id="search-user-logins" class="form-control" placeholder="Filter by name or email..." oninput="filterUserLoginsTable()" autocomplete="off">
+                </div>
+                <div style="width: 180px;">
+                  <select id="filter-user-role" class="form-control" onchange="filterUserLoginsTable()">
+                    <option value="ALL">All Roles</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="STAFF">Staff</option>
+                    <option value="AUDITOR">Auditor</option>
+                    <option value="TENANT">Tenant</option>
+                  </select>
                 </div>
               </div>
 
-              <!-- Tenant Accounts Table -->
+              <!-- User Accounts Table -->
               <div class="table-container table-responsive-cards">
                 <table class="data-table">
                   <thead>
                     <tr>
-                      <th>Tenant & Unit</th>
-                      <th>Mobile</th>
-                      <th>Login Email</th>
-                      <th>Portal Access</th>
+                      <th>User & Role</th>
+                      <th>Email</th>
+                      <th>Status</th>
                       <th>Last Activity</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
-                  <tbody id="table-body-tenant-logins">
-                    <!-- Populated dynamically by tenantAuth.js -->
+                  <tbody id="table-body-user-logins">
+                    <!-- Populated dynamically by userManagement.js -->
                   </tbody>
                 </table>
               </div>

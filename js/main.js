@@ -120,6 +120,20 @@ import {
   fillMobilePassword,
   generateRandomPassword
 } from './modules/tenantAuth.js';
+import {
+  loadUserLoginsSettings,
+  renderUserLoginsTable,
+  filterUserLoginsTable,
+  openCreateUserModal,
+  openEditUserModal,
+  submitUserForm,
+  triggerResetUserPassword,
+  triggerChangeUserRole,
+  triggerToggleUserStatus,
+  triggerDeleteUser,
+  toggleUserPasswordMask,
+  generateUserPassword
+} from './modules/userManagement.js';
 
 // Register public handlers to window for HTML inline event listeners
 window.openModal = openModal;
@@ -205,6 +219,18 @@ window.triggerToggleTenantLoginStatus = triggerToggleTenantLoginStatus;
 window.triggerToggleTenantLoginStatusFromModal = triggerToggleTenantLoginStatusFromModal;
 window.fillMobilePassword = fillMobilePassword;
 window.generateRandomPassword = generateRandomPassword;
+window.loadUserLoginsSettings = loadUserLoginsSettings;
+window.renderUserLoginsTable = renderUserLoginsTable;
+window.filterUserLoginsTable = filterUserLoginsTable;
+window.openCreateUserModal = openCreateUserModal;
+window.openEditUserModal = openEditUserModal;
+window.submitUserForm = submitUserForm;
+window.triggerResetUserPassword = triggerResetUserPassword;
+window.triggerChangeUserRole = triggerChangeUserRole;
+window.triggerToggleUserStatus = triggerToggleUserStatus;
+window.triggerDeleteUser = triggerDeleteUser;
+window.toggleUserPasswordMask = toggleUserPasswordMask;
+window.generateUserPassword = generateUserPassword;
 window.triggerApprovePaymentProof = triggerApprovePaymentProof;
 window.triggerRejectPaymentProof = triggerRejectPaymentProof;
 window.viewPaymentProofImage = viewPaymentProofImage;

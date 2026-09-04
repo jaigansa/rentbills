@@ -1,40 +1,43 @@
-# 🗄️ RentBill Pro — Modular SQL Schema Directory
+# 🗄️ SQL Database Scripts
 
-This directory contains modular, organized SQL files for setting up, managing, and maintaining your **Supabase PostgreSQL** database.
+These scripts build and manage the RentBill Pro **Supabase** database.
+They are split into three folders — pick the one that matches what you're doing.
 
----
-
-## 🚀 Quick Start (Two Ways to Run)
-
-### Option A: 1-Click Master Setup ⭐ *(Fastest)*
-Copy and paste the entire master schema from [`00_master_schema.sql`](00_master_schema.sql) into the **Supabase SQL Editor** and click **Run**.
-
----
-
-### Option B: Modular Step-by-Step Setup
-Run the SQL files in numerical order:
-
-| File | Purpose | What it sets up |
-| :--- | :--- | :--- |
-| **[`01_extensions_and_profiles.sql`](01_extensions_and_profiles.sql)** | Core Setup | Enables `uuid-ossp`, `pgcrypto`, creates `profiles` table & auth trigger |
-| **[`02_properties_and_units.sql`](02_properties_and_units.sql)** | Real Estate Assets | Creates `owners`, `properties`, and `units` tables |
-| **[`03_renters_and_tenants.sql`](03_renters_and_tenants.sql)** | Tenants Directory | Creates `renters` table (lease dates, meter rates, arrears) |
-| **[`04_bills_and_payments.sql`](04_bills_and_payments.sql)** | Invoices & Ledgers | Creates `bills`, `payments` tables + automated financial triggers |
-| **[`05_expenses_and_documents.sql`](05_expenses_and_documents.sql)** | Vault & Operations | Creates `expenses`, `owner_withdrawals`, and `documents` vault |
-| **[`06_indexes_and_performance.sql`](06_indexes_and_performance.sql)** | Performance | Adds high-speed indexes for billing periods, mobile numbers, soft-deletes |
-| **[`07_rls_security_policies.sql`](07_rls_security_policies.sql)** | Security & Privacy | Enables Row-Level Security (RLS), `is_admin()`, and tenant isolation |
-| **[`08_tenant_auth_rpcs.sql`](08_tenant_auth_rpcs.sql)** | Auth RPCs | Adds admin tenant account creation, password resets & universal login |
-| **[`09_default_admin.sql`](09_default_admin.sql)** | Admin Account | Creates the default Administrator account (`admin@rentbill.com` / `Admin@123`) |
-| **[`12_maintenance_tasks.sql`](12_maintenance_tasks.sql)** | Work Orders | Maintenance & repair tasks, work order tracking, and technician assignments |
-| **[`13_robust_update.sql`](13_robust_update.sql)** | Update Migration | 100% safe, idempotent update migration for existing Supabase databases |
+```
+sql/
+├── install/   → build a brand-new database
+├── update/    → upgrade an existing database (keeps your data)
+└── delete/    → wipe data or reset everything
+```
 
 ---
 
-## 🧹 Maintenance & Cleanup
+## 📥 install/ — Brand-New Database
 
-| File | Purpose | When to use |
-| :--- | :--- | :--- |
-| **[`10_clear_all_data.sql`](10_clear_all_data.sql)** | Data Reset | Wipes all test properties/bills/tenants and resets ID sequences back to `1` without deleting tables or your Admin login |
-| **[`11_reset_database.sql`](11_reset_database.sql)** | Full DB Teardown | Drops all tables, triggers, policies, and RPC functions in `public` schema for a complete database reset back to a clean state |
-| **[`13_robust_update.sql`](13_robust_update.sql)** | Safe DB Migration | Run in Supabase SQL Editor to safely upgrade your existing database to the latest schema without losing data |
+| File | What it does |
+|---|---|
+| [`install/00_master_schema.sql`](install/00_master_schema.sql) | **One file, everything.** Tables, security, roles (Admin/Tenant/Staff/Auditor), user management, and the default Admin login. Run the whole file in the SQL Editor. |
 
+## 🔄 update/ — Existing Database
+
+| File | What it does |
+|---|---|
+| [`update/01_upgrade_existing_database.sql`](update/01_upgrade_existing_database.sql) | **Safe upgrade.** Adds the newest features (maintenance, Staff/Auditor roles, user management, security fix) without touching your data. Idempotent — safe to re-run. |
+
+## 🗑️ delete/ — Cleanup
+
+| File | What it does |
+|---|---|
+| [`delete/01_clear_all_data.sql`](delete/01_clear_all_data.sql) | Deletes **all business data** (properties, bills, tenants...) but keeps tables + Admin login. Starts fresh, keeps structure. |
+| [`delete/02_reset_database.sql`](delete/02_reset_database.sql) | **Full teardown.** Drops every table, trigger, policy, and function. Completely empty database. |
+
+---
+
+## 💡 Quick guide
+
+- **Never had a database?** → `install/00_master_schema.sql`
+- **Already have data, want the latest features?** → `update/01_upgrade_existing_database.sql`
+- **Just testing, want clean data?** → `delete/01_clear_all_data.sql`
+- **Delete everything and restart?** → `delete/02_reset_database.sql`
+
+> ⚠️ **Delete scripts are destructive.** Back up your data before running them.

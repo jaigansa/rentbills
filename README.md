@@ -57,9 +57,10 @@
 ├── README.md
 ├── build.sh
 ├── main.go                  # Go embedded server
-├── sql/                     # Modular SQL schema & master setup scripts
-│   ├── 00_master_schema.sql # Complete master database script
-│   └── ...                  # Individual schema modules (01 to 13)
+├── sql/                     # Database scripts — install / update / delete
+│   ├── install/             # Brand-new database: 00_master_schema.sql
+│   ├── update/              # Upgrade existing DB, keep data
+│   └── delete/              # Clear data / full reset
 ├── index.html               # Single Page Application entrypoint
 ├── css/
 │   ├── app.css              # Master entry stylesheet
@@ -85,7 +86,7 @@
 | Step | Action | Description |
 | :--- | :--- | :--- |
 | **Step 1** | Create Supabase Project | Create a project at [supabase.com](https://supabase.com) |
-| **Step 2** | Run Master SQL Script | Run [`sql/00_master_schema.sql`](sql/00_master_schema.sql) in SQL Editor |
+| **Step 2** | Run Master SQL Script | Run [`sql/install/00_master_schema.sql`](sql/install/00_master_schema.sql) in SQL Editor |
 | **Step 3** | Verify Storage Bucket | Ensure the `proofs` bucket is created & set to Public |
 | **Step 4** | Configure Auth Settings | Enable Email Auth provider and disable email confirmation if needed |
 | **Step 5** | Connect Web App | Enter Supabase URL & Anon Key into the RentBill Pro web interface |
@@ -110,7 +111,7 @@
 1. Open your Supabase Dashboard.
 2. On the left sidebar, click the **SQL Editor** icon (`< />`).
 3. Click **New Query**.
-4. Open [`sql/00_master_schema.sql`](sql/00_master_schema.sql) in your code editor, copy the entire content, and paste it into the Supabase SQL Editor.
+4. Open [`sql/install/00_master_schema.sql`](sql/install/00_master_schema.sql) in your code editor, copy the entire content, and paste it into the Supabase SQL Editor.
 5. Click **Run** (or press `Ctrl + Enter`).
 
 > [!SUCCESS]
@@ -189,8 +190,8 @@ export const SUPABASE_CONFIG = {
 
 | File | Purpose | When to use |
 | :--- | :--- | :--- |
-| **[`sql/10_clear_all_data.sql`](sql/10_clear_all_data.sql)** | Clear Data | Wipes test properties, bills, tenants, and payments while keeping database tables & Admin login intact |
-| **[`sql/11_reset_database.sql`](sql/11_reset_database.sql)** | Full Teardown | Drops all tables, triggers, and RPC functions in `public` schema for a complete fresh database rebuild |
+| **[`sql/delete/01_clear_all_data.sql`](sql/delete/01_clear_all_data.sql)** | Clear Data | Wipes test properties, bills, tenants, and payments while keeping database tables & Admin login intact |
+| **[`sql/delete/02_reset_database.sql`](sql/delete/02_reset_database.sql)** | Full Teardown | Drops all tables, triggers, and RPC functions in `public` schema for a complete fresh database rebuild |
 
 ---
 

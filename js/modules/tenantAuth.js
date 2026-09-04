@@ -499,7 +499,7 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
       createdUserId = authData.user.id;
       passwordUpdated = true;
     } else if (authErr && authErr.message.includes('already registered')) {
-      throw new Error(`The login account "${loginEmail}" already exists. Run sql/13_robust_update.sql in Supabase SQL Editor to enable password updates.`);
+      throw new Error(`The login account "${loginEmail}" already exists. Run sql/update/01_upgrade_existing_database.sql in Supabase SQL Editor to enable password updates.`);
     } else if (authErr) {
       throw authErr;
     }
