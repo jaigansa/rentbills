@@ -484,6 +484,15 @@ export async function saveTenantCredentials(renterId, email, password, name = ''
   // signUp can switch the active session to the new tenant, which would log the
   // admin out. We capture the admin session first and restore it afterwards.
   if (!passwordUpdated) {
+    // Unlike the admin RPC tiers (which enforce is_admin() server-side), this
+    // fallback uses the public supabaseClient.auth.signUp — callable by anyone.
+    // Guard it client-side so a non-admin (STAFF/TENANT) cannot create TENANT
+    // auth accounts with a chosen password via this path.
+    const actingUser = getCurrentUser();
+    if (!actingUser || actingUser.role !== 'ADMIN') {
+      throw new Error('Access denied. Only administrators can create tenant login accounts.');
+    }
+
     let adminSession = null;
     try {
       const { data: sessData } = await supabaseClient.auth.getSession();

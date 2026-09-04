@@ -871,6 +871,27 @@ CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT TO authenti
 DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+-- Guard: RLS cannot restrict WHICH profile columns a user may update, so without
+-- this a user could promote themselves to ADMIN (role change) or re-enable a
+-- disabled account via "Users update own profile". Only an ADMIN may change
+-- role or is_disabled; other self-profile fields (email, username) stay open.
+CREATE OR REPLACE FUNCTION public.prevent_profile_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (NEW.role IS DISTINCT FROM OLD.role
+      OR NEW.is_disabled IS DISTINCT FROM OLD.is_disabled)
+     AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Only administrators can change role or account status.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_prevent_profile_role_change ON public.profiles;
+CREATE TRIGGER trg_prevent_profile_role_change
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_role_change();
+
 -- 6.2 STAFF & AUDITOR ROLE RLS POLICIES (Expands the 4-role model on existing DBs)
 -- AUDITOR: read-only access to all application tables
 DROP POLICY IF EXISTS "Auditors view properties" ON public.properties;

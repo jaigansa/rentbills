@@ -624,6 +624,27 @@ CREATE POLICY "Admins full access to profiles" ON public.profiles FOR ALL TO aut
 CREATE POLICY "Users view own profile" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
 CREATE POLICY "Users update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
+-- Guard: RLS policies cannot restrict WHICH columns a user may update, so a user
+-- could otherwise promote themselves to ADMIN (role change) or un-disable their
+-- account via "Users update own profile". Only an ADMIN may change role or
+-- is_disabled; all other self-profile fields (email, username, etc.) stay open.
+CREATE OR REPLACE FUNCTION public.prevent_profile_role_change()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (NEW.role IS DISTINCT FROM OLD.role
+      OR NEW.is_disabled IS DISTINCT FROM OLD.is_disabled)
+     AND NOT public.is_admin() THEN
+    RAISE EXCEPTION 'Only administrators can change role or account status.';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS trg_prevent_profile_role_change ON public.profiles;
+CREATE TRIGGER trg_prevent_profile_role_change
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.prevent_profile_role_change();
+
 -- 8.2 OWNERS POLICIES (Landlord bank details protected)
 CREATE POLICY "Admins full access to owners" ON public.owners FOR ALL TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin());
 CREATE POLICY "Tenants view assigned owner" ON public.owners FOR SELECT TO authenticated USING (
