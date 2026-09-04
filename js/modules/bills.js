@@ -108,6 +108,10 @@ export async function loadBillsPage() {
       if (currentUser && currentUser.role === 'TENANT') {
         if (currentUser.renter_id) {
           query = query.eq('renter_id', currentUser.renter_id);
+        } else {
+          // A tenant with no resolved renter_id must NOT see every tenant's bills.
+          // Force an impossible filter to return an empty set instead of widening scope.
+          query = query.eq('renter_id', -1);
         }
       }
       const { data: bData } = await query;
@@ -150,26 +154,26 @@ export async function loadBillsPage() {
           const uuidSuffix = b.uuid ? ` (${b.uuid.substring(0, 8)})` : ` (ID:${b.id})`;
           
           const stayPeriodDisplay = (b.period_start_date && b.period_end_date)
-            ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${b.period_start_date} → ${b.period_end_date}</div>`
+            ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(b.period_start_date)} → ${escapeStr(b.period_end_date)}</div>`
             : '';
 
           const billDateDisplay = b.bill_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '');
 
           tr.innerHTML = `
             <td data-label="Invoice Number & UUID">
-              <strong>${formatInvoiceNumber(b)}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${uuidSuffix}</span>
-              ${billDateDisplay ? `<div style="font-size: 10px; color: var(--text-muted);">Generated: ${billDateDisplay}</div>` : ''}
+              <strong>${escapeStr(formatInvoiceNumber(b))}</strong>
+              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(uuidSuffix)}</span>
+              ${billDateDisplay ? `<div style="font-size: 10px; color: var(--text-muted);">Generated: ${escapeStr(billDateDisplay)}</div>` : ''}
             </td>
-            <td data-label="Renter Name"><strong>${tenantDisplayName}</strong></td>
+            <td data-label="Renter Name"><strong>${escapeStr(tenantDisplayName)}</strong></td>
             <td data-label="Billing & Stay Period">
-              <strong>${b.billing_period}</strong>
+              <strong>${escapeStr(b.billing_period)}</strong>
               ${stayPeriodDisplay}
             </td>
             <td data-label="Gross Charge">${formatCurrency(b.gross_amount)}</td>
             <td data-label="Net Charge"><strong>${formatCurrency(b.net_amount)}</strong></td>
             <td data-label="Paid Amount">${formatCurrency(b.paid_amount)}</td>
-            <td data-label="Status"><span class="badge ${badgeClass}">${b.status}</span></td>
+            <td data-label="Status"><span class="badge ${badgeClass}">${escapeStr(b.status)}</span></td>
             <td data-label="Actions">${actionHtml}</td>
           `;
           tbody.appendChild(tr);
@@ -369,15 +373,12 @@ export async function openPaymentModal(billId, duePaise) {
         let query = supabaseClient.from('bills').select('id, uuid, billing_period, net_amount, paid_amount, renter_id, status').is('deleted_at', null).neq('status', 'PAID').neq('status', 'VOID').order('created_at', { ascending: false });
         
         if (currentUser && currentUser.role === 'TENANT') {
-          let tenantRenterId = currentUser.renter_id;
-          if (!tenantRenterId) {
-            try {
-              const { data: myRenter } = await supabaseClient.from('renters').select('id').is('deleted_at', null).limit(1);
-              if (myRenter && myRenter.length > 0) tenantRenterId = myRenter[0].id;
-            } catch (e) {}
-          }
-          if (tenantRenterId) {
-            query = query.eq('renter_id', tenantRenterId);
+          if (currentUser.renter_id) {
+            query = query.eq('renter_id', currentUser.renter_id);
+          } else {
+            // Do NOT fabricate a renter id from an arbitrary row (data leak):
+            // a tenant with no resolved renter_id gets an empty invoice list.
+            query = query.eq('renter_id', -1);
           }
         }
 
@@ -434,13 +435,49 @@ export async function voidBill(billId) {
   if (!confirm('Are you sure you want to void this invoice? This will cancel the bill and zero its balance.')) return;
   try {
     if (!supabaseClient) return;
-    const { error } = await safeUpdate(supabaseClient, 'bills', { status: 'VOID', paid_amount: 0 }, 'id', billId);
-    if (error) alert('Failed to void invoice: ' + error.message);
-    else {
-      alert('Invoice successfully marked as VOID');
-      loadBillsPage();
-      loadDashboard();
+
+    const reason = prompt('Reason for voiding this invoice? (optional)', '');
+    const voidReason = reason ? reason.trim() : null;
+
+    const currentUser = getCurrentUser();
+    const uId = currentUser ? currentUser.id : null;
+
+    // Record the void audit trail. Recording voided_at is what the ledger views
+    // and fn_reconcile_ledger rely on to exclude the invoice from billed totals.
+    const { error } = await safeUpdate(supabaseClient, 'bills', {
+      status: 'VOID',
+      paid_amount: 0,
+      voided_at: new Date().toISOString(),
+      voided_by: uId,
+      void_reason: voidReason
+    }, 'id', billId);
+
+    if (error) {
+      alert('Failed to void invoice: ' + error.message);
+      return;
     }
+
+    // Reverse any active payments on this bill so paid_amount stays 0 and the
+    // ledger's CASH_IN no longer counts them (avoids resurrecting a non-zero
+    // balance when a payment later changes via sync_bill_paid_amount).
+    try {
+      await supabaseClient
+        .from('payments')
+        .update({
+          reversed_at: new Date().toISOString(),
+          reversed_by: uId,
+          reversal_reason: 'BILL_VOIDED'
+        })
+        .eq('bill_id', billId)
+        .is('deleted_at', null)
+        .is('reversed_at', null);
+    } catch (revErr) {
+      console.warn('Void payment reversal notice:', revErr);
+    }
+
+    alert('Invoice successfully marked as VOID');
+    loadBillsPage();
+    loadDashboard();
   } catch (err) {
     alert('Void invoice error: ' + err.message);
   }

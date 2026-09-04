@@ -8,7 +8,9 @@ import {
   deriveBillStatusAfterPayment,
   normalizeTenDigitMobile,
   tenantLoginEmailFromMobile,
-  defaultTenantPassword
+  defaultTenantPassword,
+  extractBackupTables,
+  csvEscapeValue
 } from '../js/core/format.js';
 
 test('formatCurrency converts paise to INR rupees', () => {
@@ -22,11 +24,29 @@ test('formatCurrency handles negative (credit) amounts', () => {
   assert.equal(formatCurrency(-5000), '-₹50.00');
 });
 
-test('escapeStr escapes quotes and decodes nothing else', () => {
+test('escapeStr escapes smile-quote, backslash, and HTML chars', () => {
   assert.equal(escapeStr(''), '');
   assert.equal(escapeStr(null), '');
-  assert.equal(escapeStr("O'Brien"), "O\\'Brien");
+  assert.equal(escapeStr("O'Brien"), "O\\'Brien"); // single-quote is JS-escaped
   assert.equal(escapeStr('say "hi"'), 'say &quot;hi&quot;');
+});
+
+test('escapeStr neutralizes HTML/attribute injection (stored XSS)', () => {
+  assert.equal(escapeStr('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(escapeStr('"><script>alert(1)</script>'), '&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;');
+  assert.equal(escapeStr("a&b"), 'a&amp;b');
+  assert.equal(escapeStr('back\\slash'), 'back\\\\slash');
+});
+
+test('escapeStr output round-trips through HTML+JS decoding to original', () => {
+  // Simulate how an inline onclick='...' attribute is decoded by the HTML parser
+  // then parsed as a single-quoted JS string: the value must come back intact.
+  const malicious = `O'Brien <img src=x onerror=alert(1)> "q" & b`;
+  const out = escapeStr(malicious);
+  const inJsString = out
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"')
+    .replace(/\\'/g, "'");
+  assert.equal(inJsString, malicious);
 });
 
 test('formatInvoiceNumber falls back to INV-1001 without a bill', () => {
@@ -97,4 +117,55 @@ test('defaultTenantPassword uses mobile digits when >= 6', () => {
 test('defaultTenantPassword falls back when mobile too short', () => {
   assert.equal(defaultTenantPassword('12345'), 'Tenant@123');
   assert.equal(defaultTenantPassword('', 'Custom@1'), 'Custom@1');
+});
+
+test('extractBackupTables reads tables nested under data (current export format)', () => {
+  const backup = {
+    app: 'RentBill Pro',
+    data: { properties: [{ id: 1 }], bills: [{ id: 1 }, { id: 2 }] }
+  };
+  const map = extractBackupTables(backup);
+  assert.deepEqual(map.properties, [{ id: 1 }]);
+  assert.deepEqual(map.bills, [{ id: 1 }, { id: 2 }]);
+  assert.equal(map.units, undefined);
+});
+
+test('extractBackupTables reads flat top-level tables (legacy format)', () => {
+  const backup = { properties: [{ id: 1 }], renters: [{ id: 9 }] };
+  const map = extractBackupTables(backup);
+  assert.deepEqual(map.properties, [{ id: 1 }]);
+  assert.deepEqual(map.renters, [{ id: 9 }]);
+});
+
+test('extractBackupTables prefers nested data when both present', () => {
+  const backup = { properties: [{ id: 1 }], data: { properties: [{ id: 2 }] } };
+  const map = extractBackupTables(backup);
+  assert.deepEqual(map.properties, [{ id: 2 }]);
+});
+
+test('extractBackupTables handles missing/malformed input', () => {
+  assert.deepEqual(extractBackupTables(null), {});
+  assert.deepEqual(extractBackupTables({}), {});
+  assert.deepEqual(extractBackupTables({ data: {} }), {});
+});
+
+test('csvEscapeValue double-quotes embedded quotes per RFC 4180', () => {
+  assert.equal(csvEscapeValue('say "hi"'), '"say ""hi"""');
+  assert.equal(csvEscapeValue('a,b'), '"a,b"');
+  assert.equal(csvEscapeValue('plain'), 'plain');
+});
+
+test('csvEscapeValue neutralizes spreadsheet formula injection', () => {
+  assert.equal(csvEscapeValue('=SUM(A1)'), '"\'=SUM(A1)"');
+  assert.equal(csvEscapeValue('+cmd'), '"\'+cmd"');
+  assert.equal(csvEscapeValue('@name'), '"\'@name"');
+  assert.equal(csvEscapeValue('\t=2+2'), '"\'\t=2+2"');
+  assert.equal(csvEscapeValue('-2+3'), '"\'-2+3"');
+});
+
+test('csvEscapeValue preserves legitimate negative numbers', () => {
+  assert.equal(csvEscapeValue('-123.45'), '-123.45');
+  assert.equal(csvEscapeValue('0'), '0');
+  assert.equal(csvEscapeValue(''), '');
+  assert.equal(csvEscapeValue(null), '');
 });

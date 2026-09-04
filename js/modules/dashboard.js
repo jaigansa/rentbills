@@ -23,20 +23,25 @@ export async function loadDashboard() {
 
       try {
         let { data: rData } = await supabaseClient.from('renters').select('*').is('deleted_at', null);
-        
-        if ((!rData || rData.length === 0) && currentUser.renter_id) {
-          const { data: fbData } = await supabaseClient.from('renters').select('*').eq('id', currentUser.renter_id).is('deleted_at', null);
-          rData = fbData || [];
+        if (currentUser.renter_id) {
+          const { data: own } = await supabaseClient.from('renters').select('*').eq('id', currentUser.renter_id).is('deleted_at', null);
+          rData = own || [];
+        } else {
+          // Without a renter_id there is no own lease to show; never widen scope.
+          rData = [];
         }
-
         myRentersList = rData || [];
       } catch (e) {
         console.warn('Tenant lease fetch warning:', e);
       }
 
       try {
-        const { data: bData } = await supabaseClient.from('bills').select('*').is('deleted_at', null);
-        myBillsList = bData || [];
+        if (currentUser.renter_id) {
+          const { data: bData } = await supabaseClient.from('bills').select('*').eq('renter_id', currentUser.renter_id).is('deleted_at', null);
+          myBillsList = bData || [];
+        } else {
+          myBillsList = [];
+        }
       } catch (e) {
         console.warn('Tenant bills fetch warning:', e);
       }
@@ -119,12 +124,12 @@ export async function loadDashboard() {
     let arrearsSum = 0;
 
     (bills || []).forEach(b => {
-      totalBilled += (b.net_amount || 0);
-      totalCollected += (b.paid_amount || 0);
+      totalBilled += Number(b.net_amount) || 0;
+      totalCollected += Number(b.paid_amount) || 0;
     });
 
-    (expenses || []).forEach(e => totalExpenses += (e.amount || 0));
-    (renters || []).forEach(r => { if (r.is_active) arrearsSum += (r.pending_arrears || 0); });
+    (expenses || []).forEach(e => totalExpenses += Number(e.amount) || 0);
+    (renters || []).forEach(r => { if (r.is_active) arrearsSum += Number(r.pending_arrears) || 0; });
 
     const activeTenants = (renters || []).filter(r => r.is_active).length;
     const vacantUnits = (units || []).filter(u => u.status === 'VACANT').length;

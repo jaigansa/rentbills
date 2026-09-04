@@ -16,9 +16,11 @@ export function setupRealtimeSubscriptions() {
   try {
     realtimeChannel = supabaseClient
       .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
-        loadDashboard();
-      });
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills' }, () => { loadDashboard(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => { loadDashboard(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'renters' }, () => { loadDashboard(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'units' }, () => { loadDashboard(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, () => { loadDashboard(); });
 
     realtimeChannel.subscribe((status) => {
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {

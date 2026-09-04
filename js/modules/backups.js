@@ -2,6 +2,7 @@
 import { getSupabaseClient } from '../core/config.js';
 import { safeInsert } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
+import { extractBackupTables, csvEscapeValue } from '../core/format.js';
 import { loadDashboard } from './dashboard.js';
 import { loadPropertiesPage, loadTenantsPage } from './properties.js';
 import { loadOwnersPage } from './owners.js';
@@ -19,14 +20,7 @@ export function exportToCSV(filename, rows) {
   let csvContent = headers.join(',') + '\n';
 
   rows.forEach(row => {
-    const rowValues = headers.map(header => {
-      let val = row[header] !== undefined && row[header] !== null ? String(row[header]) : '';
-      val = val.replace(/"/g, '""');
-      if (val.includes(',') || val.includes('\n') || val.includes('"')) {
-        val = `"${val}"`;
-      }
-      return val;
-    });
+    const rowValues = headers.map(header => csvEscapeValue(row[header]));
     csvContent += rowValues.join(',') + '\n';
   });
 
@@ -201,13 +195,17 @@ export async function handleRestoreFileUpload(e) {
     const backupData = JSON.parse(text);
 
     let restoredCount = 0;
-    const tables = ['properties', 'units', 'renters', 'owners', 'documents', 'expenses', 'owner_withdrawals', 'bills', 'payments'];
 
-    for (const tbl of tables) {
-      if (Array.isArray(backupData[tbl]) && backupData[tbl].length > 0) {
-        await restoreTableData(tbl, backupData[tbl]);
-        restoredCount += backupData[tbl].length;
-      }
+    // Export tables live under { data: { <table>: rows } }; extractBackupTables
+    // also handles older flat exports. Previously restore read backupData[tbl]
+    // directly, which was always undefined for current exports, so restoring
+    // silently did nothing (reported "0 records").
+    const tableMap = extractBackupTables(backupData);
+
+    for (const tbl of Object.keys(tableMap)) {
+      const rows = tableMap[tbl];
+      await restoreTableData(tbl, rows);
+      restoredCount += rows.length;
     }
 
     alert(`✅ Successfully restored ${restoredCount} records across database tables!`);
