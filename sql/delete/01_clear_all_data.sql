@@ -19,6 +19,7 @@ BEGIN
   TRUNCATE TABLE public.renters RESTART IDENTITY CASCADE;
   TRUNCATE TABLE public.units RESTART IDENTITY CASCADE;
   TRUNCATE TABLE public.properties RESTART IDENTITY CASCADE;
+  TRUNCATE TABLE public.maintenance_tasks RESTART IDENTITY CASCADE;
   TRUNCATE TABLE public.owners RESTART IDENTITY CASCADE;
 
   -- 3. Delete tenant auth logins (keeps ADMIN user intact)
