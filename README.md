@@ -160,14 +160,7 @@
    - Paste your **Supabase Anon Key**.
    - Click **Save & Connect**.
 
-You can also hardcode credentials in [`js/core/config.js`](js/core/config.js):
-
-```javascript
-export const SUPABASE_CONFIG = {
-  projectIdOrUrl: 'YOUR_PROJECT_ID_OR_URL',
-  publishableOrAnonKey: 'YOUR_SUPABASE_ANON_KEY'
-};
-```
+> **Security note:** Do **not** hardcode real credentials in [`js/core/config.js`](js/core/config.js) — only placeholders (`YOUR_PROJECT_ID` / `YOUR_KEY`) are committed. Supply the real values from your own browser (**Settings → Configure Supabase**, stored in your browser's `localStorage`) or inject them at build/deploy time via environment variables (see [Deployment on Cloudflare Pages](#deployment-on-cloudflare-pages)). The Supabase **anon/publishable key is public by design** — it ships to browsers anyway — so your database must rely on **Row Level Security**, never on hiding the anon key.
 
 ---
 
@@ -272,9 +265,25 @@ git push -u origin main
    - **Project Name**: `rentbill` (or any preferred name)
    - **Production Branch**: `main` (or `master`)
    - **Framework Preset**: `None`
-   - **Build Command**: *(Leave empty — zero build step required)*
-   - **Build Output Directory**: `.` (root directory)
-5. Click **Save and Deploy**. Within ~10–15 seconds, Cloudflare will deploy your application to a global edge address like `https://rentbill.pages.dev`.
+   - **Build Command**: `bash cloudflare-build.sh`
+   - **Build Output Directory**: `dist`
+5. Click **Save and Deploy**. Within ~30 seconds, Cloudflare will deploy your application to a global edge address like `https://rentbill.pages.dev`.
+
+#### Configure Supabase credentials (encrypted env vars)
+
+Real Supabase credentials are **never committed** to the repo. The build script
+[`cloudflare-build.sh`](cloudflare-build.sh) injects them from Cloudflare Pages
+**encrypted environment variables** into a generated `dist/js/core/build-config.js`:
+
+1. In the Cloudflare dashboard for your Pages project, go to **Settings → Environment variables**.
+2. Add these two variables under **Production** (and **Preview** if you want previews to work):
+   - `RENTBILL_SUPABASE_URL` = your Supabase **Project URL**, e.g. `https://abcd1234.supabase.co`
+   - `RENTBILL_SUPABASE_KEY` = your Supabase **anon / publishable key**
+3. Enable **"Encrypt"** on both, then **Save**. Trigger a new build (**Deployments → Retry deployment**).
+
+> The anon key is public by design (browsers need it), so security comes from
+> Supabase **Row Level Security** — see [Security Checklist & Verification](#security-checklist--verification). The `service_role`
+> secret key must **never** be placed in these env vars or anywhere in the repo.
 
 ### Method 2: Direct CLI Deployment (Instant 1-Command Deploy)
 
@@ -282,10 +291,17 @@ If you don't want to use Git, deploy directly from your computer using Cloudflar
 
 ```bash
 # Run from the project root:
-npx wrangler pages deploy . --project-name=rentbill
+bash cloudflare-build.sh
+npx wrangler pages deploy dist --project-name=rentbill
 ```
 
-Wrangler will ask you to log in to Cloudflare in your browser once, then upload and deploy your files immediately.
+Wrangler will ask you to log in to Cloudflare in your browser once, then upload and deploy your files immediately. Set the same `RENTBILL_SUPABASE_URL` / `RENTBILL_SUPABASE_KEY` environment variables (encrypted) in your Pages project **Settings → Environment variables** before deploying, or pass them to the build:
+
+```bash
+RENTBILL_SUPABASE_URL="https://abcd1234.supabase.co" \
+RENTBILL_SUPABASE_KEY="YOUR_ANON_KEY" \
+bash cloudflare-build.sh
+```
 
 ### Post-Deployment Checklist
 

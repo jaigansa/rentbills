@@ -276,7 +276,7 @@ export async function handleLogout() {
 }
 
 export function showSetupConfigModal() {
-  const inputIdOrUrl = prompt("Enter your Supabase Project ID (e.g., 'YOUR_PROJECT_ID') or Project URL:");
+  const inputIdOrUrl = prompt("Enter your Supabase Project ID (e.g., 'abcd1234') or Project URL:");
   const inputKey = prompt("Enter your Supabase Publishable Key or Anon Key:");
   if (inputIdOrUrl && inputKey) {
     localStorage.setItem('rentbill_sb_url', inputIdOrUrl.trim());
