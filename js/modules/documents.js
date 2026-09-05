@@ -37,28 +37,48 @@ export async function populateDocEntitySelect(type) {
     if (type === 'PROPERTY') {
       const { data } = await supabaseClient.from('properties').select('id, name').is('deleted_at', null);
       (data || []).forEach(item => {
-        select.innerHTML += `<option value="${item.name}">Building: ${item.name}</option>`;
+        select.innerHTML += `<option value="${item.id}">Building: ${escapeStr(item.name)}</option>`;
       });
     } else if (type === 'UNIT') {
-      const { data } = await supabaseClient.from('units').select('*').is('deleted_at', null);
+      const { data } = await supabaseClient.from('units').select('id, unit_name, unit_number').is('deleted_at', null);
       (data || []).forEach(item => {
         const uName = item.unit_name || item.unit_number || `Unit #${item.id}`;
-        select.innerHTML += `<option value="${uName}">Unit: ${uName}</option>`;
+        select.innerHTML += `<option value="${item.id}">Unit: ${escapeStr(uName)}</option>`;
       });
     } else if (type === 'RENTER') {
       const { data } = await supabaseClient.from('renters').select('id, name').is('deleted_at', null);
       (data || []).forEach(item => {
-        select.innerHTML += `<option value="${item.name}">Tenant: ${item.name}</option>`;
+        select.innerHTML += `<option value="${item.id}">Tenant: ${escapeStr(item.name)}</option>`;
       });
     } else if (type === 'OWNER') {
       const { data } = await supabaseClient.from('owners').select('id, name').is('deleted_at', null);
       (data || []).forEach(item => {
-        select.innerHTML += `<option value="${item.name}">Owner: ${item.name}</option>`;
+        select.innerHTML += `<option value="${item.id}">Owner: ${escapeStr(item.name)}</option>`;
       });
     }
   } catch (err) {
     console.error('Failed to populate entity select', err);
   }
+}
+
+function formatDocEntity(doc, maps = {}) {
+  if (!doc.entity_type || doc.entity_type === 'GENERAL' || !doc.entity_id) {
+    return 'General / Unlinked';
+  }
+  const id = doc.entity_id;
+  if (doc.entity_type === 'PROPERTY') {
+    return maps.props && maps.props[id] ? `Building: ${maps.props[id]}` : `Building #${id}`;
+  }
+  if (doc.entity_type === 'UNIT') {
+    return maps.units && maps.units[id] ? `Unit: ${maps.units[id]}` : `Unit #${id}`;
+  }
+  if (doc.entity_type === 'RENTER') {
+    return maps.renters && maps.renters[id] ? `Tenant: ${maps.renters[id]}` : `Tenant #${id}`;
+  }
+  if (doc.entity_type === 'OWNER') {
+    return maps.owners && maps.owners[id] ? `Owner: ${maps.owners[id]}` : `Owner #${id}`;
+  }
+  return `${doc.entity_type} #${id}`;
 }
 
 export async function loadDocumentsPage() {
@@ -72,24 +92,35 @@ export async function loadDocumentsPage() {
       return;
     }
 
-    const { data: docs, error } = await supabaseClient
-      .from('documents')
-      .select('*')
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
+    const [docsRes, rentersRes, unitsRes, propsRes, ownersRes] = await Promise.all([
+      supabaseClient.from('documents').select('*').is('deleted_at', null).order('created_at', { ascending: false }),
+      supabaseClient.from('renters').select('id, name').is('deleted_at', null),
+      supabaseClient.from('units').select('id, unit_name, unit_number').is('deleted_at', null),
+      supabaseClient.from('properties').select('id, name').is('deleted_at', null),
+      supabaseClient.from('owners').select('id, name').is('deleted_at', null)
+    ]);
 
-    if (error || !docs) {
-      renderDocumentsRows([]);
-    } else {
-      renderDocumentsRows(docs);
-    }
+    const entityMaps = {
+      renters: {},
+      units: {},
+      props: {},
+      owners: {}
+    };
+
+    (rentersRes.data || []).forEach(r => { entityMaps.renters[r.id] = r.name; });
+    (unitsRes.data || []).forEach(u => { entityMaps.units[u.id] = u.unit_name || u.unit_number || `Unit #${u.id}`; });
+    (propsRes.data || []).forEach(p => { entityMaps.props[p.id] = p.name; });
+    (ownersRes.data || []).forEach(o => { entityMaps.owners[o.id] = o.name; });
+
+    const docs = docsRes.data || [];
+    renderDocumentsRows(docs, entityMaps);
   } catch (err) {
     console.warn('Documents load notice:', err);
     renderDocumentsRows([]);
   }
 }
 
-export function renderDocumentsRows(docs) {
+export function renderDocumentsRows(docs, entityMaps = {}) {
   const tbody = document.getElementById('table-body-documents');
   if (!tbody) return;
   tbody.innerHTML = '';
@@ -114,22 +145,26 @@ export function renderDocumentsRows(docs) {
       }
     }
 
+    const docName = doc.document_name || doc.title || 'Untitled Document';
+    const filePath = doc.file_path || doc.file_url || '';
+    const entityLabel = formatDocEntity(doc, entityMaps);
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td data-label="Document Name">
-        <strong>${doc.title}</strong>
-        ${doc.notes ? `<div style="font-size: 11px; color: var(--text-muted);">${doc.notes}</div>` : ''}
+        <strong>${escapeStr(docName)}</strong>
+        ${doc.notes ? `<div style="font-size: 11px; color: var(--text-muted);">${escapeStr(doc.notes)}</div>` : ''}
       </td>
-      <td data-label="Category"><span class="badge badge-secondary">${(doc.category || 'OTHER').replace(/_/g, ' ')}</span></td>
-      <td data-label="Associated Entity">${doc.entity_id || doc.entity_type || 'General'}</td>
+      <td data-label="Category"><span class="badge badge-secondary">${escapeStr((doc.category || 'OTHER').replace(/_/g, ' '))}</span></td>
+      <td data-label="Associated Entity">${escapeStr(entityLabel)}</td>
       <td data-label="Expiry Date">${doc.expiry_date || '-'}</td>
       <td data-label="Status">${statusBadge}</td>
       <td data-label="Actions">
         <div class="dropdown">
           <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
           <div class="dropdown-menu">
-            ${doc.file_url ? `<button class="dropdown-item" onclick="viewDocument('${escapeStr(doc.file_url)}')"><i data-lucide="eye"></i> View Attachment</button>` : ''}
-            <button class="dropdown-item danger" onclick="triggerDeleteDocument(${doc.id}, '${escapeStr(doc.title)}')"><i data-lucide="trash-2"></i> Delete Document</button>
+            ${filePath ? `<button class="dropdown-item" onclick="viewDocument('${escapeStr(filePath)}')"><i data-lucide="eye"></i> View Attachment</button>` : ''}
+            <button class="dropdown-item danger" onclick="triggerDeleteDocument(${doc.id}, '${escapeStr(docName)}')"><i data-lucide="trash-2"></i> Delete Document</button>
           </div>
         </div>
       </td>

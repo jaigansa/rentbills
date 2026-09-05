@@ -104,6 +104,10 @@ BEGIN
   ALTER TABLE public.documents ADD CONSTRAINT documents_created_by_fkey 
     FOREIGN KEY (created_by) REFERENCES public.profiles(id) ON DELETE SET NULL;
 
+  ALTER TABLE public.documents DROP CONSTRAINT IF EXISTS documents_entity_type_check;
+  ALTER TABLE public.documents ADD CONSTRAINT documents_entity_type_check 
+    CHECK (entity_type IN ('PROPERTY', 'UNIT', 'RENTER', 'OWNER', 'GENERAL'));
+
   ALTER TABLE public.maintenance_tasks DROP CONSTRAINT IF EXISTS maintenance_tasks_reported_by_fkey;
   ALTER TABLE public.maintenance_tasks ADD CONSTRAINT maintenance_tasks_reported_by_fkey 
     FOREIGN KEY (reported_by) REFERENCES public.profiles(id) ON DELETE SET NULL;

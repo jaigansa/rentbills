@@ -205,6 +205,12 @@ test('cleanPayload sanitizes empty strings to null for integer/numeric columns',
   assert.equal(cleanedRenter.owner_id, null);
   assert.equal(cleanedRenter.name, 'John Doe');
   assert.equal(cleanedRenter.base_rent, null);
+
+  const dirtyDoc = { entity_id: '', document_name: 'Lease Agreement', file_size: '' };
+  const cleanedDoc = cleanPayload('documents', dirtyDoc);
+  assert.equal(cleanedDoc.entity_id, null);
+  assert.equal(cleanedDoc.file_size, null);
+  assert.equal(cleanedDoc.document_name, 'Lease Agreement');
 });
 
 test('formatBillInvoiceMessage includes meter breakdown, avoids @ 0.00/u, and formats bank details', () => {

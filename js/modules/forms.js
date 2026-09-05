@@ -721,24 +721,25 @@ export function setupFormSubmitHandlers() {
       const client = getSupabaseClient();
       if (!client) return;
 
-      const title = document.getElementById('doc-title').value;
-      const category = document.getElementById('doc-category').value;
-      const expiryDate = document.getElementById('doc-expiry-date').value || null;
-      const entityType = document.getElementById('doc-entity-type').value;
-      const entityId = document.getElementById('doc-entity-id').value;
-      const fileUrlInput = document.getElementById('doc-file-url').value;
-      const notes = document.getElementById('doc-notes').value;
+      const title = (document.getElementById('doc-title')?.value || '').trim();
+      const category = document.getElementById('doc-category')?.value || 'OTHER';
+      const expiryDate = document.getElementById('doc-expiry-date')?.value || null;
+      const entityType = document.getElementById('doc-entity-type')?.value || 'GENERAL';
+      const rawEntityId = document.getElementById('doc-entity-id')?.value;
+      const entityId = rawEntityId ? parseInt(rawEntityId, 10) || null : null;
+      const fileUrlInput = (document.getElementById('doc-file-url')?.value || '').trim();
+      const notes = (document.getElementById('doc-notes')?.value || '').trim();
 
-      const fileUrl = getUploadedDocBase64() || fileUrlInput || '';
+      const fileUrl = getUploadedDocBase64() || (fileUrlInput.startsWith('[Attached:') ? '' : fileUrlInput) || '';
 
       const { error } = await safeInsert(client, 'documents', [{
-        title,
+        document_name: title || 'Untitled Document',
         category,
         expiry_date: expiryDate,
         entity_type: entityType,
         entity_id: entityId,
-        file_url: fileUrl,
-        notes
+        file_path: fileUrl,
+        notes: notes || null
       }]);
 
       if (error) {
