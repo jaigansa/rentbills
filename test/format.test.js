@@ -14,6 +14,7 @@ import {
   parseFloorValue
 } from '../js/core/format.js';
 import { cleanPayload } from '../js/core/db.js';
+import { formatBillInvoiceMessage, formatOverdueReminderMessage } from '../js/modules/bills.js';
 
 test('formatCurrency converts paise to INR rupees', () => {
   assert.equal(formatCurrency(0), '₹0.00');
@@ -205,4 +206,84 @@ test('cleanPayload sanitizes empty strings to null for integer/numeric columns',
   assert.equal(cleanedRenter.name, 'John Doe');
   assert.equal(cleanedRenter.base_rent, null);
 });
+
+test('formatBillInvoiceMessage includes meter breakdown, avoids @ 0.00/u, and formats bank details', () => {
+  const bill = {
+    id: 2,
+    invoice_no: 'INV-1002',
+    billing_period: '2026-08',
+    period_start_date: '2026-08-01',
+    period_end_date: '2026-08-31',
+    bill_date: '2026-09-05',
+    due_date: '2026-09-10',
+    rent_amount: 1000000,
+    maint_amount: 0,
+    prev_eb_reading: 0,
+    curr_eb_reading: 120,
+    eb_units: 120,
+    eb_unit_price: 0,
+    eb_rate: null,
+    eb_amount: 96000,
+    water_calc_mode: 'FLAT',
+    water_amount: 15000,
+    arrears_included: 100000,
+    others: 20000,
+    late_fee: 10000,
+    discount_amount: 10000,
+    net_amount: 1231000,
+    paid_amount: 0,
+    status: 'UNPAID'
+  };
+  const tenant = { name: 'Mugindh', mobile_number: '9876543210' };
+  const owner = {
+    name: 'Rajesh Kumar',
+    bank_name: 'State Bank of India',
+    account_number: '50100123456789',
+    ifsc_code: 'SBIN0001234',
+    upi_id: '9876543210@upi',
+    gpay_mobile: '9876543210'
+  };
+
+  const msg = formatBillInvoiceMessage(bill, tenant, 'Room 1', owner);
+  assert.match(msg, /🏡 \*RENT INVOICE — 2026-08\*/);
+  assert.match(msg, /👤 \*Tenant:\* Mugindh/);
+  assert.match(msg, /🏢 \*Unit:\* Room 1/);
+  assert.match(msg, /⚡ Electricity \(EB\): 120 Units \(120 - 0 @ ₹8\.00\/u\) = ₹960\.00/);
+  assert.doesNotMatch(msg, /@ ₹0\.00\/u/);
+  assert.match(msg, /💳 \*Payment Transfer Details:\*/);
+  assert.match(msg, /• Bank: State Bank of India/);
+  assert.match(msg, /• A\/C No: 50100123456789/);
+  assert.match(msg, /• IFSC: SBIN0001234/);
+  assert.match(msg, /• UPI ID: 9876543210@upi/);
+  assert.match(msg, /💰 \*Total Net Amount:\* ₹12,310\.00/);
+});
+
+test('formatOverdueReminderMessage includes meter details and payment transfer info', () => {
+  const bill = {
+    id: 3,
+    invoice_no: 'INV-1003',
+    billing_period: '2026-08',
+    rent_amount: 500000,
+    maint_amount: 50000,
+    prev_eb_reading: 10,
+    curr_eb_reading: 50,
+    eb_amount: 32000,
+    net_amount: 582000,
+    paid_amount: 0,
+    status: 'UNPAID'
+  };
+  const tenant = { name: 'Priya' };
+  const owner = {
+    bank_name: 'HDFC Bank',
+    account_number: '123456',
+    upi_id: 'priya@upi'
+  };
+
+  const overdue = formatOverdueReminderMessage(bill, tenant, 'Flat 101', owner);
+  assert.match(overdue, /URGENT RENT OVERDUE NOTICE/);
+  assert.match(overdue, /⚡ Electricity \(EB\):/);
+  assert.match(overdue, /• Bank: HDFC Bank/);
+  assert.match(overdue, /• UPI ID: priya@upi/);
+});
+
 

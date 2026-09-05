@@ -543,9 +543,10 @@ export async function triggerDeleteBill(billId) {
  */
 export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) {
   const invoiceNo = formatInvoiceNumber(b);
-  const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
-  const paidRupees = ((b.paid_amount || 0) / 100).toFixed(2);
-  const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
+  const netRupees = formatCurrency(b.net_amount || 0);
+  const paidRupees = formatCurrency(b.paid_amount || 0);
+  const duePaise = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
+  const dueRupees = formatCurrency(duePaise);
 
   // Stay Period & Dates String
   let stayPeriodStr = b.billing_period || 'Monthly';
@@ -553,68 +554,84 @@ export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) 
     stayPeriodStr = `${b.period_start_date} to ${b.period_end_date} (${b.billing_period})`;
   }
 
-  const billDateStr = b.bill_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '-');
+  const billDateStr = b.bill_date || (b.created_at ? new Date(b.created_at).toISOString().split('T')[0] : '-');
   const dueDateStr = b.due_date || '-';
 
   // EB Reading & Consumption Details
   const prevEb = b.prev_eb_reading ?? 0;
   const currEb = b.curr_eb_reading ?? prevEb;
   const ebUnits = b.eb_units ?? Math.max(0, currEb - prevEb);
-  const ebRateNum = (b.eb_rate !== undefined && b.eb_rate !== null)
-    ? parseFloat(b.eb_rate)
-    : (((b.eb_unit_price !== undefined && b.eb_unit_price !== null) ? b.eb_unit_price : 800) / 100);
-  const ebRateStr = ebRateNum.toFixed(2);
+  
+  let ebRateNum = 0;
+  if (b.eb_rate !== undefined && b.eb_rate !== null && parseFloat(b.eb_rate) > 0) {
+    ebRateNum = parseFloat(b.eb_rate);
+  } else if (b.eb_unit_price !== undefined && b.eb_unit_price !== null && b.eb_unit_price > 0) {
+    ebRateNum = b.eb_unit_price / 100;
+  } else if (t && (t.eb_per_unit_price || t.eb_unit_price)) {
+    ebRateNum = t.eb_per_unit_price ? parseFloat(t.eb_per_unit_price) : (t.eb_unit_price / 100);
+  }
 
-  const ebDetails = 
-`⚡ *Electricity (EB) Reading Details:*
-   • Meter Reading: ${prevEb} → ${currEb}
-   • Units Consumed: *${ebUnits} Units* (@ ₹${ebRateStr}/u)
-   • EB Subtotal: *${formatCurrency(b.eb_amount || 0)}*`;
+  // Derive rate from amount / units if 0
+  if (ebRateNum <= 0 && (b.eb_amount || 0) > 0 && ebUnits > 0) {
+    ebRateNum = ((b.eb_amount || 0) / 100) / ebUnits;
+  }
+  if (ebRateNum <= 0) {
+    ebRateNum = 8.0;
+  }
+  const ebRateStr = ebRateNum.toFixed(2);
+  const ebBreakdown = `${ebUnits} Units (${currEb} - ${prevEb} @ ₹${ebRateStr}/u) = ${formatCurrency(b.eb_amount || 0)}`;
 
   // Water Calculation & Meter Breakdown
-  let waterDetails = '';
+  let waterRateNum = 0;
+  if (b.water_rate !== undefined && b.water_rate !== null && parseFloat(b.water_rate) > 0) {
+    waterRateNum = parseFloat(b.water_rate);
+  } else if (b.water_unit_price !== undefined && b.water_unit_price !== null && b.water_unit_price > 0) {
+    waterRateNum = b.water_unit_price / 100;
+  } else if (t && (t.water_per_unit_price || t.water_unit_price)) {
+    waterRateNum = t.water_per_unit_price ? parseFloat(t.water_per_unit_price) : (t.water_unit_price / 100);
+  }
+
+  let waterBreakdown = '';
   if (b.water_calc_mode === 'METERED') {
     const prevW = b.prev_water_reading ?? 0;
     const currW = b.curr_water_reading ?? prevW;
     const wUnits = b.water_units ?? Math.max(0, currW - prevW);
-    const wRateNum = (b.water_rate !== undefined && b.water_rate !== null)
-      ? parseFloat(b.water_rate)
-      : (((b.water_unit_price !== undefined && b.water_unit_price !== null) ? b.water_unit_price : 0) / 100);
-    const wRateStr = wRateNum.toFixed(2);
-
-    waterDetails = 
-`\n💧 *Water Utility Reading Details:*
-   • Meter Reading: ${prevW} → ${currW}
-   • Units Consumed: *${wUnits} Units* (@ ₹${wRateStr}/u)
-   • Water Subtotal: *${formatCurrency(b.water_amount || 0)}*`;
+    if (waterRateNum <= 0 && (b.water_amount || 0) > 0 && wUnits > 0) {
+      waterRateNum = ((b.water_amount || 0) / 100) / wUnits;
+    }
+    const wRateStr = waterRateNum.toFixed(2);
+    waterBreakdown = `${wUnits} Units (${currW} - ${prevW} @ ₹${wRateStr}/u) = ${formatCurrency(b.water_amount || 0)}`;
   } else if (b.water_amount && b.water_amount > 0) {
-    waterDetails = 
-`\n💧 *Water Utility Details:*
-   • Fixed Flat Rate: *${formatCurrency(b.water_amount)}*`;
+    waterBreakdown = `Flat Fixed = ${formatCurrency(b.water_amount)}`;
+  } else {
+    waterBreakdown = `Flat Fixed = ${formatCurrency(0)}`;
   }
 
   // Payment Status Line
   let statusSection = '';
   if (b.status === 'PAID') {
-    statusSection = `✅ *Payment Status:* PAID (${formatCurrency(b.paid_amount)})`;
+    statusSection = `✅ *Payment Status:* PAID (${formatCurrency(b.paid_amount || b.net_amount)})`;
   } else if (b.status === 'PARTIAL') {
-    statusSection = `⚠️ *Payment Status:* PARTIAL (Paid: ₹${paidRupees})\n🚨 *Balance Due:* ₹${dueRupees}`;
+    statusSection = `⚠️ *Payment Status:* PARTIAL (Paid: ${paidRupees})\n🚨 *Amount Due:* ${dueRupees}`;
   } else if (b.status === 'VOID') {
     statusSection = `🚫 *Payment Status:* VOIDED`;
   } else {
-    statusSection = `📌 *Payment Status:* UNPAID\n🚨 *Amount Due:* ₹${dueRupees}`;
+    statusSection = `📌 *Payment Status:* UNPAID\n🚨 *Amount Due:* ${dueRupees}`;
   }
 
   // Owner Payment & Bank Transfer Details
   let paymentDetails = '';
+  const bankParts = [];
   if (ownerObj) {
-    const upiStr = ownerObj.upi_id ? `• *UPI ID:* ${ownerObj.upi_id}\n` : '';
-    const bankStr = ownerObj.bank_name ? `• *Bank:* ${ownerObj.bank_name}\n` : '';
-    const accStr = ownerObj.account_number ? `• *A/C No:* ${ownerObj.account_number}\n` : '';
-    const ifscStr = ownerObj.ifsc_code ? `• *IFSC:* ${ownerObj.ifsc_code}\n` : '';
-    if (upiStr || bankStr || accStr) {
-      paymentDetails = `\n💳 *Payment Details:*\n${upiStr}${bankStr}${accStr}${ifscStr}`;
-    }
+    if (ownerObj.bank_name) bankParts.push(`• Bank: ${ownerObj.bank_name}`);
+    if (ownerObj.account_number) bankParts.push(`• A/C No: ${ownerObj.account_number}`);
+    if (ownerObj.ifsc_code) bankParts.push(`• IFSC: ${ownerObj.ifsc_code}`);
+    if (ownerObj.account_holder || ownerObj.name) bankParts.push(`• A/C Name: ${ownerObj.account_holder || ownerObj.name}`);
+    if (ownerObj.upi_id) bankParts.push(`• UPI ID: ${ownerObj.upi_id}`);
+    if (ownerObj.gpay_mobile) bankParts.push(`• GPay / PhonePe: ${ownerObj.gpay_mobile}`);
+  }
+  if (bankParts.length > 0) {
+    paymentDetails = `\n\n💳 *Payment Transfer Details:*\n` + bankParts.join('\n') + `\n`;
   }
 
   return (
@@ -627,20 +644,18 @@ export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) 
 🗓️ *Bill Date:* ${billDateStr}
 ⏰ *Due Date:* ${dueDateStr}
 
-${ebDetails}${waterDetails}
-
-📌 *Itemized Breakdown:*
+*Itemized Breakdown:*
 • Base Rent: ${formatCurrency(b.rent_amount || 0)}
 • Maintenance: ${formatCurrency(b.maint_amount || 0)}
-• Electricity (EB): ${formatCurrency(b.eb_amount || 0)} (${ebUnits} Units)` +
-(b.water_amount ? `\n• Water Utility: ${formatCurrency(b.water_amount)}` : '') +
+• ⚡ Electricity (EB): ${ebBreakdown}` +
+(b.water_amount ? `\n• 💧 Water Utility: ${waterBreakdown}` : '') +
 (b.arrears_included ? `\n• Previous Arrears: ${formatCurrency(b.arrears_included)}` : '') +
 (b.others ? `\n• Other Charges: ${formatCurrency(b.others)}` : '') +
 (b.late_fee ? `\n• Late Fee: ${formatCurrency(b.late_fee)}` : '') +
 (b.discount_amount ? `\n• Discount: -${formatCurrency(b.discount_amount)}` : '') +
 `
 ━━━━━━━━━━━━━━━━━━━━
-💰 *Total Net Amount:* ₹${netRupees}
+💰 *Total Net Amount:* ${netRupees}
 ${statusSection}` +
 paymentDetails +
 `
@@ -655,8 +670,9 @@ Please complete payment on or before the due date. Thank you!`
  */
 export function formatOverdueReminderMessage(b, t, unitName = '-', ownerObj = null) {
   const invoiceNo = formatInvoiceNumber(b);
-  const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
-  const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
+  const netRupees = formatCurrency(b.net_amount || 0);
+  const duePaise = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
+  const dueRupees = formatCurrency(duePaise);
 
   let stayPeriodStr = b.billing_period || 'Period';
   if (b.period_start_date && b.period_end_date) {
@@ -666,36 +682,60 @@ export function formatOverdueReminderMessage(b, t, unitName = '-', ownerObj = nu
   const prevEb = b.prev_eb_reading ?? 0;
   const currEb = b.curr_eb_reading ?? prevEb;
   const ebUnits = b.eb_units ?? Math.max(0, currEb - prevEb);
-  const ebRateNum = (b.eb_rate !== undefined && b.eb_rate !== null)
-    ? parseFloat(b.eb_rate)
-    : (((b.eb_unit_price !== undefined && b.eb_unit_price !== null) ? b.eb_unit_price : 800) / 100);
+  
+  let ebRateNum = 0;
+  if (b.eb_rate !== undefined && b.eb_rate !== null && parseFloat(b.eb_rate) > 0) {
+    ebRateNum = parseFloat(b.eb_rate);
+  } else if (b.eb_unit_price !== undefined && b.eb_unit_price !== null && b.eb_unit_price > 0) {
+    ebRateNum = b.eb_unit_price / 100;
+  } else if (t && (t.eb_per_unit_price || t.eb_unit_price)) {
+    ebRateNum = t.eb_per_unit_price ? parseFloat(t.eb_per_unit_price) : (t.eb_unit_price / 100);
+  }
+
+  if (ebRateNum <= 0 && (b.eb_amount || 0) > 0 && ebUnits > 0) {
+    ebRateNum = ((b.eb_amount || 0) / 100) / ebUnits;
+  }
+  if (ebRateNum <= 0) {
+    ebRateNum = 8.0;
+  }
   const ebRateStr = ebRateNum.toFixed(2);
+  const ebBreakdown = `${ebUnits} Units (${currEb} - ${prevEb} @ ₹${ebRateStr}/u) = ${formatCurrency(b.eb_amount || 0)}`;
 
-  const ebDetails = `⚡ *EB Reading:* ${prevEb} → ${currEb} (${ebUnits} units @ ₹${ebRateStr}/u) = ${formatCurrency(b.eb_amount || 0)}`;
+  let waterRateNum = 0;
+  if (b.water_rate !== undefined && b.water_rate !== null && parseFloat(b.water_rate) > 0) {
+    waterRateNum = parseFloat(b.water_rate);
+  } else if (b.water_unit_price !== undefined && b.water_unit_price !== null && b.water_unit_price > 0) {
+    waterRateNum = b.water_unit_price / 100;
+  } else if (t && (t.water_per_unit_price || t.water_unit_price)) {
+    waterRateNum = t.water_per_unit_price ? parseFloat(t.water_per_unit_price) : (t.water_unit_price / 100);
+  }
 
-  let waterDetails = '';
+  let waterBreakdown = '';
   if (b.water_calc_mode === 'METERED') {
     const prevW = b.prev_water_reading ?? 0;
     const currW = b.curr_water_reading ?? prevW;
     const wUnits = b.water_units ?? Math.max(0, currW - prevW);
-    const wRateNum = (b.water_rate !== undefined && b.water_rate !== null)
-      ? parseFloat(b.water_rate)
-      : (((b.water_unit_price !== undefined && b.water_unit_price !== null) ? b.water_unit_price : 0) / 100);
-    const wRateStr = wRateNum.toFixed(2);
-    waterDetails = `\n• 💧 *Water Reading:* ${prevW} → ${currW} (${wUnits} units @ ₹${wRateStr}/u) = ${formatCurrency(b.water_amount || 0)}`;
+    if (waterRateNum <= 0 && (b.water_amount || 0) > 0 && wUnits > 0) {
+      waterRateNum = ((b.water_amount || 0) / 100) / wUnits;
+    }
+    const wRateStr = waterRateNum.toFixed(2);
+    waterBreakdown = `${wUnits} Units (${currW} - ${prevW} @ ₹${wRateStr}/u) = ${formatCurrency(b.water_amount || 0)}`;
   } else if (b.water_amount && b.water_amount > 0) {
-    waterDetails = `\n• 💧 *Water Charges:* Fixed Flat Rate = ${formatCurrency(b.water_amount)}`;
+    waterBreakdown = `Flat Fixed = ${formatCurrency(b.water_amount)}`;
   }
 
   let paymentDetails = '';
+  const bankParts = [];
   if (ownerObj) {
-    const upiStr = ownerObj.upi_id ? `• *UPI ID:* ${ownerObj.upi_id}\n` : '';
-    const bankStr = ownerObj.bank_name ? `• *Bank:* ${ownerObj.bank_name}\n` : '';
-    const accStr = ownerObj.account_number ? `• *A/C No:* ${ownerObj.account_number}\n` : '';
-    const ifscStr = ownerObj.ifsc_code ? `• *IFSC:* ${ownerObj.ifsc_code}\n` : '';
-    if (upiStr || bankStr || accStr) {
-      paymentDetails = `\n💳 *Payment Transfer Details:*\n${upiStr}${bankStr}${accStr}${ifscStr}`;
-    }
+    if (ownerObj.bank_name) bankParts.push(`• Bank: ${ownerObj.bank_name}`);
+    if (ownerObj.account_number) bankParts.push(`• A/C No: ${ownerObj.account_number}`);
+    if (ownerObj.ifsc_code) bankParts.push(`• IFSC: ${ownerObj.ifsc_code}`);
+    if (ownerObj.account_holder || ownerObj.name) bankParts.push(`• A/C Name: ${ownerObj.account_holder || ownerObj.name}`);
+    if (ownerObj.upi_id) bankParts.push(`• UPI ID: ${ownerObj.upi_id}`);
+    if (ownerObj.gpay_mobile) bankParts.push(`• GPay / PhonePe: ${ownerObj.gpay_mobile}`);
+  }
+  if (bankParts.length > 0) {
+    paymentDetails = `\n\n💳 *Payment Transfer Details:*\n` + bankParts.join('\n') + `\n`;
   }
 
   return (
@@ -708,16 +748,16 @@ This is a reminder that your rent payment for *${stayPeriodStr}* (Unit: *${unitN
 📌 *Invoice Summary (${invoiceNo}):*
 • Base Rent: ${formatCurrency(b.rent_amount || 0)}
 • Maintenance: ${formatCurrency(b.maint_amount || 0)}
-• ${ebDetails}` +
-(waterDetails ? `${waterDetails}` : '') +
+• ⚡ Electricity (EB): ${ebBreakdown}` +
+(waterBreakdown ? `\n• 💧 Water Utility: ${waterBreakdown}` : '') +
 (b.arrears_included ? `\n• Previous Arrears: ${formatCurrency(b.arrears_included)}` : '') +
 (b.late_fee ? `\n• Late Fee: ${formatCurrency(b.late_fee)}` : '') +
 (b.others ? `\n• Other Charges: ${formatCurrency(b.others)}` : '') +
 (b.discount_amount ? `\n• Discount: -${formatCurrency(b.discount_amount)}` : '') +
 `
 ━━━━━━━━━━━━━━━━━━━━
-💰 *Net Invoice:* ₹${netRupees}
-🚨 *Outstanding Balance Due:* ₹${dueRupees}` +
+💰 *Net Invoice:* ${netRupees}
+🚨 *Outstanding Balance Due:* ${dueRupees}` +
 paymentDetails +
 `
 📸 *Please share payment screenshot / transaction reference after paying.*
@@ -746,14 +786,42 @@ async function fetchBillContext(billId) {
   }
 
   let ownerObj = null;
+  // 1. Try owner explicitly assigned to tenant
   if (t.owner_id) {
     const { data: o } = await supabaseClient.from('owners').select('*').eq('id', t.owner_id).single();
     if (o) ownerObj = o;
   }
-  if (!ownerObj) {
-    const { data: ownersList } = await supabaseClient.from('owners').select('*').is('deleted_at', null).limit(1);
-    if (ownersList && ownersList.length > 0) ownerObj = ownersList[0];
+
+  // 2. If no owner or owner lacks bank/upi details, search active owners
+  if (!ownerObj || (!ownerObj.bank_name && !ownerObj.account_number && !ownerObj.upi_id)) {
+    const { data: ownersList } = await supabaseClient.from('owners').select('*').is('deleted_at', null).order('id', { ascending: true });
+    if (ownersList && ownersList.length > 0) {
+      const detailedOwner = ownersList.find(o => o.bank_name || o.account_number || o.upi_id);
+      if (detailedOwner) {
+        ownerObj = detailedOwner;
+      } else if (!ownerObj) {
+        ownerObj = ownersList[0];
+      }
+    }
   }
+
+  // 3. Fallback to settings in localStorage
+  const defaultBank = localStorage.getItem('rentbill_bank_name') || '';
+  const defaultAcc = localStorage.getItem('rentbill_account_no') || '';
+  const defaultIfsc = localStorage.getItem('rentbill_ifsc') || '';
+  const defaultHolder = localStorage.getItem('rentbill_acc_holder') || '';
+  const defaultUpi = localStorage.getItem('rentbill_upi_id') || '';
+  const defaultGpay = localStorage.getItem('rentbill_gpay_mobile') || '';
+
+  if (!ownerObj) {
+    ownerObj = {};
+  }
+  if (!ownerObj.bank_name && defaultBank) ownerObj.bank_name = defaultBank;
+  if (!ownerObj.account_number && defaultAcc) ownerObj.account_number = defaultAcc;
+  if (!ownerObj.ifsc_code && defaultIfsc) ownerObj.ifsc_code = defaultIfsc;
+  if (!ownerObj.account_holder && (defaultHolder || ownerObj.name)) ownerObj.account_holder = defaultHolder || ownerObj.name;
+  if (!ownerObj.upi_id && defaultUpi) ownerObj.upi_id = defaultUpi;
+  if (!ownerObj.gpay_mobile && defaultGpay) ownerObj.gpay_mobile = defaultGpay;
 
   return { bill: b, tenant: t, unitName, owner: ownerObj };
 }

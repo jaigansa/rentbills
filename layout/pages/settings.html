@@ -79,6 +79,39 @@
                   <input type="text" id="cfg-wa-template" class="form-control" value="Dear {name}, your bill for {period} is ₹{amount}. View invoice: {link}" autocomplete="off">
                 </div>
               </div>
+
+              <div class="card">
+                <h3 style="margin-bottom: 16px;">Default Bank & UPI Transfer Details</h3>
+                <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">Included automatically on rent invoices, WhatsApp messages, and receipts.</p>
+                <div class="form-group">
+                  <label for="cfg-bank-name">Bank Name</label>
+                  <input type="text" id="cfg-bank-name" class="form-control" placeholder="e.g. State Bank of India / HDFC Bank" autocomplete="off">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label for="cfg-bank-acc">Account Number</label>
+                    <input type="text" id="cfg-bank-acc" class="form-control" placeholder="e.g. 50100123456789" autocomplete="off">
+                  </div>
+                  <div class="form-group">
+                    <label for="cfg-bank-ifsc">IFSC Code</label>
+                    <input type="text" id="cfg-bank-ifsc" class="form-control" placeholder="e.g. SBIN0001234" autocomplete="off">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="cfg-bank-holder">Account Holder Name</label>
+                  <input type="text" id="cfg-bank-holder" class="form-control" placeholder="e.g. Rajesh Kumar" autocomplete="name">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="form-group">
+                    <label for="cfg-bank-upi">UPI ID (VPA)</label>
+                    <input type="text" id="cfg-bank-upi" class="form-control" placeholder="e.g. 9876543210@upi" autocomplete="off">
+                  </div>
+                  <div class="form-group">
+                    <label for="cfg-bank-gpay">GPay / PhonePe Mobile</label>
+                    <input type="text" id="cfg-bank-gpay" class="form-control" placeholder="e.g. 9876543210" autocomplete="tel">
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

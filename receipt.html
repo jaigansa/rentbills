@@ -1367,12 +1367,27 @@
           if (o) ownerObj = o;
         }
 
-        if (!ownerObj) {
-          const { data: ownersList } = await supabase.from('owners').select('*').is('deleted_at', null).limit(1);
+        if (!ownerObj || (!ownerObj.bank_name && !ownerObj.account_number && !ownerObj.upi_id)) {
+          const { data: ownersList } = await supabase.from('owners').select('*').is('deleted_at', null).order('id', { ascending: true });
           if (ownersList && ownersList.length) {
-            ownerObj = ownersList[0];
+            const detailed = ownersList.find(x => x.bank_name || x.account_number || x.upi_id);
+            ownerObj = detailed || ownerObj || ownersList[0];
           }
         }
+
+        const defaultBank = localStorage.getItem('rentbill_bank_name') || '';
+        const defaultAcc = localStorage.getItem('rentbill_account_no') || '';
+        const defaultIfsc = localStorage.getItem('rentbill_ifsc') || '';
+        const defaultHolder = localStorage.getItem('rentbill_acc_holder') || '';
+        const defaultUpi = localStorage.getItem('rentbill_upi_id') || '';
+
+        if (!ownerObj) ownerObj = {};
+        if (!ownerObj.bank_name && defaultBank) ownerObj.bank_name = defaultBank;
+        if (!ownerObj.account_number && defaultAcc) ownerObj.account_number = defaultAcc;
+        if (!ownerObj.ifsc_code && defaultIfsc) ownerObj.ifsc_code = defaultIfsc;
+        if (!ownerObj.name && defaultHolder) ownerObj.name = defaultHolder;
+        if (!ownerObj.upi_id && defaultUpi) ownerObj.upi_id = defaultUpi;
+
         currentOwnerData = ownerObj;
 
         if (ownerObj) {

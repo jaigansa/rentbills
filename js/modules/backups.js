@@ -356,6 +356,61 @@ export async function loadSettingsPage() {
   if (emailSpan) emailSpan.textContent = currentUser.email || currentUser.username || 'Admin';
   if (roleSpan) roleSpan.textContent = currentUser.role || 'ADMIN';
 
+  // Load App Preferences
+  const appTitleInput = document.getElementById('cfg-app-title');
+  if (appTitleInput) appTitleInput.value = localStorage.getItem('rentbill_app_title') || 'RentBill Pro';
+  const currencySelect = document.getElementById('cfg-currency');
+  if (currencySelect) currencySelect.value = localStorage.getItem('rentbill_currency') || 'INR';
+  const dueDaySelect = document.getElementById('cfg-due-day');
+  if (dueDaySelect) dueDaySelect.value = localStorage.getItem('rentbill_due_day') || '5';
+  const waTemplateInput = document.getElementById('cfg-wa-template');
+  if (waTemplateInput) waTemplateInput.value = localStorage.getItem('rentbill_wa_template') || 'Dear {name}, your bill for {period} is ₹{amount}. View invoice: {link}';
+
+  // Load Bank & UPI Settings
+  const bankNameInput = document.getElementById('cfg-bank-name');
+  const bankAccInput = document.getElementById('cfg-bank-acc');
+  const bankIfscInput = document.getElementById('cfg-bank-ifsc');
+  const bankHolderInput = document.getElementById('cfg-bank-holder');
+  const bankUpiInput = document.getElementById('cfg-bank-upi');
+  const bankGpayInput = document.getElementById('cfg-bank-gpay');
+
+  let defaultBank = localStorage.getItem('rentbill_bank_name') || '';
+  let defaultAcc = localStorage.getItem('rentbill_account_no') || '';
+  let defaultIfsc = localStorage.getItem('rentbill_ifsc') || '';
+  let defaultHolder = localStorage.getItem('rentbill_acc_holder') || '';
+  let defaultUpi = localStorage.getItem('rentbill_upi_id') || '';
+  let defaultGpay = localStorage.getItem('rentbill_gpay_mobile') || '';
+
+  // Fallback: If localStorage is empty, try loading from existing owner in Supabase
+  if (!defaultBank && !defaultAcc && !defaultUpi) {
+    const supabaseClient = getSupabaseClient();
+    if (supabaseClient) {
+      try {
+        const { data: ownersList } = await supabaseClient.from('owners').select('*').is('deleted_at', null).order('id', { ascending: true });
+        if (ownersList && ownersList.length > 0) {
+          const o = ownersList.find(x => x.bank_name || x.account_number || x.upi_id) || ownersList[0];
+          if (o) {
+            defaultBank = o.bank_name || '';
+            defaultAcc = o.account_number || '';
+            defaultIfsc = o.ifsc_code || '';
+            defaultHolder = o.name || '';
+            defaultUpi = o.upi_id || '';
+            defaultGpay = o.mobile_number || '';
+          }
+        }
+      } catch (err) {
+        console.warn('Could not prefetch owner for settings:', err);
+      }
+    }
+  }
+
+  if (bankNameInput) bankNameInput.value = defaultBank;
+  if (bankAccInput) bankAccInput.value = defaultAcc;
+  if (bankIfscInput) bankIfscInput.value = defaultIfsc;
+  if (bankHolderInput) bankHolderInput.value = defaultHolder;
+  if (bankUpiInput) bankUpiInput.value = defaultUpi;
+  if (bankGpayInput) bankGpayInput.value = defaultGpay;
+
   runDiagnosticsCheck();
 }
 
@@ -403,16 +458,50 @@ export async function testSupabaseConnection() {
   }
 }
 
-export function saveAppSettings() {
-  const appTitle = document.getElementById('cfg-app-title').value;
-  const currency = document.getElementById('cfg-currency').value;
-  const dueDay = document.getElementById('cfg-due-day').value;
-  const waTemplate = document.getElementById('cfg-wa-template').value;
+export async function saveAppSettings() {
+  const appTitle = document.getElementById('cfg-app-title')?.value || 'RentBill Pro';
+  const currency = document.getElementById('cfg-currency')?.value || 'INR';
+  const dueDay = document.getElementById('cfg-due-day')?.value || '5';
+  const waTemplate = document.getElementById('cfg-wa-template')?.value || '';
+
+  const bankName = document.getElementById('cfg-bank-name')?.value.trim() || '';
+  const bankAcc = document.getElementById('cfg-bank-acc')?.value.trim() || '';
+  const bankIfsc = document.getElementById('cfg-bank-ifsc')?.value.trim() || '';
+  const bankHolder = document.getElementById('cfg-bank-holder')?.value.trim() || '';
+  const bankUpi = document.getElementById('cfg-bank-upi')?.value.trim() || '';
+  const bankGpay = document.getElementById('cfg-bank-gpay')?.value.trim() || '';
 
   localStorage.setItem('rentbill_app_title', appTitle);
   localStorage.setItem('rentbill_currency', currency);
   localStorage.setItem('rentbill_due_day', dueDay);
   localStorage.setItem('rentbill_wa_template', waTemplate);
+
+  localStorage.setItem('rentbill_bank_name', bankName);
+  localStorage.setItem('rentbill_account_no', bankAcc);
+  localStorage.setItem('rentbill_ifsc', bankIfsc);
+  localStorage.setItem('rentbill_acc_holder', bankHolder);
+  localStorage.setItem('rentbill_upi_id', bankUpi);
+  localStorage.setItem('rentbill_gpay_mobile', bankGpay);
+
+  // Synchronize with active owner profile in Supabase if present
+  const supabaseClient = getSupabaseClient();
+  if (supabaseClient && (bankName || bankAcc || bankUpi)) {
+    try {
+      const { data: ownersList } = await supabaseClient.from('owners').select('*').is('deleted_at', null).order('id', { ascending: true }).limit(1);
+      if (ownersList && ownersList.length > 0) {
+        const ownerId = ownersList[0].id;
+        await supabaseClient.from('owners').update({
+          bank_name: bankName || ownersList[0].bank_name,
+          account_number: bankAcc || ownersList[0].account_number,
+          ifsc_code: bankIfsc || ownersList[0].ifsc_code,
+          upi_id: bankUpi || ownersList[0].upi_id,
+          name: bankHolder || ownersList[0].name
+        }).eq('id', ownerId);
+      }
+    } catch (err) {
+      console.warn('Notice: could not sync settings to owner record in Supabase:', err);
+    }
+  }
 
   alert('✅ Application settings saved successfully!');
 }
