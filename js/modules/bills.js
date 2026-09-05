@@ -128,12 +128,15 @@ export async function loadBillsPage() {
       } else {
         bills.forEach(b => {
           const tr = document.createElement('tr');
+          tr.className = `bill-card-row status-${(b.status || 'unpaid').toLowerCase()}`;
+          tr.setAttribute('data-status', b.status || 'UNPAID');
+
           let badgeClass = 'badge-warning';
           if (b.status === 'PAID') badgeClass = 'badge-success';
           if (b.status === 'VOID') badgeClass = 'badge-danger';
           if (b.status === 'OVERPAID') badgeClass = 'badge-info';
           
-          const due = (b.net_amount || 0) - (b.paid_amount || 0);
+          const due = Math.max(0, (b.net_amount || 0) - (b.paid_amount || 0));
           const tenantDisplayName = renterMap[b.renter_id] || (b.renter_id ? `Tenant #${b.renter_id}` : '-');
 
           let actionHtml = `
@@ -151,30 +154,77 @@ export async function loadBillsPage() {
             </div>
           `;
 
+          const quickActionsHtml = `
+            <div class="bill-mobile-quick-actions mobile-only">
+              <button type="button" class="btn-quick-action" onclick="printReceipt(${b.id})">
+                <i data-lucide="printer"></i> View
+              </button>
+              <button type="button" class="btn-quick-action" onclick="shareInvoiceWhatsApp(${b.id})">
+                <i data-lucide="share-2"></i> Share
+              </button>
+              ${b.status !== 'PAID' && b.status !== 'VOID' ? `
+                <button type="button" class="btn-quick-action action-pay" onclick="openPaymentModal(${b.id}, ${due})">
+                  <i data-lucide="${currentUser.role === 'TENANT' ? 'upload-cloud' : 'credit-card'}"></i> ${currentUser.role === 'TENANT' ? 'Pay / Proof' : 'Record Pay'}
+                </button>
+              ` : ''}
+            </div>
+          `;
+
           const uuidSuffix = b.uuid ? ` (${b.uuid.substring(0, 8)})` : ` (ID:${b.id})`;
           
           const stayPeriodDisplay = (b.period_start_date && b.period_end_date)
-            ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(b.period_start_date)} → ${escapeStr(b.period_end_date)}</div>`
+            ? `<div class="bill-stay-dates">${escapeStr(b.period_start_date)} → ${escapeStr(b.period_end_date)}</div>`
             : '';
 
           const billDateDisplay = b.bill_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '');
 
           tr.innerHTML = `
             <td data-label="Invoice Number & UUID">
-              <strong>${escapeStr(formatInvoiceNumber(b))}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(uuidSuffix)}</span>
-              ${billDateDisplay ? `<div style="font-size: 10px; color: var(--text-muted);">Generated: ${escapeStr(billDateDisplay)}</div>` : ''}
+              <div class="bill-mobile-header">
+                <div class="bill-inv-pill">
+                  <i data-lucide="file-text" class="mobile-only"></i>
+                  <strong>${escapeStr(formatInvoiceNumber(b))}</strong>
+                  <span class="bill-uuid-tag">${escapeStr(uuidSuffix)}</span>
+                </div>
+                ${billDateDisplay ? `<div class="bill-date-tag">Date: ${escapeStr(billDateDisplay)}</div>` : ''}
+              </div>
             </td>
-            <td data-label="Renter Name"><strong>${escapeStr(tenantDisplayName)}</strong></td>
+            <td data-label="Renter Name">
+              <div class="bill-tenant-row">
+                <i data-lucide="user" class="mobile-only"></i>
+                <strong>${escapeStr(tenantDisplayName)}</strong>
+              </div>
+            </td>
             <td data-label="Billing & Stay Period">
-              <strong>${escapeStr(b.billing_period)}</strong>
-              ${stayPeriodDisplay}
+              <div class="bill-period-row">
+                <span class="bill-period-badge">${escapeStr(b.billing_period)}</span>
+                ${stayPeriodDisplay}
+              </div>
             </td>
-            <td data-label="Gross Charge">${formatCurrency(b.gross_amount)}</td>
-            <td data-label="Net Charge"><strong>${formatCurrency(b.net_amount)}</strong></td>
-            <td data-label="Paid Amount">${formatCurrency(b.paid_amount)}</td>
+            <td data-label="Gross Charge" class="bill-desktop-col">${formatCurrency(b.gross_amount)}</td>
+            <td data-label="Net Charge">
+              <span class="bill-desktop-col"><strong>${formatCurrency(b.net_amount)}</strong></span>
+              <div class="bill-mobile-financial-strip mobile-only">
+                <div class="financial-col">
+                  <span class="financial-label">Net Total</span>
+                  <span class="financial-val">${formatCurrency(b.net_amount)}</span>
+                </div>
+                <div class="financial-col">
+                  <span class="financial-label">Paid</span>
+                  <span class="financial-val">${formatCurrency(b.paid_amount)}</span>
+                </div>
+                <div class="financial-col">
+                  <span class="financial-label">Due</span>
+                  <span class="financial-val ${due > 0 ? 'due-pending' : 'due-cleared'}">${formatCurrency(due)}</span>
+                </div>
+              </div>
+            </td>
+            <td data-label="Paid Amount" class="bill-desktop-col">${formatCurrency(b.paid_amount)}</td>
             <td data-label="Status"><span class="badge ${badgeClass}">${escapeStr(b.status)}</span></td>
-            <td data-label="Actions">${actionHtml}</td>
+            <td data-label="Actions">
+              ${actionHtml}
+              ${quickActionsHtml}
+            </td>
           `;
           tbody.appendChild(tr);
         });

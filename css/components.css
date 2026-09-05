@@ -97,6 +97,13 @@ tr:last-child td {
   border-bottom: none;
 }
 
+/* Bills Table Mobile Card Enhancements - Desktop Defaults */
+.bill-mobile-financial-strip,
+.bill-mobile-quick-actions,
+.bill-mobile-only {
+  display: none !important;
+}
+
 /* Automatic Mobile Data Cards Alternative */
 @media (max-width: 768px) {
   .table-responsive-cards {
@@ -197,6 +204,278 @@ tr:last-child td {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     margin-right: 12px;
+  }
+
+  /* ============================================================
+     BILLS TABLE — MOBILE CARD UI / UX
+     ============================================================ */
+
+  #table-body-bills tr.bill-card-row {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: var(--radius-lg) !important;
+    margin-bottom: 14px !important;
+    padding: 14px 16px !important;
+    box-shadow: var(--shadow-sm) !important;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  /* Status accent border on card left */
+  #table-body-bills tr.bill-card-row.status-paid {
+    border-left: 5px solid var(--success) !important;
+  }
+  #table-body-bills tr.bill-card-row.status-unpaid {
+    border-left: 5px solid var(--warning) !important;
+  }
+  #table-body-bills tr.bill-card-row.status-partial {
+    border-left: 5px solid var(--info) !important;
+  }
+  #table-body-bills tr.bill-card-row.status-void {
+    border-left: 5px solid var(--danger) !important;
+    opacity: 0.78;
+  }
+  #table-body-bills tr.bill-card-row.status-overpaid {
+    border-left: 5px solid var(--info) !important;
+  }
+
+  /* Hide raw Gross & Paid duplicate rows on mobile */
+  #table-body-bills .bill-desktop-col {
+    display: none !important;
+  }
+
+  /* Reset generic table-responsive-cards dashed borders and flex alignments for bills */
+  #table-body-bills td {
+    border-bottom: none !important;
+    padding: 0 !important;
+    white-space: normal !important;
+    display: block !important;
+  }
+
+  /* 1. Header: Invoice Number & UUID */
+  #table-body-bills td[data-label="Invoice Number & UUID"] {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    padding-right: 145px !important; /* Space for status badge + 3-dots */
+    min-height: 28px !important;
+  }
+  #table-body-bills td[data-label="Invoice Number & UUID"]::before {
+    display: none !important;
+  }
+
+  .bill-mobile-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .bill-inv-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+
+  .bill-inv-pill i {
+    width: 14px;
+    height: 14px;
+    color: var(--primary);
+  }
+
+  .bill-uuid-tag {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    font-family: monospace;
+  }
+
+  .bill-date-tag {
+    font-size: 10.5px;
+    color: var(--text-muted);
+  }
+
+  /* 2. Top-Right Status Badge */
+  #table-body-bills td[data-label="Status"] {
+    position: absolute !important;
+    top: 13px !important;
+    right: 52px !important;
+    width: auto !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 5 !important;
+  }
+  #table-body-bills td[data-label="Status"]::before {
+    display: none !important;
+  }
+
+  /* 3. Top-Right 3-Dots Dropdown */
+  #table-body-bills td[data-label="Actions"] {
+    position: static !important;
+    width: 100% !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  #table-body-bills td[data-label="Actions"]::before {
+    display: none !important;
+  }
+  #table-body-bills td[data-label="Actions"] .dropdown {
+    position: absolute !important;
+    top: 10px !important;
+    right: 12px !important;
+    z-index: 10 !important;
+  }
+
+  /* 4. Renter Name */
+  #table-body-bills td[data-label="Renter Name"] {
+    display: block !important;
+    padding-top: 8px !important;
+  }
+  #table-body-bills td[data-label="Renter Name"]::before {
+    display: none !important;
+  }
+  .bill-tenant-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+  }
+  .bill-tenant-row i {
+    width: 16px;
+    height: 16px;
+    color: var(--text-muted);
+  }
+
+  /* 5. Billing & Stay Period */
+  #table-body-bills td[data-label="Billing & Stay Period"] {
+    display: block !important;
+    padding-top: 2px !important;
+    padding-bottom: 6px !important;
+  }
+  #table-body-bills td[data-label="Billing & Stay Period"]::before {
+    display: none !important;
+  }
+  .bill-period-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .bill-period-badge {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    color: var(--text-main);
+  }
+  .bill-stay-dates {
+    font-family: monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* 6. Net Charge -> Financial Strip */
+  #table-body-bills td[data-label="Net Charge"] {
+    display: block !important;
+    width: 100% !important;
+  }
+  #table-body-bills td[data-label="Net Charge"]::before {
+    display: none !important;
+  }
+
+  .bill-mobile-financial-strip {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px 10px;
+    margin: 6px 0;
+  }
+
+  .bill-mobile-financial-strip .financial-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .bill-mobile-financial-strip .financial-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+  .bill-mobile-financial-strip .financial-val {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bill-mobile-financial-strip .financial-val.due-pending {
+    color: #d97706;
+  }
+  .bill-mobile-financial-strip .financial-val.due-cleared {
+    color: var(--success);
+  }
+
+  /* 7. Quick Mobile Action Bar */
+  .bill-mobile-quick-actions {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+  .bill-mobile-quick-actions .btn-quick-action {
+    flex: 1;
+    min-height: 36px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-main);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background 0.15s, border-color 0.15s;
+    text-decoration: none;
+  }
+  .bill-mobile-quick-actions .btn-quick-action i {
+    width: 14px;
+    height: 14px;
+  }
+  .bill-mobile-quick-actions .btn-quick-action:active {
+    background: var(--bg-input);
+  }
+  .bill-mobile-quick-actions .btn-quick-action.action-pay {
+    background: var(--primary);
+    color: #ffffff;
+    border-color: var(--primary);
+  }
+  .bill-mobile-quick-actions .btn-quick-action.action-pay:active {
+    background: var(--primary-hover);
   }
 }
 
