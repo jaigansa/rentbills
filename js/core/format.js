@@ -162,3 +162,24 @@ export function sortTenants(tenants) {
     return (a?.name || '').localeCompare(b?.name || '');
   });
 }
+
+/**
+ * Determine the accurate unit status ('OCCUPIED' | 'VACANT' | 'MAINTENANCE')
+ * based on active tenant occupancy.
+ * - If at least one active tenant resides in the unit, it is 'OCCUPIED'.
+ * - If no active tenant resides:
+ *   - 'MAINTENANCE' is preserved if the unit is under repair.
+ *   - Otherwise 'VACANT'.
+ */
+export function determineUnitStatus(unitId, currentStatus, activeRenters = []) {
+  if (!unitId) return currentStatus || 'VACANT';
+  const hasActiveTenant = (activeRenters || []).some(r => r && r.unit_id === unitId && r.is_active !== false);
+  if (hasActiveTenant) {
+    return 'OCCUPIED';
+  }
+  if (currentStatus === 'MAINTENANCE') {
+    return 'MAINTENANCE';
+  }
+  return 'VACANT';
+}
+

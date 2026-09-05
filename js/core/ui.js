@@ -13,7 +13,8 @@ import {
   normalizeTenDigitMobile,
   tenantLoginEmailFromMobile,
   defaultTenantPassword,
-  sortTenants
+  sortTenants,
+  determineUnitStatus
 } from './format.js';
 
 export {
@@ -25,7 +26,8 @@ export {
   normalizeTenDigitMobile,
   tenantLoginEmailFromMobile,
   defaultTenantPassword,
-  sortTenants
+  sortTenants,
+  determineUnitStatus
 };
 
 export function refreshLucideIcons() {

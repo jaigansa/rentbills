@@ -1,7 +1,7 @@
 // RentBill Pro — Property Buildings, Rental Units & Tenants Directory
 import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
-import { formatCurrency, escapeStr, renderEmptyState, openModal, closeModal, refreshLucideIcons, sortTenants } from '../core/ui.js';
+import { formatCurrency, escapeStr, renderEmptyState, openModal, closeModal, refreshLucideIcons, sortTenants, determineUnitStatus } from '../core/ui.js';
 import { loadOwnersPage, populateOwnerSelects } from './owners.js';
 import { loadDocumentsPage } from './documents.js';
 
@@ -47,7 +47,25 @@ export async function loadPropertiesPage() {
       });
     }
 
-    const { data: properties } = await supabaseClient.from('properties').select('*').is('deleted_at', null);
+    const [propsRes, unitsRes, activeRentersRes] = await Promise.all([
+      supabaseClient.from('properties').select('*').is('deleted_at', null),
+      supabaseClient.from('units').select('*').is('deleted_at', null),
+      supabaseClient.from('renters').select('id, unit_id, is_active').eq('is_active', true).is('deleted_at', null)
+    ]);
+
+    const properties = propsRes.data || [];
+    const units = unitsRes.data || [];
+    const activeRenters = activeRentersRes.data || [];
+
+    // Reconcile and self-heal any desynchronized unit status
+    for (const u of units) {
+      const correctStatus = determineUnitStatus(u.id, u.status, activeRenters);
+      if (u.status !== correctStatus) {
+        u.status = correctStatus;
+        safeUpdate(supabaseClient, 'units', { status: correctStatus }, 'id', u.id).catch(() => {});
+      }
+    }
+
     const tbodyProps = document.getElementById('table-body-properties');
     const unitPropSelect = document.getElementById('unit-property-id');
 
@@ -86,7 +104,6 @@ export async function loadPropertiesPage() {
       }
     }
 
-    const { data: units } = await supabaseClient.from('units').select('*').is('deleted_at', null);
     const tbodyUnits = document.getElementById('table-body-units');
     if (tbodyUnits) {
       tbodyUnits.innerHTML = '';
@@ -383,12 +400,18 @@ export async function triggerAdjustArrears(tenantId) {
 
 export async function triggerDeleteTenant(id, name) {
   const supabaseClient = getSupabaseClient();
-  if (!confirm(`Are you sure you want to delete tenant "${name}"?\n\nThis will also free up their rental unit and mark it as Vacant.`)) return;
+  if (!confirm(`Are you sure you want to delete tenant "${name}"?`)) return;
 
   let unitId = null;
+  let wasActive = false;
   try {
-    const { data: tenant } = await supabaseClient.from('renters').select('unit_id').eq('id', id).maybeSingle();
+    const { data: tenant } = await supabaseClient
+      .from('renters')
+      .select('unit_id, is_active')
+      .eq('id', id)
+      .maybeSingle();
     unitId = tenant ? tenant.unit_id : null;
+    wasActive = tenant ? !!tenant.is_active : false;
   } catch (e) {}
 
   const { error } = await safeDelete(supabaseClient, 'renters', id);
@@ -399,8 +422,25 @@ export async function triggerDeleteTenant(id, name) {
 
   if (unitId) {
     try {
-      await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', unitId);
-    } catch (e) {}
+      // Check if another active tenant is currently occupying this unit
+      const { data: otherActive } = await supabaseClient
+        .from('renters')
+        .select('id')
+        .eq('unit_id', unitId)
+        .eq('is_active', true)
+        .neq('id', id)
+        .is('deleted_at', null);
+
+      if (otherActive && otherActive.length > 0) {
+        // Unit remains occupied by another active tenant
+        await safeUpdate(supabaseClient, 'units', { status: 'OCCUPIED' }, 'id', unitId);
+      } else if (wasActive) {
+        // Only free up unit if the deleted tenant was the one actively occupying it
+        await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', unitId);
+      }
+    } catch (e) {
+      console.warn('Unit status sync notice:', e);
+    }
   }
 
   loadTenantsPage();
@@ -441,9 +481,22 @@ export async function submitTransfer() {
   const old_unit_id = tenant ? tenant.unit_id : null;
 
   const { error } = await safeUpdate(supabaseClient, 'renters', { unit_id: new_unit_id }, 'id', renter_id);
-  if (error) alert('Transfer failed: ' + error.message);
-  else {
-    if (old_unit_id) await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', old_unit_id);
+  if (error) {
+    alert('Transfer failed: ' + error.message);
+  } else {
+    if (old_unit_id) {
+      const { data: otherActive } = await supabaseClient
+        .from('renters')
+        .select('id')
+        .eq('unit_id', old_unit_id)
+        .eq('is_active', true)
+        .neq('id', renter_id)
+        .is('deleted_at', null);
+
+      if (!otherActive || otherActive.length === 0) {
+        await safeUpdate(supabaseClient, 'units', { status: 'VACANT' }, 'id', old_unit_id);
+      }
+    }
     await safeUpdate(supabaseClient, 'units', { status: 'OCCUPIED' }, 'id', new_unit_id);
     closeModal('modal-transfer-tenant');
     loadTenantsPage();

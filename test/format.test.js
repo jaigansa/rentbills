@@ -12,7 +12,8 @@ import {
   extractBackupTables,
   csvEscapeValue,
   parseFloorValue,
-  sortTenants
+  sortTenants,
+  determineUnitStatus
 } from '../js/core/format.js';
 import { cleanPayload } from '../js/core/db.js';
 import { formatBillInvoiceMessage, formatOverdueReminderMessage, formatPaymentReceiptMessage, shareMessage } from '../js/modules/bills.js';
@@ -466,3 +467,50 @@ test('sortTenants handles non-array, empty, and already-sorted lists gracefully'
   assert.equal(sortedVacated[0].name, 'Charlie');
   assert.equal(sortedVacated[1].name, 'Delta');
 });
+
+test('determineUnitStatus returns OCCUPIED when active tenant resides in unit', () => {
+  const activeRenters = [
+    { id: 101, unit_id: 1, is_active: true },
+    { id: 102, unit_id: 2, is_active: true }
+  ];
+  assert.equal(determineUnitStatus(1, 'VACANT', activeRenters), 'OCCUPIED');
+  assert.equal(determineUnitStatus(1, 'OCCUPIED', activeRenters), 'OCCUPIED');
+});
+
+test('determineUnitStatus returns OCCUPIED if co-tenant or new tenant B is active even if old tenant A vacated', () => {
+  // Scenario: Tenant A is vacated (is_active: false), but Tenant B is active (is_active: true) in Unit 1
+  const renters = [
+    { id: 1, unit_id: 1, is_active: false }, // Tenant A vacated
+    { id: 2, unit_id: 1, is_active: true }   // Tenant B active
+  ];
+  assert.equal(determineUnitStatus(1, 'VACANT', renters), 'OCCUPIED');
+});
+
+test('determineUnitStatus returns VACANT when all tenants in unit are inactive or no tenants exist', () => {
+  const inactiveRenters = [
+    { id: 1, unit_id: 1, is_active: false }
+  ];
+  assert.equal(determineUnitStatus(1, 'OCCUPIED', inactiveRenters), 'VACANT');
+  assert.equal(determineUnitStatus(1, 'VACANT', []), 'VACANT');
+});
+
+test('determineUnitStatus preserves MAINTENANCE status when no active tenants are present', () => {
+  const inactiveRenters = [
+    { id: 1, unit_id: 1, is_active: false }
+  ];
+  assert.equal(determineUnitStatus(1, 'MAINTENANCE', inactiveRenters), 'MAINTENANCE');
+  assert.equal(determineUnitStatus(1, 'MAINTENANCE', []), 'MAINTENANCE');
+});
+
+test('determineUnitStatus overrides MAINTENANCE to OCCUPIED if active tenant is assigned', () => {
+  const activeRenters = [
+    { id: 2, unit_id: 1, is_active: true }
+  ];
+  assert.equal(determineUnitStatus(1, 'MAINTENANCE', activeRenters), 'OCCUPIED');
+});
+
+test('determineUnitStatus handles invalid or empty unitId safely', () => {
+  assert.equal(determineUnitStatus(null, 'MAINTENANCE'), 'MAINTENANCE');
+  assert.equal(determineUnitStatus(undefined, undefined), 'VACANT');
+});
+

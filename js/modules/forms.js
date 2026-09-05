@@ -705,10 +705,20 @@ export function setupFormSubmitHandlers() {
       
       const { error } = await safeUpdate(client, 'renters', { is_active: false, vacate_date, exit_reason }, 'id', renter_id);
 
-      if (error) alert('Error processing vacate: ' + error.message);
-      else {
+      if (error) {
+        alert('Error processing vacate: ' + error.message);
+      } else {
         if (tenant && tenant.unit_id) {
-          await safeUpdate(client, 'units', { status: 'VACANT' }, 'id', tenant.unit_id);
+          const { data: otherActive } = await client
+            .from('renters')
+            .select('id')
+            .eq('unit_id', tenant.unit_id)
+            .eq('is_active', true)
+            .neq('id', renter_id)
+            .is('deleted_at', null);
+
+          const targetStatus = (otherActive && otherActive.length > 0) ? 'OCCUPIED' : 'VACANT';
+          await safeUpdate(client, 'units', { status: targetStatus }, 'id', tenant.unit_id);
         }
         closeModal('modal-vacate-tenant');
         loadTenantsPage();
