@@ -11,8 +11,8 @@ const INTEGER_COLUMNS = {
   properties: new Set(['owner_id']),
   renters: new Set([
     'unit_id', 'owner_id', 'base_rent', 'advance_amount', 'pending_arrears',
-    'maint_charge', 'eb_unit_price', 'initial_eb', 'water_fixed_charge',
-    'water_unit_price', 'initial_water'
+    'maint_charge', 'eb_unit_price', 'eb_per_unit_price', 'initial_eb', 'initial_eb_reading',
+    'water_fixed_charge', 'water_unit_price', 'water_per_unit_price', 'initial_water', 'initial_water_reading'
   ]),
   bills: new Set([
     'renter_id', 'curr_eb_reading', 'curr_water_reading', 'late_fee',

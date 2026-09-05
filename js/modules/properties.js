@@ -337,17 +337,19 @@ export async function triggerEditTenant(tenantId) {
   document.getElementById('tenant-mobile').value = mobileVal;
   const emailEl = document.getElementById('tenant-email');
   if (emailEl) emailEl.value = emailVal;
-  document.getElementById('tenant-aadhar').value = t.aadhar_no || '';
+  document.getElementById('tenant-aadhar').value = t.aadhar_number || t.aadhar_no || '';
   document.getElementById('tenant-rent').value = (t.base_rent || 0) / 100;
   document.getElementById('tenant-advance').value = (t.advance_amount || 0) / 100;
   const arrearsEl = document.getElementById('tenant-arrears');
   if (arrearsEl) arrearsEl.value = ((t.pending_arrears || 0) / 100).toFixed(2);
   document.getElementById('tenant-maint').value = (t.maint_charge || 0) / 100;
-  document.getElementById('tenant-eb-price').value = (t.eb_unit_price || 800) / 100;
-  document.getElementById('tenant-init-eb').value = t.initial_eb || 0;
+  document.getElementById('tenant-eb-price').value = t.eb_per_unit_price != null ? t.eb_per_unit_price : ((t.eb_unit_price || 800) / 100);
+  document.getElementById('tenant-init-eb').value = t.initial_eb_reading ?? t.initial_eb ?? 0;
   document.getElementById('tenant-water-mode').value = t.water_calc_mode || 'FIXED';
-  document.getElementById('tenant-water-rate').value = (t.water_fixed_charge || t.water_unit_price || 15000) / 100;
-  document.getElementById('tenant-init-water').value = t.initial_water || 0;
+  document.getElementById('tenant-water-rate').value = (t.water_calc_mode === 'METERED' && t.water_per_unit_price != null)
+    ? t.water_per_unit_price
+    : ((t.water_fixed_charge || t.water_unit_price || 15000) / 100);
+  document.getElementById('tenant-init-water').value = t.initial_water_reading ?? t.initial_water ?? 0;
   document.getElementById('tenant-start-date').value = t.agreement_start_date || '';
   document.getElementById('tenant-end-date').value = t.agreement_expiry_date || '';
   const pwEl = document.getElementById('tenant-password');

@@ -233,38 +233,43 @@ export function setupFormSubmitHandlers() {
         mobile_number = email;
         email = temp.toLowerCase();
       }
-      const aadhar_no = document.getElementById('tenant-aadhar').value;
+      const aadhar_number = (document.getElementById('tenant-aadhar')?.value || '').trim();
       const base_rent = Math.round(parseFloat(document.getElementById('tenant-rent').value || '0') * 100);
       const advance_amount = Math.round(parseFloat(document.getElementById('tenant-advance').value || '0') * 100);
       const pending_arrears = Math.round(parseFloat(document.getElementById('tenant-arrears')?.value || '0') * 100);
       const maint_charge = Math.round(parseFloat(document.getElementById('tenant-maint').value || '0') * 100);
-      const eb_unit_price = Math.round(parseFloat(document.getElementById('tenant-eb-price').value || '8') * 100);
-      const initial_eb = parseInt(document.getElementById('tenant-init-eb').value || '0');
-      const water_calc_mode = document.getElementById('tenant-water-mode').value;
-      const water_rate = Math.round(parseFloat(document.getElementById('tenant-water-rate').value || '150') * 100);
-      const initial_water = parseInt(document.getElementById('tenant-init-water').value || '0');
+      const eb_per_unit_price = parseFloat(parseFloat(document.getElementById('tenant-eb-price').value || '8').toFixed(2));
+      const initial_eb_reading = parseInt(document.getElementById('tenant-init-eb').value || '0', 10);
+      const water_calc_mode = document.getElementById('tenant-water-mode').value || 'FIXED';
+      const water_rate_input = parseFloat(document.getElementById('tenant-water-rate').value || '0');
+      const initial_water_reading = parseInt(document.getElementById('tenant-init-water').value || '0', 10);
       const agreement_start_date = document.getElementById('tenant-start-date').value || null;
       const agreement_expiry_date = document.getElementById('tenant-end-date').value || null;
 
-      const water_fixed_charge = water_calc_mode === 'FIXED' ? water_rate : 0;
-      const water_unit_price = water_calc_mode === 'METERED' ? water_rate : 0;
+      const water_fixed_charge = water_calc_mode === 'FIXED' ? Math.round(water_rate_input * 100) : 0;
+      const water_per_unit_price = water_calc_mode === 'METERED' ? parseFloat(water_rate_input.toFixed(2)) : 0.00;
 
       let result;
       let savedRenterId = editId;
       const tenantPayload = {
-        unit_id, owner_id, name, mobile_number, email, aadhar_no, base_rent, advance_amount, pending_arrears,
+        unit_id: unit_id ? parseInt(unit_id, 10) : null,
+        owner_id: owner_id ? parseInt(owner_id, 10) : null,
+        name,
+        mobile_number: mobile_number || null,
+        email: email || null,
+        aadhar_number: aadhar_number || null,
+        base_rent,
+        advance_amount,
+        pending_arrears,
         maint_charge,
-        eb_unit_price,
-        eb_per_unit_price: parseFloat((eb_unit_price / 100).toFixed(2)),
-        initial_eb,
-        initial_eb_reading: initial_eb,
+        eb_per_unit_price,
+        initial_eb_reading,
         water_calc_mode,
         water_fixed_charge,
-        water_unit_price,
-        water_per_unit_price: parseFloat((water_unit_price / 100).toFixed(2)),
-        initial_water,
-        initial_water_reading: initial_water,
-        agreement_start_date, agreement_expiry_date
+        water_per_unit_price,
+        initial_water_reading,
+        agreement_start_date,
+        agreement_expiry_date
       };
 
       if (editId) {

@@ -200,12 +200,14 @@ test('cleanPayload sanitizes empty strings to null for integer/numeric columns',
   assert.equal(cleanedUnit.unit_name, 'Flat 101');
   assert.equal(cleanedUnit.property_id, 1);
 
-  const dirtyRenter = { unit_id: '', owner_id: '', name: 'John Doe', base_rent: '' };
+  const dirtyRenter = { unit_id: '', owner_id: '', name: 'John Doe', base_rent: '', initial_eb_reading: '', initial_water_reading: '' };
   const cleanedRenter = cleanPayload('renters', dirtyRenter);
   assert.equal(cleanedRenter.unit_id, null);
   assert.equal(cleanedRenter.owner_id, null);
   assert.equal(cleanedRenter.name, 'John Doe');
   assert.equal(cleanedRenter.base_rent, null);
+  assert.equal(cleanedRenter.initial_eb_reading, null);
+  assert.equal(cleanedRenter.initial_water_reading, null);
 
   const dirtyDoc = { entity_id: '', document_name: 'Lease Agreement', file_size: '' };
   const cleanedDoc = cleanPayload('documents', dirtyDoc);
