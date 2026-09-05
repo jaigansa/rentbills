@@ -1000,6 +1000,7 @@ tr:last-child td {
      TENANTS / RENTERS — MOBILE CARD UI / UX
      ============================================================ */
 
+  #table-body-tenants tr.renter-card-row,
   #table-body-renters tr.renter-card-row {
     background: var(--bg-card) !important;
     border: 1px solid var(--border) !important;
@@ -1013,18 +1014,22 @@ tr:last-child td {
     gap: 2px !important;
   }
 
+  #table-body-tenants tr.renter-card-row.status-active,
   #table-body-renters tr.renter-card-row.status-active {
     border-left: 5px solid var(--success) !important;
   }
+  #table-body-tenants tr.renter-card-row.status-vacated,
   #table-body-renters tr.renter-card-row.status-vacated {
     border-left: 5px solid var(--text-muted) !important;
     opacity: 0.8;
   }
 
+  #table-body-tenants .renter-desktop-col,
   #table-body-renters .renter-desktop-col {
     display: none !important;
   }
 
+  #table-body-tenants td,
   #table-body-renters td {
     border-bottom: none !important;
     padding: 0 !important;
@@ -1032,13 +1037,20 @@ tr:last-child td {
     display: block !important;
   }
 
+  #table-body-tenants td::before,
+  #table-body-renters td::before {
+    display: none !important;
+  }
+
   /* 1. Header: Tenant Name & Unit */
+  #table-body-tenants td[data-label="Tenant Name"],
   #table-body-renters td[data-label="Tenant Name"] {
     display: flex !important;
     align-items: flex-start !important;
     padding-right: 140px !important;
     min-height: 28px !important;
   }
+  #table-body-tenants td[data-label="Tenant Name"]::before,
   #table-body-renters td[data-label="Tenant Name"]::before {
     display: none !important;
   }
@@ -1057,6 +1069,12 @@ tr:last-child td {
     font-weight: 700;
     color: var(--text-main);
   }
+  .renter-name-wrap i,
+  .renter-name-wrap svg {
+    width: 15px;
+    height: 15px;
+    color: var(--primary);
+  }
   .renter-unit-pill {
     background: var(--bg-input);
     border: 1px solid var(--border);
@@ -1068,6 +1086,7 @@ tr:last-child td {
   }
 
   /* 2. Top-Right Status Badge */
+  #table-body-tenants td[data-label="Status"],
   #table-body-renters td[data-label="Status"] {
     position: absolute !important;
     top: 13px !important;
@@ -1078,11 +1097,13 @@ tr:last-child td {
     margin: 0 !important;
     z-index: 5 !important;
   }
+  #table-body-tenants td[data-label="Status"]::before,
   #table-body-renters td[data-label="Status"]::before {
     display: none !important;
   }
 
   /* 3. Top-Right 3-Dots Dropdown */
+  #table-body-tenants td[data-label="Actions"],
   #table-body-renters td[data-label="Actions"] {
     position: static !important;
     width: 100% !important;
@@ -1090,9 +1111,11 @@ tr:last-child td {
     padding: 0 !important;
     margin: 0 !important;
   }
+  #table-body-tenants td[data-label="Actions"]::before,
   #table-body-renters td[data-label="Actions"]::before {
     display: none !important;
   }
+  #table-body-tenants td[data-label="Actions"] .dropdown,
   #table-body-renters td[data-label="Actions"] .dropdown {
     position: absolute !important;
     top: 10px !important;
@@ -1101,10 +1124,12 @@ tr:last-child td {
   }
 
   /* 4. Mobile Contact Bar (1-Tap Call / WhatsApp) */
+  #table-body-tenants td[data-label="Mobile"],
   #table-body-renters td[data-label="Mobile"] {
     display: block !important;
     padding-top: 4px !important;
   }
+  #table-body-tenants td[data-label="Mobile"]::before,
   #table-body-renters td[data-label="Mobile"]::before {
     display: none !important;
   }
@@ -1137,16 +1162,19 @@ tr:last-child td {
     color: #ffffff;
     border: 1px solid #25D366;
   }
-  .btn-contact-action i {
+  .btn-contact-action i,
+  .btn-contact-action svg {
     width: 13px;
     height: 13px;
   }
 
   /* 5. Financial & Lease Strip */
+  #table-body-tenants td[data-label="Monthly Rent"],
   #table-body-renters td[data-label="Monthly Rent"] {
     display: block !important;
     width: 100% !important;
   }
+  #table-body-tenants td[data-label="Monthly Rent"]::before,
   #table-body-renters td[data-label="Monthly Rent"]::before {
     display: none !important;
   }
@@ -1213,6 +1241,11 @@ tr:last-child td {
     cursor: pointer;
     touch-action: manipulation;
     transition: background 0.15s;
+  }
+  .renter-mobile-quick-actions .btn-quick-action i,
+  .renter-mobile-quick-actions .btn-quick-action svg {
+    width: 13px;
+    height: 13px;
   }
   .renter-mobile-quick-actions .btn-quick-action.action-vacate {
     color: var(--warning);
