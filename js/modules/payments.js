@@ -67,17 +67,79 @@ export async function loadPaymentsPage() {
             proofBadge = `<span class="badge badge-danger">REJECTED</span>`;
           }
 
+          const isPending = p.proof_status === 'PENDING';
+          const isRejected = p.proof_status === 'REJECTED';
+          const statusClass = isPending ? 'status-pending' : (isRejected ? 'status-rejected' : 'status-verified');
+
           const tr = document.createElement('tr');
+          tr.className = `payment-card-row ${statusClass}`;
+          tr.setAttribute('data-status', p.proof_status || 'VERIFIED');
+
+          const paymentDateDisplay = p.payment_date ? new Date(p.payment_date).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : '-');
+
+          const quickActionsHtml = `
+            <div class="payment-mobile-quick-actions mobile-only">
+              <button type="button" class="btn-quick-action" onclick="printPaidReceipt(${p.bill_id}, ${p.id})">
+                <i data-lucide="printer"></i> Receipt
+              </button>
+              <button type="button" class="btn-quick-action" onclick="sharePaymentReceiptWhatsApp(${p.id})">
+                <i data-lucide="share-2"></i> Share
+              </button>
+              ${p.proof_photo ? `
+                <button type="button" class="btn-quick-action" onclick="viewPaymentProofImage(${p.id})">
+                  <i data-lucide="image"></i> Photo
+                </button>
+              ` : ''}
+              ${currentUser && currentUser.role !== 'TENANT' && isPending ? `
+                <button type="button" class="btn-quick-action action-approve" onclick="triggerApprovePaymentProof(${p.id}, ${p.bill_id})">
+                  <i data-lucide="check-circle"></i> Approve
+                </button>
+                <button type="button" class="btn-quick-action action-reject" onclick="triggerRejectPaymentProof(${p.id})">
+                  <i data-lucide="x-circle"></i> Reject
+                </button>
+              ` : ''}
+            </div>
+          `;
+
           tr.innerHTML = `
             <td data-label="Invoice Number & UUID">
-              <strong>${escapeStr(invoiceNo)}</strong>
-              <span style="font-size: 11px; color: var(--text-muted); font-family: monospace;">${escapeStr(uuidSuffix)}</span>
+              <div class="payment-mobile-header">
+                <div class="payment-inv-pill">
+                  <i data-lucide="receipt" class="mobile-only"></i>
+                  <strong>${escapeStr(invoiceNo)}</strong>
+                  <span class="payment-uuid-tag">${escapeStr(uuidSuffix)}</span>
+                </div>
+                <div class="payment-date-tag">Date: ${escapeStr(paymentDateDisplay)}</div>
+              </div>
             </td>
-            <td data-label="Renter Name"><strong>${escapeStr(tenantName)}</strong></td>
-            <td data-label="Amount"><strong>${formatCurrency(p.amount)}</strong></td>
-            <td data-label="Method">${escapeStr(p.payment_method || '-')}</td>
-            <td data-label="Ref No">${escapeStr(p.transaction_reference || '-')}</td>
-            <td data-label="Payment Date">${p.payment_date ? new Date(p.payment_date).toLocaleDateString() : (p.created_at ? new Date(p.created_at).toLocaleDateString() : '-')}</td>
+            <td data-label="Renter Name">
+              <div class="payment-tenant-row">
+                <i data-lucide="user" class="mobile-only"></i>
+                <strong>${escapeStr(tenantName)}</strong>
+              </div>
+            </td>
+            <td data-label="Amount">
+              <span class="payment-desktop-col"><strong>${formatCurrency(p.amount)}</strong></span>
+              
+              <!-- Mobile Payment Strip -->
+              <div class="payment-mobile-strip mobile-only">
+                <div class="payment-col">
+                  <span class="payment-label">Received</span>
+                  <span class="payment-val amount-val">${formatCurrency(p.amount)}</span>
+                </div>
+                <div class="payment-col">
+                  <span class="payment-label">Method</span>
+                  <span class="payment-val method-val">${escapeStr(p.payment_method || '-')}</span>
+                </div>
+                <div class="payment-col">
+                  <span class="payment-label">Ref No</span>
+                  <span class="payment-val ref-val" title="${escapeStr(p.transaction_reference || '-')}">${escapeStr(p.transaction_reference || '-')}</span>
+                </div>
+              </div>
+            </td>
+            <td data-label="Method" class="payment-desktop-col">${escapeStr(p.payment_method || '-')}</td>
+            <td data-label="Ref No" class="payment-desktop-col">${escapeStr(p.transaction_reference || '-')}</td>
+            <td data-label="Payment Date" class="payment-desktop-col">${paymentDateDisplay}</td>
             <td data-label="Verification">${proofBadge}</td>
             <td data-label="Actions">
               <div class="dropdown">
@@ -93,6 +155,7 @@ export async function loadPaymentsPage() {
                   ${currentUser && currentUser.role !== 'TENANT' ? `<button class="dropdown-item danger" onclick="triggerDeletePayment(${p.id}, ${p.bill_id})"><i data-lucide="trash-2"></i> Delete Payment</button>` : ''}
                 </div>
               </div>
+              ${quickActionsHtml}
             </td>
           `;
           tbody.appendChild(tr);
