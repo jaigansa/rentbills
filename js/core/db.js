@@ -1,8 +1,59 @@
 // RentBill Pro — Production-Grade Resilient Database Adapter
 // Self-healing schema adaptation: automatically detects & strips unsupported columns across all Supabase versions
+// Known optional columns not present in standard Supabase schemas
+const DEFAULT_UNSUPPORTED_COLUMNS = {
+  renters: ['vacate_date', 'exit_reason', 'aadhar_no'],
+  units: ['notes'],
+  payments: ['receipt_no', 'proof_url'],
+  documents: ['title', 'file_url', 'file_type'],
+  expenses: ['receipt_url']
+};
 
-const unsupportedColumns = new Map(); // table -> Set of unsupported column names
+function initUnsupportedColumns() {
+  const map = new Map();
+  for (const [tbl, cols] of Object.entries(DEFAULT_UNSUPPORTED_COLUMNS)) {
+    map.set(tbl, new Set(cols));
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('rentbill_unsupported_cols');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        for (const [tbl, cols] of Object.entries(parsed)) {
+          if (!map.has(tbl)) map.set(tbl, new Set());
+          for (const c of cols) map.get(tbl).add(c);
+        }
+      }
+    }
+  } catch (e) {}
+  return map;
+}
 
+const unsupportedColumns = initUnsupportedColumns();
+
+function saveUnsupportedColumns() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const obj = {};
+      for (const [tbl, set] of unsupportedColumns.entries()) {
+        obj[tbl] = Array.from(set);
+      }
+      localStorage.setItem('rentbill_unsupported_cols', JSON.stringify(obj));
+    }
+  } catch (e) {}
+}
+
+export function clearUnsupportedColumnsCache() {
+  unsupportedColumns.clear();
+  for (const [tbl, cols] of Object.entries(DEFAULT_UNSUPPORTED_COLUMNS)) {
+    unsupportedColumns.set(tbl, new Set(cols));
+  }
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('rentbill_unsupported_cols');
+    }
+  } catch (e) {}
+}
 // Columns known to be integer, bigint, or numeric in the database schema.
 // Passing an empty string "" to these columns causes Postgres type-casting failure:
 // "invalid input syntax for type integer: """
@@ -93,6 +144,7 @@ export async function safeInsert(client, table, payload) {
         unsupportedColumns.set(table, new Set());
       }
       unsupportedColumns.get(table).add(missingCol);
+      saveUnsupportedColumns();
 
       // Strip missing column from currentPayload and retry
       if (Array.isArray(currentPayload)) {
@@ -166,6 +218,7 @@ export async function safeUpdate(client, table, payload, matchField, matchValue)
         unsupportedColumns.set(table, new Set());
       }
       unsupportedColumns.get(table).add(missingCol);
+      saveUnsupportedColumns();
 
       currentPayload = { ...currentPayload };
       delete currentPayload[missingCol];
@@ -198,6 +251,7 @@ export async function safeDelete(client, table, id) {
         unsupportedColumns.set(table, new Set());
       }
       unsupportedColumns.get(table).add('deleted_at');
+      saveUnsupportedColumns();
     } else {
       return res;
     }

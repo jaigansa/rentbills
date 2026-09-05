@@ -120,6 +120,8 @@ CREATE TABLE IF NOT EXISTS public.renters (
     initial_water_reading BIGINT NOT NULL DEFAULT 0,
     agreement_start_date DATE,
     agreement_expiry_date DATE,
+    vacate_date DATE,
+    exit_reason TEXT,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

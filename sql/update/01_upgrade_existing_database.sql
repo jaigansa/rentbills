@@ -29,6 +29,8 @@ ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS water_per_unit_price NUMERIC
 ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS initial_water_reading BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS agreement_start_date DATE;
 ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS agreement_expiry_date DATE;
+ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS vacate_date DATE;
+ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS exit_reason TEXT;
 
 -- Bills
 ALTER TABLE public.bills ADD COLUMN IF NOT EXISTS period_start_date DATE;

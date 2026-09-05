@@ -215,6 +215,13 @@ test('cleanPayload sanitizes empty strings to null for integer/numeric columns',
   assert.equal(cleanedDoc.entity_id, null);
   assert.equal(cleanedDoc.file_size, null);
   assert.equal(cleanedDoc.document_name, 'Lease Agreement');
+
+  const vacatePayload = { is_active: false, vacate_date: '2026-09-05', exit_reason: 'Relocation', aadhar_no: '1234' };
+  const cleanedVacate = cleanPayload('renters', vacatePayload);
+  assert.equal(cleanedVacate.is_active, false);
+  assert.equal('vacate_date' in cleanedVacate, false);
+  assert.equal('exit_reason' in cleanedVacate, false);
+  assert.equal('aadhar_no' in cleanedVacate, false);
 });
 
 test('formatBillInvoiceMessage includes meter breakdown, avoids @ 0.00/u, and formats bank details', () => {
