@@ -763,9 +763,9 @@ tr:last-child td {
     margin-bottom: 16px !important;
   }
 
-  /* Compact Dashboard Stat Cards 2-column Grid on Mobile */
+  /* Dashboard Stat Cards 1-column Stack on Mobile */
   .dashboard-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(1, 1fr) !important;
     gap: 10px !important;
     margin-bottom: 20px !important;
   }
