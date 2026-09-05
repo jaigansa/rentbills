@@ -1,7 +1,7 @@
 // RentBill Pro — Property Buildings, Rental Units & Tenants Directory
 import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
-import { formatCurrency, escapeStr, renderEmptyState, openModal, closeModal, refreshLucideIcons } from '../core/ui.js';
+import { formatCurrency, escapeStr, renderEmptyState, openModal, closeModal, refreshLucideIcons, sortTenants } from '../core/ui.js';
 import { loadOwnersPage, populateOwnerSelects } from './owners.js';
 import { loadDocumentsPage } from './documents.js';
 
@@ -140,8 +140,13 @@ export async function loadTenantsPage() {
 
     let tenants = [];
     try {
-      const { data: tData } = await supabaseClient.from('renters').select('*').is('deleted_at', null);
-      tenants = tData || [];
+      const { data: tData } = await supabaseClient
+        .from('renters')
+        .select('*')
+        .is('deleted_at', null)
+        .order('is_active', { ascending: false })
+        .order('name', { ascending: true });
+      tenants = sortTenants(tData || []);
     } catch (e) {
       console.warn('Tenants fetch error:', e);
     }

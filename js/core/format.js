@@ -147,3 +147,18 @@ export function parseFloorValue(val) {
 
   return null;
 }
+
+// Sort tenants so active tenants (is_active = true) appear first,
+// and vacated tenants (is_active = false) are sorted to the bottom of the list.
+// Secondary ordering is alphabetical by name.
+export function sortTenants(tenants) {
+  if (!Array.isArray(tenants)) return [];
+  return [...tenants].sort((a, b) => {
+    const aActive = a && a.is_active ? 1 : 0;
+    const bActive = b && b.is_active ? 1 : 0;
+    if (aActive !== bActive) {
+      return bActive - aActive; // 1 before 0
+    }
+    return (a?.name || '').localeCompare(b?.name || '');
+  });
+}

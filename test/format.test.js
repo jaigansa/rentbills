@@ -11,7 +11,8 @@ import {
   defaultTenantPassword,
   extractBackupTables,
   csvEscapeValue,
-  parseFloorValue
+  parseFloorValue,
+  sortTenants
 } from '../js/core/format.js';
 import { cleanPayload } from '../js/core/db.js';
 import { formatBillInvoiceMessage, formatOverdueReminderMessage, formatPaymentReceiptMessage, shareMessage } from '../js/modules/bills.js';
@@ -419,4 +420,47 @@ test('shareMessage falls back to URL scheme/fallback when navigator.share is una
   }
 });
 
+test('sortTenants sorts active tenants to top and vacated tenants to bottom', () => {
+  const input = [
+    { id: 1, name: 'Zack (Vacated)', is_active: false },
+    { id: 2, name: 'Charlie (Active)', is_active: true },
+    { id: 3, name: 'Bob (Vacated)', is_active: false },
+    { id: 4, name: 'Alice (Active)', is_active: true }
+  ];
 
+  const sorted = sortTenants(input);
+
+  // Active tenants first, alphabetically
+  assert.equal(sorted[0].name, 'Alice (Active)');
+  assert.equal(sorted[0].is_active, true);
+  assert.equal(sorted[1].name, 'Charlie (Active)');
+  assert.equal(sorted[1].is_active, true);
+
+  // Vacated tenants at bottom, alphabetically
+  assert.equal(sorted[2].name, 'Bob (Vacated)');
+  assert.equal(sorted[2].is_active, false);
+  assert.equal(sorted[3].name, 'Zack (Vacated)');
+  assert.equal(sorted[3].is_active, false);
+});
+
+test('sortTenants handles non-array, empty, and already-sorted lists gracefully', () => {
+  assert.deepEqual(sortTenants([]), []);
+  assert.deepEqual(sortTenants(null), []);
+  assert.deepEqual(sortTenants(undefined), []);
+
+  const allActive = [
+    { id: 1, name: 'Bravo', is_active: true },
+    { id: 2, name: 'Alpha', is_active: true }
+  ];
+  const sortedActive = sortTenants(allActive);
+  assert.equal(sortedActive[0].name, 'Alpha');
+  assert.equal(sortedActive[1].name, 'Bravo');
+
+  const allVacated = [
+    { id: 1, name: 'Delta', is_active: false },
+    { id: 2, name: 'Charlie', is_active: false }
+  ];
+  const sortedVacated = sortTenants(allVacated);
+  assert.equal(sortedVacated[0].name, 'Charlie');
+  assert.equal(sortedVacated[1].name, 'Delta');
+});

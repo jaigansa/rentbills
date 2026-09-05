@@ -12,7 +12,8 @@ import {
   deriveBillStatusAfterPayment,
   normalizeTenDigitMobile,
   tenantLoginEmailFromMobile,
-  defaultTenantPassword
+  defaultTenantPassword,
+  sortTenants
 } from './format.js';
 
 export {
@@ -23,7 +24,8 @@ export {
   deriveBillStatusAfterPayment,
   normalizeTenDigitMobile,
   tenantLoginEmailFromMobile,
-  defaultTenantPassword
+  defaultTenantPassword,
+  sortTenants
 };
 
 export function refreshLucideIcons() {
