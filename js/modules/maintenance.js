@@ -99,6 +99,9 @@ function renderMaintenanceTable(tasks) {
 
   tasks.forEach(t => {
     const tr = document.createElement('tr');
+    tr.className = `maintenance-card-row priority-${(t.priority || 'normal').toLowerCase()} status-${(t.status || 'pending').toLowerCase()}`;
+    tr.setAttribute('data-priority', t.priority || 'NORMAL');
+    tr.setAttribute('data-status', t.status || 'PENDING');
 
     let priorityBadge = 'badge-info';
     if (t.priority === 'HIGH') priorityBadge = 'badge-warning';
@@ -126,27 +129,65 @@ function renderMaintenanceTable(tasks) {
 
     const descSnippet = t.description ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeStr(t.description.length > 60 ? t.description.substring(0, 60) + '...' : t.description)}</div>` : '';
 
+    const quickActionsHtml = `
+      <div class="maint-mobile-quick-actions mobile-only">
+        ${currentUser.role !== 'TENANT' ? `
+          <button type="button" class="btn-quick-action action-status" onclick="triggerUpdateMaintenanceStatus(${t.id})">
+            <i data-lucide="check-circle-2"></i> Update Status
+          </button>
+        ` : ''}
+        <button type="button" class="btn-quick-action" onclick="triggerEditMaintenance(${t.id})">
+          <i data-lucide="edit-2"></i> Edit
+        </button>
+      </div>
+    `;
+
     tr.innerHTML = `
       <td data-label="Task Subject & Category">
-        <strong>${escapeStr(t.title)}</strong>
-        <div style="font-size: 11px; color: var(--primary); font-weight: 600;">${categoryIcons[t.category] || t.category}</div>
-        ${descSnippet}
+        <div class="maint-mobile-header">
+          <div class="maint-title-pill">
+            <strong>${escapeStr(t.title)}</strong>
+          </div>
+          <div style="font-size: 11px; color: var(--primary); font-weight: 600;">${categoryIcons[t.category] || t.category}</div>
+          ${descSnippet}
+        </div>
       </td>
       <td data-label="Property / Unit & Resident">
-        <strong>${escapeStr(t.renter_name)}</strong>
+        <div class="maint-tenant-row">
+          <i data-lucide="user" class="mobile-only"></i>
+          <strong>${escapeStr(t.renter_name)}</strong>
+        </div>
         <div style="font-size: 11px; color: var(--text-muted);">${escapeStr(t.property_name)} • ${escapeStr(t.unit_name)}</div>
       </td>
       <td data-label="Priority & Status">
         <span class="badge ${priorityBadge}" style="margin-right: 4px;">${t.priority}</span>
         <span class="badge ${statusBadge}">${t.status}</span>
       </td>
-      <td data-label="Assigned Tech / Scheduled">
+      <td data-label="Assigned Tech / Scheduled" class="maint-desktop-col">
         <div>${escapeStr(t.assigned_to || 'Unassigned')}</div>
         <div style="font-size: 11px; color: var(--text-muted);">${t.scheduled_date ? `Scheduled: ${t.scheduled_date}` : 'Not scheduled'}</div>
       </td>
       <td data-label="Est. / Actual Cost">
-        <div>Est: ${estCost}</div>
-        <div style="font-weight: 700; color: var(--text-main);">Act: ${actCost}</div>
+        <div class="maint-desktop-col">
+          <div>Est: ${estCost}</div>
+          <div style="font-weight: 700; color: var(--text-main);">Act: ${actCost}</div>
+        </div>
+
+        <!-- Mobile Cost & Tech Strip -->
+        <div class="maint-mobile-strip mobile-only">
+          <div class="maint-col">
+            <span class="maint-label">Est. Cost</span>
+            <span class="maint-val">${estCost}</span>
+          </div>
+          <div class="maint-col">
+            <span class="maint-label">Actual Cost</span>
+            <span class="maint-val" style="font-weight: 800; color: var(--text-main);">${actCost}</span>
+          </div>
+          <div class="maint-col">
+            <span class="maint-label">Technician</span>
+            <span class="maint-val" title="${escapeStr(t.assigned_to || 'Unassigned')}">${escapeStr(t.assigned_to || 'Unassigned')}</span>
+          </div>
+        </div>
       </td>
       <td data-label="Actions">
         <div class="dropdown">
@@ -167,6 +208,7 @@ function renderMaintenanceTable(tasks) {
             ` : ''}
           </div>
         </div>
+        ${quickActionsHtml}
       </td>
     `;
 

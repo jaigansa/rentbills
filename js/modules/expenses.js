@@ -20,17 +20,35 @@ export async function loadExpensesPage() {
       } else {
         expenses.forEach(e => {
           const tr = document.createElement('tr');
+          tr.className = 'expense-card-row';
           tr.innerHTML = `
-            <td data-label="Category"><strong>${e.category}</strong></td>
-            <td data-label="Amount">${formatCurrency(e.amount)}</td>
-            <td data-label="Date">${e.date || '-'}</td>
-            <td data-label="Notes">${e.notes || '-'}</td>
+            <td data-label="Category">
+              <div class="expense-mobile-header">
+                <div class="expense-cat-badge">
+                  <i data-lucide="receipt" class="mobile-only"></i>
+                  <strong>${escapeStr(e.category)}</strong>
+                </div>
+                <div class="expense-date-tag mobile-only">${e.date || '-'}</div>
+              </div>
+            </td>
+            <td data-label="Amount">
+              <span class="expense-amount-val">-${formatCurrency(e.amount)}</span>
+            </td>
+            <td data-label="Date" class="expense-desktop-col">${e.date || '-'}</td>
+            <td data-label="Notes">
+              <span class="expense-notes-text">${escapeStr(e.notes || '-')}</span>
+            </td>
             <td data-label="Actions">
               <div class="dropdown">
                 <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
                 <div class="dropdown-menu">
                   <button class="dropdown-item danger" onclick="triggerDeleteExpense(${e.id}, '${escapeStr(e.category)}')"><i data-lucide="trash-2"></i> Delete Expense</button>
                 </div>
+              </div>
+              <div class="expense-mobile-quick-actions mobile-only">
+                <button type="button" class="btn-quick-action action-delete" onclick="triggerDeleteExpense(${e.id}, '${escapeStr(e.category)}')">
+                  <i data-lucide="trash-2"></i> Delete
+                </button>
               </div>
             </td>
           `;
@@ -49,17 +67,35 @@ export async function loadExpensesPage() {
       } else {
         withdrawals.forEach(w => {
           const tr = document.createElement('tr');
+          tr.className = 'withdrawal-card-row';
           tr.innerHTML = `
-            <td data-label="Owner Name"><strong>${w.owner_name}</strong></td>
-            <td data-label="Amount"><strong>${formatCurrency(w.amount)}</strong></td>
-            <td data-label="Date">${w.date || '-'}</td>
-            <td data-label="Notes">${w.notes || '-'}</td>
+            <td data-label="Owner Name">
+              <div class="withdrawal-mobile-header">
+                <div class="withdrawal-name-wrap">
+                  <i data-lucide="user-check" class="mobile-only"></i>
+                  <strong>${escapeStr(w.owner_name)}</strong>
+                </div>
+                <div class="withdrawal-date-tag mobile-only">${w.date || '-'}</div>
+              </div>
+            </td>
+            <td data-label="Amount">
+              <span class="withdrawal-amount-val">-${formatCurrency(w.amount)}</span>
+            </td>
+            <td data-label="Date" class="expense-desktop-col">${w.date || '-'}</td>
+            <td data-label="Notes">
+              <span class="withdrawal-notes-text">${escapeStr(w.notes || '-')}</span>
+            </td>
             <td data-label="Actions">
               <div class="dropdown">
                 <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
                 <div class="dropdown-menu">
                   <button class="dropdown-item danger" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(w.owner_name)}')"><i data-lucide="trash-2"></i> Delete Withdrawal</button>
                 </div>
+              </div>
+              <div class="expense-mobile-quick-actions mobile-only">
+                <button type="button" class="btn-quick-action action-delete" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(w.owner_name)}')">
+                  <i data-lucide="trash-2"></i> Delete
+                </button>
               </div>
             </td>
           `;

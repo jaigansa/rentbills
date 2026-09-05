@@ -152,10 +152,32 @@ export async function loadTenantsPage() {
         tbody.innerHTML = renderEmptyState(8, 'No tenants registered yet');
       } else {
         tenants.forEach(t => {
+          const statusClass = t.is_active ? 'status-active' : 'status-vacated';
           const tr = document.createElement('tr');
+          tr.className = `renter-card-row ${statusClass}`;
+          tr.setAttribute('data-status', t.is_active ? 'ACTIVE' : 'VACATED');
+
           const badgeClass = t.is_active ? 'badge-success' : 'badge-danger';
           const badgeLabel = t.is_active ? 'Active' : 'Vacated';
           const unitDisplayName = unitMap[t.unit_id] || (t.unit_id ? `Unit #${t.unit_id}` : '-');
+
+          const cleanPhone = (t.mobile_number || '').replace(/[^0-9]/g, '');
+          const hasPhone = cleanPhone.length >= 10;
+          const phoneParam = hasPhone ? `91${cleanPhone.slice(-10)}` : cleanPhone;
+
+          const contactStripHtml = hasPhone ? `
+            <div class="renter-mobile-contact-bar mobile-only">
+              <a href="tel:${cleanPhone}" class="btn-contact-action btn-call">
+                <i data-lucide="phone"></i> Call
+              </a>
+              <a href="https://api.whatsapp.com/send?phone=${phoneParam}" target="_blank" class="btn-contact-action btn-wa">
+                <i data-lucide="message-circle"></i> WhatsApp
+              </a>
+            </div>
+          ` : '';
+
+          const arrearsVal = t.pending_arrears || 0;
+          const arrearsClass = arrearsVal > 0 ? 'arrears-due' : 'arrears-none';
 
           let actionBtn = '';
           if (t.is_active) {
@@ -182,15 +204,67 @@ export async function loadTenantsPage() {
             `;
           }
 
+          const quickActionsHtml = `
+            <div class="renter-mobile-quick-actions mobile-only">
+              <button type="button" class="btn-quick-action" onclick="triggerEditTenant(${t.id})">
+                <i data-lucide="edit-2"></i> Edit
+              </button>
+              ${t.is_active ? `
+                <button type="button" class="btn-quick-action" onclick="triggerMeterResetModal(${t.id}, '${escapeStr(t.name)}')">
+                  <i data-lucide="zap"></i> Meter
+                </button>
+                <button type="button" class="btn-quick-action action-vacate" onclick="triggerVacateModal(${t.id}, '${escapeStr(t.name)}')">
+                  <i data-lucide="log-out"></i> Vacate
+                </button>
+              ` : `
+                <button type="button" class="btn-quick-action action-delete" onclick="triggerDeleteTenant(${t.id}, '${escapeStr(t.name)}')">
+                  <i data-lucide="trash-2"></i> Delete
+                </button>
+              `}
+            </div>
+          `;
+
           tr.innerHTML = `
-            <td data-label="Tenant Name"><strong>${t.name}</strong></td>
-            <td data-label="Unit"><strong>${unitDisplayName}</strong></td>
-            <td data-label="Mobile">${t.mobile_number || '-'}</td>
-            <td data-label="Monthly Rent">${formatCurrency(t.base_rent)}</td>
-            <td data-label="Arrears">${formatCurrency(t.pending_arrears)}</td>
-            <td data-label="Expiry Date">${t.agreement_expiry_date || '-'}</td>
+            <td data-label="Tenant Name">
+              <div class="renter-mobile-header">
+                <div class="renter-name-wrap">
+                  <i data-lucide="user" class="mobile-only"></i>
+                  <strong>${escapeStr(t.name)}</strong>
+                </div>
+                <div class="renter-unit-pill mobile-only">${escapeStr(unitDisplayName)}</div>
+              </div>
+            </td>
+            <td data-label="Unit" class="renter-desktop-col"><strong>${unitDisplayName}</strong></td>
+            <td data-label="Mobile">
+              <span class="renter-desktop-col">${t.mobile_number || '-'}</span>
+              ${contactStripHtml}
+            </td>
+            <td data-label="Monthly Rent">
+              <span class="renter-desktop-col">${formatCurrency(t.base_rent)}</span>
+              
+              <!-- Mobile Financial & Lease Strip -->
+              <div class="renter-mobile-strip mobile-only">
+                <div class="renter-col">
+                  <span class="renter-label">Monthly Rent</span>
+                  <span class="renter-val">${formatCurrency(t.base_rent)}</span>
+                </div>
+                <div class="renter-col">
+                  <span class="renter-label">Arrears Due</span>
+                  <span class="renter-val ${arrearsClass}">${formatCurrency(arrearsVal)}</span>
+                </div>
+                <div class="renter-col">
+                  <span class="renter-label">Lease End</span>
+                  <span class="renter-val" style="font-size: 11px;">${t.agreement_expiry_date || '-'}</span>
+                </div>
+              </div>
+            </td>
+            <td data-label="Arrears" class="renter-desktop-col">${formatCurrency(t.pending_arrears)}</td>
+            <td data-label="Expiry Date" class="renter-desktop-col">${t.agreement_expiry_date || '-'}</td>
             <td data-label="Status"><span class="badge ${badgeClass}">${badgeLabel}</span></td>
-            <td data-label="Actions">${actionBtn}</td>
+            <td data-label="Actions">
+              ${actionBtn}
+              ${quickActionsHtml}
+            </td>
           `;
           tbody.appendChild(tr);
         });
