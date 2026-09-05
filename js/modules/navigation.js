@@ -84,17 +84,22 @@ export function switchPropertiesSubTab(tabName, groupEl) {
   setActiveSubTab(tabName);
   document.querySelectorAll('.tab-pill-group').forEach(g => g.classList.remove('active'));
   document.querySelectorAll('.properties-tab-btn').forEach(b => {
-    b.classList.remove('active');
+    b.classList.remove('active', 'btn-primary');
+    b.classList.add('btn-secondary');
   });
 
   if (groupEl) {
     if (groupEl.classList.contains('properties-tab-btn')) {
-      groupEl.classList.add('active');
+      groupEl.classList.remove('btn-secondary');
+      groupEl.classList.add('active', 'btn-primary');
     } else {
       const parentGroup = groupEl.closest('.tab-pill-group');
       if (parentGroup) parentGroup.classList.add('active');
       const btn = parentGroup ? parentGroup.querySelector('.properties-tab-btn') : null;
-      if (btn) btn.classList.add('active');
+      if (btn) {
+        btn.classList.remove('btn-secondary');
+        btn.classList.add('active', 'btn-primary');
+      }
     }
   }
 

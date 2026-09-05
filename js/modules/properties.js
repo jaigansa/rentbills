@@ -17,7 +17,8 @@ export async function populateTenantUnitSelect(selectedUnitId = null) {
     if (u.status === 'VACANT' || u.id === selectedUnitId) {
       const opt = document.createElement('option');
       opt.value = u.id;
-      opt.textContent = `${u.unit_name} ${u.id === selectedUnitId ? '(Current)' : ''}`;
+      const uLabel = u.unit_name || u.unit_number || `Unit #${u.id}`;
+      opt.textContent = `${uLabel} ${u.id === selectedUnitId ? '(Current)' : ''}`;
       select.appendChild(opt);
     }
   });
@@ -92,16 +93,17 @@ export async function loadPropertiesPage() {
       (units || []).forEach(u => {
         const tr = document.createElement('tr');
         const badgeClass = u.status === 'VACANT' ? 'badge-success' : 'badge-warning';
+        const displayName = u.unit_name || u.unit_number || `Unit #${u.id}`;
         tr.innerHTML = `
-          <td data-label="Unit Name"><strong>${u.unit_name}</strong></td>
+          <td data-label="Unit Name"><strong>${displayName}</strong></td>
           <td data-label="Floor">${(u.floor !== null && u.floor !== undefined && u.floor !== '') ? (u.floor === 0 ? 'Ground (0)' : u.floor) : '-'}</td>
           <td data-label="Status"><span class="badge ${badgeClass}">${u.status}</span></td>
           <td data-label="Actions">
             <div class="dropdown">
               <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
               <div class="dropdown-menu">
-                <button class="dropdown-item" onclick="triggerEditUnit(${u.id}, ${u.property_id}, '${escapeStr(u.unit_name)}', '${escapeStr(u.floor)}')"><i data-lucide="edit-2"></i> Edit Unit</button>
-                <button class="dropdown-item danger" onclick="triggerDeleteUnit(${u.id}, '${escapeStr(u.unit_name)}')"><i data-lucide="trash-2"></i> Delete Unit</button>
+                <button class="dropdown-item" onclick="triggerEditUnit(${u.id}, ${u.property_id}, '${escapeStr(displayName)}', '${escapeStr(u.floor)}')"><i data-lucide="edit-2"></i> Edit Unit</button>
+                <button class="dropdown-item danger" onclick="triggerDeleteUnit(${u.id}, '${escapeStr(displayName)}')"><i data-lucide="trash-2"></i> Delete Unit</button>
               </div>
             </div>
           </td>
@@ -120,9 +122,9 @@ export async function loadTenantsPage() {
   try {
     if (!supabaseClient) return;
 
-    const { data: allUnits } = await supabaseClient.from('units').select('id, unit_name');
+    const { data: allUnits } = await supabaseClient.from('units').select('*');
     const unitMap = {};
-    (allUnits || []).forEach(u => { unitMap[u.id] = u.unit_name; });
+    (allUnits || []).forEach(u => { unitMap[u.id] = u.unit_name || u.unit_number || `Unit #${u.id}`; });
 
     const { data: vacantUnits } = await supabaseClient.from('units').select('*').eq('status', 'VACANT').is('deleted_at', null);
     const tenantUnitSelect = document.getElementById('tenant-unit-id');
@@ -131,7 +133,7 @@ export async function loadTenantsPage() {
       (vacantUnits || []).forEach(u => {
         const opt = document.createElement('option');
         opt.value = u.id;
-        opt.textContent = u.unit_name;
+        opt.textContent = u.unit_name || u.unit_number || `Unit #${u.id}`;
         tenantUnitSelect.appendChild(opt);
       });
     }
@@ -342,7 +344,7 @@ export async function triggerTransferModal(tenantId, tenantName, currentUnitId) 
     (units || []).forEach(u => {
       const opt = document.createElement('option');
       opt.value = u.id;
-      opt.textContent = u.unit_name;
+      opt.textContent = u.unit_name || u.unit_number || `Unit #${u.id}`;
       select.appendChild(opt);
     });
   }

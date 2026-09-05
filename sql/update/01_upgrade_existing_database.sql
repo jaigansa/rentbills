@@ -12,6 +12,12 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- Profiles
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_disabled BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Units (ensure both unit_name and unit_number exist and are kept in sync)
+ALTER TABLE public.units ADD COLUMN IF NOT EXISTS unit_name TEXT;
+ALTER TABLE public.units ADD COLUMN IF NOT EXISTS unit_number TEXT;
+UPDATE public.units SET unit_name = unit_number WHERE unit_name IS NULL AND unit_number IS NOT NULL;
+UPDATE public.units SET unit_number = unit_name WHERE unit_number IS NULL AND unit_name IS NOT NULL;
+
 -- Renters
 ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS pending_arrears BIGINT NOT NULL DEFAULT 0;
 ALTER TABLE public.renters ADD COLUMN IF NOT EXISTS maint_charge BIGINT NOT NULL DEFAULT 0;

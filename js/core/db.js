@@ -74,11 +74,19 @@ export async function safeInsert(client, table, payload) {
     const errMsg = res.error.message || '';
     // Match PostgREST schema cache errors or Postgres missing column errors
     const match = errMsg.match(/Could not find the '([^']+)' column/i) ||
-                  errMsg.match(/column "?([^"'\s]+)"? of relation/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? of relation [^\s]+ does not exist/i) ||
                   errMsg.match(/column "?([^"'\s]+)"? does not exist/i);
 
     if (match && match[1]) {
       const missingCol = match[1].trim();
+      const hasCol = Array.isArray(currentPayload)
+        ? currentPayload.some(item => item && Object.prototype.hasOwnProperty.call(item, missingCol))
+        : (currentPayload && typeof currentPayload === 'object' && Object.prototype.hasOwnProperty.call(currentPayload, missingCol));
+
+      if (!hasCol) {
+        return res;
+      }
+
       if (!unsupportedColumns.has(table)) {
         unsupportedColumns.set(table, new Set());
       }
@@ -119,7 +127,7 @@ export async function safeInsert(client, table, payload) {
     return res;
   }
 
-  return { error: new Error(`Failed to insert into ${table} after schema adaptation`) };
+  return { error: new Error(`Failed to insert into ${table}: ${res?.error?.message || 'schema adaptation limit reached'}`) };
 }
 
 /**
@@ -130,6 +138,7 @@ export async function safeUpdate(client, table, payload, matchField, matchValue)
 
   let currentPayload = cleanPayload(table, payload);
   let maxRetries = 10;
+  let lastError = null;
 
   while (maxRetries > 0) {
     const res = await client.from(table).update(currentPayload).eq(matchField, matchValue);
@@ -137,13 +146,20 @@ export async function safeUpdate(client, table, payload, matchField, matchValue)
       return res;
     }
 
+    lastError = res.error;
     const errMsg = res.error.message || '';
     const match = errMsg.match(/Could not find the '([^']+)' column/i) ||
-                  errMsg.match(/column "?([^"'\s]+)"? of relation/i) ||
+                  errMsg.match(/column "?([^"'\s]+)"? of relation [^\s]+ does not exist/i) ||
                   errMsg.match(/column "?([^"'\s]+)"? does not exist/i);
 
     if (match && match[1]) {
       const missingCol = match[1].trim();
+      const hasCol = currentPayload && typeof currentPayload === 'object' && Object.prototype.hasOwnProperty.call(currentPayload, missingCol);
+
+      if (!hasCol) {
+        return res;
+      }
+
       if (!unsupportedColumns.has(table)) {
         unsupportedColumns.set(table, new Set());
       }
@@ -159,7 +175,7 @@ export async function safeUpdate(client, table, payload, matchField, matchValue)
     return res;
   }
 
-  return { error: new Error(`Failed to update ${table} after schema adaptation`) };
+  return { error: new Error(`Failed to update ${table}: ${lastError?.message || 'schema adaptation limit reached'}`) };
 }
 
 /**

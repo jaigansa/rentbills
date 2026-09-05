@@ -241,20 +241,45 @@
             <input type="number" step="0.01" id="bill-arrears" class="form-control" value="0" autocomplete="off">
           </div>
           <!-- Live Invoice Calculation Summary Card -->
-          <div class="bill-live-calc-card" style="background: var(--bg-card, #ffffff); border: 1.5px solid var(--border, #cbd5e1); border-radius: var(--radius-md, 8px); padding: 14px 16px; margin-top: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
-            <div style="font-weight: 700; font-size: 13px; color: var(--text-main); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border, #e2e8f0); padding-bottom: 8px;">
-              <span style="display: inline-flex; align-items: center; gap: 6px;">
-                <i data-lucide="zap" style="color: #f59e0b; width: 15px; height: 15px;"></i> Live Invoice Calculation Summary
+          <div class="bill-live-calc-card">
+            <div class="bill-live-calc-header">
+              <span class="bill-live-calc-title">
+                <i data-lucide="calculator"></i> Live Calculation Summary
               </span>
-              <span id="live-calc-net" style="font-size: 17px; color: var(--primary, #2563eb); font-weight: 800; font-family: 'JetBrains Mono', monospace;">₹0.00</span>
+              <div class="bill-live-calc-total-wrap">
+                <div class="bill-live-calc-total-label">Net Payable Total</div>
+                <div id="live-calc-net" class="bill-live-calc-total">₹0.00</div>
+              </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 12px; color: var(--text-muted);">
-              <div>Base Rent: <strong id="live-calc-rent" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
-              <div>Maintenance: <strong id="live-calc-maint" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
-              <div>EB Electricity: <strong id="live-calc-eb" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong> (<span id="live-calc-eb-units" style="font-weight: 700; color: var(--text-main);">0</span> units)</div>
-              <div>Water Utility: <strong id="live-calc-water" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
-              <div>Arrears / Extra / Fee: <strong id="live-calc-extra" style="color: var(--text-main); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
-              <div>Discount: <strong id="live-calc-discount" style="color: var(--danger, #ef4444); font-family: 'JetBrains Mono', monospace;">₹0.00</strong></div>
+            <div class="bill-live-calc-grid">
+              <div class="bill-live-calc-item">
+                <span class="label">Base Rent:</span>
+                <strong id="live-calc-rent">₹0.00</strong>
+              </div>
+              <div class="bill-live-calc-item">
+                <span class="label">Maintenance:</span>
+                <strong id="live-calc-maint">₹0.00</strong>
+              </div>
+              <div class="bill-live-calc-item">
+                <span class="label">EB Electricity (<span id="live-calc-eb-units">0</span> u):</span>
+                <strong id="live-calc-eb">₹0.00</strong>
+              </div>
+              <div class="bill-live-calc-item">
+                <span class="label">Water Utility:</span>
+                <strong id="live-calc-water">₹0.00</strong>
+              </div>
+              <div class="bill-live-calc-item">
+                <span class="label">Arrears / Extra / Fee:</span>
+                <strong id="live-calc-extra">₹0.00</strong>
+              </div>
+              <div class="bill-live-calc-item discount">
+                <span class="label">Discount:</span>
+                <strong id="live-calc-discount">₹0.00</strong>
+              </div>
+            </div>
+            <div class="bill-live-calc-hint" id="live-calc-hint">
+              <i data-lucide="info"></i>
+              <span id="live-calc-hint-text">Select a tenant to preview automated billing calculations.</span>
             </div>
           </div>
         </div>

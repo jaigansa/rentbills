@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS public.units (
     uuid UUID NOT NULL DEFAULT gen_random_uuid() UNIQUE,
     property_id BIGINT NOT NULL REFERENCES public.properties(id) ON DELETE RESTRICT,
     unit_number TEXT NOT NULL,
+    unit_name TEXT,
     floor INTEGER DEFAULT 1,
     status TEXT NOT NULL DEFAULT 'VACANT' CHECK (status IN ('VACANT', 'OCCUPIED', 'MAINTENANCE')),
     monthly_rent BIGINT NOT NULL DEFAULT 0,

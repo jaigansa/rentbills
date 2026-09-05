@@ -246,6 +246,7 @@ export function filterBillsTable() {
 export async function updateLiveBillCalculation() {
   const supabaseClient = getSupabaseClient();
   const renterId = document.getElementById('bill-renter-id')?.value;
+  const hintEl = document.getElementById('live-calc-hint-text');
 
   if (!renterId || !supabaseClient) {
     const elNet = document.getElementById('live-calc-net'); if (elNet) elNet.textContent = '₹0.00';
@@ -256,6 +257,7 @@ export async function updateLiveBillCalculation() {
     const elMaint = document.getElementById('live-calc-maint'); if (elMaint) elMaint.textContent = '₹0.00';
     const elExtra = document.getElementById('live-calc-extra'); if (elExtra) elExtra.textContent = '₹0.00';
     const elDiscount = document.getElementById('live-calc-discount'); if (elDiscount) elDiscount.textContent = '₹0.00';
+    if (hintEl) hintEl.textContent = 'Select a tenant to preview automated billing calculations.';
     return;
   }
 
@@ -268,8 +270,8 @@ export async function updateLiveBillCalculation() {
     .is('deleted_at', null)
     .order('created_at', { ascending: false }).limit(1);
 
-  let prevEb = tenant.initial_eb || 0;
-  let prevWater = tenant.initial_water || 0;
+  let prevEb = tenant.initial_eb_reading ?? tenant.initial_eb ?? 0;
+  let prevWater = tenant.initial_water_reading ?? tenant.initial_water ?? 0;
 
   if (lastBills && lastBills.length > 0) {
     const lastBill = lastBills[0];
@@ -277,12 +279,12 @@ export async function updateLiveBillCalculation() {
 
     const ebResetDate = tenant.eb_reset_at ? new Date(tenant.eb_reset_at) : null;
     if (!ebResetDate || ebResetDate <= lastBillDate) {
-      prevEb = lastBill.curr_eb_reading ?? tenant.initial_eb ?? 0;
+      prevEb = lastBill.curr_eb_reading ?? tenant.initial_eb_reading ?? tenant.initial_eb ?? 0;
     }
 
     const waterResetDate = tenant.water_reset_at ? new Date(tenant.water_reset_at) : null;
     if (!waterResetDate || waterResetDate <= lastBillDate) {
-      prevWater = lastBill.curr_water_reading ?? tenant.initial_water ?? 0;
+      prevWater = lastBill.curr_water_reading ?? tenant.initial_water_reading ?? tenant.initial_water ?? 0;
     }
   }
 
@@ -298,7 +300,7 @@ export async function updateLiveBillCalculation() {
 
   const rentInputVal = document.getElementById('bill-rent-amount')?.value;
   const rentRupees = (rentInputVal !== undefined && rentInputVal !== '' && !isNaN(parseFloat(rentInputVal)))
-    ? parseFloat(rentInputVal)
+    ? Math.max(0, parseFloat(rentInputVal))
     : ((tenant.base_rent || 0) / 100);
 
   const rawEb = document.getElementById('bill-eb')?.value;
@@ -311,22 +313,36 @@ export async function updateLiveBillCalculation() {
     ? parseInt(rawWater, 10)
     : prevWater;
 
-  const lateRupees = parseFloat(document.getElementById('bill-late')?.value) || 0;
-  const discountRupees = parseFloat(document.getElementById('bill-discount')?.value) || 0;
-  const othersRupees = parseFloat(document.getElementById('bill-others')?.value) || 0;
+  const lateRupees = Math.max(0, parseFloat(document.getElementById('bill-late')?.value) || 0);
+  const discountRupees = Math.max(0, parseFloat(document.getElementById('bill-discount')?.value) || 0);
+  const othersRupees = Math.max(0, parseFloat(document.getElementById('bill-others')?.value) || 0);
 
   const inputArrears = document.getElementById('bill-arrears')?.value;
   const arrearsRupees = (inputArrears !== undefined && inputArrears !== '' && !isNaN(parseFloat(inputArrears)))
     ? parseFloat(inputArrears)
     : ((tenant.pending_arrears || 0) / 100);
 
-  const ebUnits = Math.max(0, currEb - prevEb);
-  const ebRupees = (ebUnits * (tenant.eb_unit_price || 0)) / 100;
+  // Rate in rupees per unit
+  const ebUnitPriceRupees = (tenant.eb_per_unit_price !== undefined && tenant.eb_per_unit_price !== null)
+    ? parseFloat(tenant.eb_per_unit_price)
+    : (((tenant.eb_unit_price !== undefined && tenant.eb_unit_price !== null) ? tenant.eb_unit_price : 800) / 100);
 
-  let waterRupees = (tenant.water_fixed_charge || 0) / 100;
+  const waterUnitPriceRupees = (tenant.water_per_unit_price !== undefined && tenant.water_per_unit_price !== null)
+    ? parseFloat(tenant.water_per_unit_price)
+    : (((tenant.water_unit_price !== undefined && tenant.water_unit_price !== null) ? tenant.water_unit_price : 0) / 100);
+
+  const waterFixedRupees = (tenant.water_fixed_charge !== undefined && tenant.water_fixed_charge !== null)
+    ? (tenant.water_fixed_charge > 500 ? tenant.water_fixed_charge / 100 : tenant.water_fixed_charge)
+    : 0;
+
+  const ebUnits = Math.max(0, currEb - prevEb);
+  const ebRupees = ebUnits * ebUnitPriceRupees;
+
+  let waterUnits = 0;
+  let waterRupees = waterFixedRupees;
   if (tenant.water_calc_mode === 'METERED') {
-    const waterUnits = Math.max(0, currWater - prevWater);
-    waterRupees = (waterUnits * (tenant.water_unit_price || 0)) / 100;
+    waterUnits = Math.max(0, currWater - prevWater);
+    waterRupees = waterUnits * waterUnitPriceRupees;
   }
 
   const maintRupees = (tenant.maint_charge || 0) / 100;
@@ -342,7 +358,18 @@ export async function updateLiveBillCalculation() {
   const elWater = document.getElementById('live-calc-water'); if (elWater) elWater.textContent = formatCurrency(Math.round(waterRupees * 100));
   const elMaint = document.getElementById('live-calc-maint'); if (elMaint) elMaint.textContent = formatCurrency(Math.round(maintRupees * 100));
   const elExtra = document.getElementById('live-calc-extra'); if (elExtra) elExtra.textContent = formatCurrency(Math.round(extraRupees * 100));
-  const elDiscount = document.getElementById('live-calc-discount'); if (elDiscount) elDiscount.textContent = formatCurrency(Math.round(discountRupees * 100));
+  const elDiscount = document.getElementById('live-calc-discount');
+  if (elDiscount) {
+    elDiscount.textContent = discountRupees > 0 ? `-${formatCurrency(Math.round(discountRupees * 100))}` : '₹0.00';
+  }
+
+  if (hintEl) {
+    const ebPart = `EB: Prev ${prevEb} → Curr ${currEb} (${ebUnits}u @ ₹${ebUnitPriceRupees.toFixed(2)}/u)`;
+    const waterPart = tenant.water_calc_mode === 'METERED'
+      ? `Water: Prev ${prevWater} → Curr ${currWater} (${waterUnits}u @ ₹${waterUnitPriceRupees.toFixed(2)}/u)`
+      : `Water: Fixed ₹${waterFixedRupees.toFixed(2)}`;
+    hintEl.textContent = `${ebPart} | ${waterPart}`;
+  }
 }
 
 export async function openPaymentModal(billId, duePaise) {
@@ -512,7 +539,7 @@ export async function triggerDeleteBill(billId) {
 }
 
 /**
- * Generates a clean, minimal, itemized bill invoice text with stay period, EB & Water meter breakdowns and payment transfer details
+ * Generates a clean, itemized bill invoice text with stay period, detailed EB & Water meter readings and payment transfer details
  */
 export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) {
   const invoiceNo = formatInvoiceNumber(b);
@@ -529,25 +556,41 @@ export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) 
   const billDateStr = b.bill_date || (b.created_at ? new Date(b.created_at).toLocaleDateString() : '-');
   const dueDateStr = b.due_date || '-';
 
-  // EB Reading & Consumption Calculation
-  const prevEb = b.prev_eb_reading || 0;
-  const currEb = b.curr_eb_reading || 0;
-  const ebUnits = Math.max(0, currEb - prevEb);
-  const ebRate = ((b.eb_unit_price || 0) / 100).toFixed(2);
-  const ebBreakdown = `${ebUnits} Units (${currEb} - ${prevEb} @ ₹${ebRate}/u) = ${formatCurrency(b.eb_amount || 0)}`;
+  // EB Reading & Consumption Details
+  const prevEb = b.prev_eb_reading ?? 0;
+  const currEb = b.curr_eb_reading ?? prevEb;
+  const ebUnits = b.eb_units ?? Math.max(0, currEb - prevEb);
+  const ebRateNum = (b.eb_rate !== undefined && b.eb_rate !== null)
+    ? parseFloat(b.eb_rate)
+    : (((b.eb_unit_price !== undefined && b.eb_unit_price !== null) ? b.eb_unit_price : 800) / 100);
+  const ebRateStr = ebRateNum.toFixed(2);
+
+  const ebDetails = 
+`⚡ *Electricity (EB) Reading Details:*
+   • Meter Reading: ${prevEb} → ${currEb}
+   • Units Consumed: *${ebUnits} Units* (@ ₹${ebRateStr}/u)
+   • EB Subtotal: *${formatCurrency(b.eb_amount || 0)}*`;
 
   // Water Calculation & Meter Breakdown
-  let waterBreakdown = '';
+  let waterDetails = '';
   if (b.water_calc_mode === 'METERED') {
-    const prevW = b.prev_water_reading || 0;
-    const currW = b.curr_water_reading || 0;
-    const wUnits = Math.max(0, currW - prevW);
-    const wRate = ((b.water_unit_price || 0) / 100).toFixed(2);
-    waterBreakdown = `${wUnits} Units (${currW} - ${prevW} @ ₹${wRate}/u) = ${formatCurrency(b.water_amount || 0)}`;
+    const prevW = b.prev_water_reading ?? 0;
+    const currW = b.curr_water_reading ?? prevW;
+    const wUnits = b.water_units ?? Math.max(0, currW - prevW);
+    const wRateNum = (b.water_rate !== undefined && b.water_rate !== null)
+      ? parseFloat(b.water_rate)
+      : (((b.water_unit_price !== undefined && b.water_unit_price !== null) ? b.water_unit_price : 0) / 100);
+    const wRateStr = wRateNum.toFixed(2);
+
+    waterDetails = 
+`\n💧 *Water Utility Reading Details:*
+   • Meter Reading: ${prevW} → ${currW}
+   • Units Consumed: *${wUnits} Units* (@ ₹${wRateStr}/u)
+   • Water Subtotal: *${formatCurrency(b.water_amount || 0)}*`;
   } else if (b.water_amount && b.water_amount > 0) {
-    waterBreakdown = `Flat Fixed = ${formatCurrency(b.water_amount)}`;
-  } else {
-    waterBreakdown = formatCurrency(0);
+    waterDetails = 
+`\n💧 *Water Utility Details:*
+   • Fixed Flat Rate: *${formatCurrency(b.water_amount)}*`;
   }
 
   // Payment Status Line
@@ -584,11 +627,13 @@ export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) 
 🗓️ *Bill Date:* ${billDateStr}
 ⏰ *Due Date:* ${dueDateStr}
 
-*Itemized Breakdown:*
+${ebDetails}${waterDetails}
+
+📌 *Itemized Breakdown:*
 • Base Rent: ${formatCurrency(b.rent_amount || 0)}
 • Maintenance: ${formatCurrency(b.maint_amount || 0)}
-• ⚡ Electricity (EB): ${ebBreakdown}
-• 💧 Water Utility: ${waterBreakdown}` +
+• Electricity (EB): ${formatCurrency(b.eb_amount || 0)} (${ebUnits} Units)` +
+(b.water_amount ? `\n• Water Utility: ${formatCurrency(b.water_amount)}` : '') +
 (b.arrears_included ? `\n• Previous Arrears: ${formatCurrency(b.arrears_included)}` : '') +
 (b.others ? `\n• Other Charges: ${formatCurrency(b.others)}` : '') +
 (b.late_fee ? `\n• Late Fee: ${formatCurrency(b.late_fee)}` : '') +
@@ -606,7 +651,7 @@ Please complete payment on or before the due date. Thank you!`
 }
 
 /**
- * Formats an urgent overdue reminder notice with itemized breakdown
+ * Formats an urgent overdue reminder notice with itemized breakdown and reading details
  */
 export function formatOverdueReminderMessage(b, t, unitName = '-', ownerObj = null) {
   const invoiceNo = formatInvoiceNumber(b);
@@ -618,21 +663,28 @@ export function formatOverdueReminderMessage(b, t, unitName = '-', ownerObj = nu
     stayPeriodStr = `${b.period_start_date} to ${b.period_end_date} (${b.billing_period})`;
   }
 
-  const prevEb = b.prev_eb_reading || 0;
-  const currEb = b.curr_eb_reading || 0;
-  const ebUnits = Math.max(0, currEb - prevEb);
-  const ebRate = ((b.eb_unit_price || 0) / 100).toFixed(2);
-  const ebBreakdown = `${ebUnits} Units (${currEb} - ${prevEb} @ ₹${ebRate}/u) = ${formatCurrency(b.eb_amount || 0)}`;
+  const prevEb = b.prev_eb_reading ?? 0;
+  const currEb = b.curr_eb_reading ?? prevEb;
+  const ebUnits = b.eb_units ?? Math.max(0, currEb - prevEb);
+  const ebRateNum = (b.eb_rate !== undefined && b.eb_rate !== null)
+    ? parseFloat(b.eb_rate)
+    : (((b.eb_unit_price !== undefined && b.eb_unit_price !== null) ? b.eb_unit_price : 800) / 100);
+  const ebRateStr = ebRateNum.toFixed(2);
 
-  let waterBreakdown = '';
+  const ebDetails = `⚡ *EB Reading:* ${prevEb} → ${currEb} (${ebUnits} units @ ₹${ebRateStr}/u) = ${formatCurrency(b.eb_amount || 0)}`;
+
+  let waterDetails = '';
   if (b.water_calc_mode === 'METERED') {
-    const prevW = b.prev_water_reading || 0;
-    const currW = b.curr_water_reading || 0;
-    const wUnits = Math.max(0, currW - prevW);
-    const wRate = ((b.water_unit_price || 0) / 100).toFixed(2);
-    waterBreakdown = `${wUnits} Units (${currW} - ${prevW} @ ₹${wRate}/u) = ${formatCurrency(b.water_amount || 0)}`;
+    const prevW = b.prev_water_reading ?? 0;
+    const currW = b.curr_water_reading ?? prevW;
+    const wUnits = b.water_units ?? Math.max(0, currW - prevW);
+    const wRateNum = (b.water_rate !== undefined && b.water_rate !== null)
+      ? parseFloat(b.water_rate)
+      : (((b.water_unit_price !== undefined && b.water_unit_price !== null) ? b.water_unit_price : 0) / 100);
+    const wRateStr = wRateNum.toFixed(2);
+    waterDetails = `\n• 💧 *Water Reading:* ${prevW} → ${currW} (${wUnits} units @ ₹${wRateStr}/u) = ${formatCurrency(b.water_amount || 0)}`;
   } else if (b.water_amount && b.water_amount > 0) {
-    waterBreakdown = `Flat Fixed = ${formatCurrency(b.water_amount)}`;
+    waterDetails = `\n• 💧 *Water Charges:* Fixed Flat Rate = ${formatCurrency(b.water_amount)}`;
   }
 
   let paymentDetails = '';
@@ -656,9 +708,12 @@ This is a reminder that your rent payment for *${stayPeriodStr}* (Unit: *${unitN
 📌 *Invoice Summary (${invoiceNo}):*
 • Base Rent: ${formatCurrency(b.rent_amount || 0)}
 • Maintenance: ${formatCurrency(b.maint_amount || 0)}
-• ⚡ Electricity (EB): ${ebBreakdown}` +
-(waterBreakdown ? `\n• 💧 Water: ${waterBreakdown}` : '') +
+• ${ebDetails}` +
+(waterDetails ? `${waterDetails}` : '') +
 (b.arrears_included ? `\n• Previous Arrears: ${formatCurrency(b.arrears_included)}` : '') +
+(b.late_fee ? `\n• Late Fee: ${formatCurrency(b.late_fee)}` : '') +
+(b.others ? `\n• Other Charges: ${formatCurrency(b.others)}` : '') +
+(b.discount_amount ? `\n• Discount: -${formatCurrency(b.discount_amount)}` : '') +
 `
 ━━━━━━━━━━━━━━━━━━━━
 💰 *Net Invoice:* ₹${netRupees}
@@ -686,8 +741,8 @@ async function fetchBillContext(billId) {
 
   let unitName = '-';
   if (t.unit_id) {
-    const { data: u } = await supabaseClient.from('units').select('unit_name').eq('id', t.unit_id).single();
-    if (u) unitName = u.unit_name;
+    const { data: u } = await supabaseClient.from('units').select('*').eq('id', t.unit_id).single();
+    if (u) unitName = u.unit_name || u.unit_number || '-';
   }
 
   let ownerObj = null;

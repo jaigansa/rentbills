@@ -512,6 +512,52 @@
   letter-spacing: -0.02em;
 }
 
+/* Properties & Settings Tabs Bar */
+.properties-tabs-bar,
+.settings-tabs-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.properties-tabs-bar::-webkit-scrollbar,
+.settings-tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.properties-tab-btn,
+.settings-tab-btn {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.properties-tab-btn.active,
+.settings-tab-btn.active {
+  background-color: var(--primary) !important;
+  border-color: var(--primary) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35) !important;
+}
+
+.properties-tab-btn.active i,
+.settings-tab-btn.active i,
+.properties-tab-btn.active svg,
+.settings-tab-btn.active svg {
+  stroke: #ffffff !important;
+}
+
 /* Sub-Tab Bar Integrated Compact Add (+) Buttons */
 .tab-pill-group {
   display: inline-flex;

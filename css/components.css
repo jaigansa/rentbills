@@ -732,3 +732,120 @@ input[type="number"] {
   width: 12px;
   height: 12px;
 }
+
+/* Live Invoice Calculation Summary Card */
+.bill-live-calc-card {
+  background-color: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  margin-top: 18px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bill-live-calc-card:hover {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.bill-live-calc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  margin-bottom: 12px;
+}
+
+.bill-live-calc-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-main);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.bill-live-calc-title i,
+.bill-live-calc-title svg {
+  color: var(--primary);
+  width: 16px;
+  height: 16px;
+}
+
+.bill-live-calc-total-wrap {
+  text-align: right;
+}
+
+.bill-live-calc-total-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.bill-live-calc-total {
+  font-size: 20px;
+  color: var(--primary);
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+}
+
+.bill-live-calc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 20px;
+  font-size: 12px;
+}
+
+.bill-live-calc-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  color: var(--text-muted);
+}
+
+.bill-live-calc-item span.label {
+  font-weight: 500;
+}
+
+.bill-live-calc-item strong {
+  color: var(--text-main);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+}
+
+.bill-live-calc-item.discount strong {
+  color: var(--danger);
+}
+
+.bill-live-calc-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bill-live-calc-hint i,
+.bill-live-calc-hint svg {
+  color: var(--text-muted);
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .bill-live-calc-grid {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

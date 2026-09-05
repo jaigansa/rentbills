@@ -40,9 +40,10 @@ export async function populateDocEntitySelect(type) {
         select.innerHTML += `<option value="${item.name}">Building: ${item.name}</option>`;
       });
     } else if (type === 'UNIT') {
-      const { data } = await supabaseClient.from('units').select('id, unit_name').is('deleted_at', null);
+      const { data } = await supabaseClient.from('units').select('*').is('deleted_at', null);
       (data || []).forEach(item => {
-        select.innerHTML += `<option value="${item.unit_name}">Unit: ${item.unit_name}</option>`;
+        const uName = item.unit_name || item.unit_number || `Unit #${item.id}`;
+        select.innerHTML += `<option value="${uName}">Unit: ${uName}</option>`;
       });
     } else if (type === 'RENTER') {
       const { data } = await supabaseClient.from('renters').select('id, name').is('deleted_at', null);

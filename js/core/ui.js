@@ -1,5 +1,5 @@
 // RentBill Pro — UI Helpers, Modals, Dropdowns & Formatting Utilities
-import { populateBillingPeriods } from '../modules/bills.js';
+import { populateBillingPeriods, updateLiveBillCalculation } from '../modules/bills.js';
 import { populateOwnerSelects } from '../modules/owners.js';
 import { populateTenantUnitSelect } from '../modules/properties.js';
 // Pure, testable formatters & financial rules (no browser deps) — re-exported
@@ -176,6 +176,7 @@ export function openModal(id) {
     modal.classList.add('active');
     if (id === 'modal-add-bill') {
       populateBillingPeriods();
+      updateLiveBillCalculation();
     }
     if (id === 'modal-add-withdrawal' || id === 'modal-add-expense' || id === 'modal-add-property' || id === 'modal-add-tenant') {
       populateOwnerSelects();
@@ -223,6 +224,11 @@ export function closeModal(id) {
       if (editOwnerEl) editOwnerEl.value = '';
       const form = document.getElementById('form-add-owner');
       if (form) form.reset();
+    }
+    if (id === 'modal-add-bill') {
+      const form = document.getElementById('form-add-bill');
+      if (form) form.reset();
+      updateLiveBillCalculation();
     }
   }
 }

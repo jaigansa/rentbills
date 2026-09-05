@@ -182,7 +182,11 @@ export function setupFormSubmitHandlers() {
       }
 
       const floor = parseFloorValue(rawFloor);
-      const unitPayload = { property_id, unit_name };
+      const unitPayload = {
+        property_id,
+        unit_name,
+        unit_number: unit_name
+      };
 
       if (floor !== null) {
         unitPayload.floor = floor;
@@ -249,8 +253,17 @@ export function setupFormSubmitHandlers() {
       let savedRenterId = editId;
       const tenantPayload = {
         unit_id, owner_id, name, mobile_number, email, aadhar_no, base_rent, advance_amount, pending_arrears,
-        maint_charge, eb_unit_price, initial_eb, water_calc_mode,
-        water_fixed_charge, water_unit_price, initial_water,
+        maint_charge,
+        eb_unit_price,
+        eb_per_unit_price: parseFloat((eb_unit_price / 100).toFixed(2)),
+        initial_eb,
+        initial_eb_reading: initial_eb,
+        water_calc_mode,
+        water_fixed_charge,
+        water_unit_price,
+        water_per_unit_price: parseFloat((water_unit_price / 100).toFixed(2)),
+        initial_water,
+        initial_water_reading: initial_water,
         agreement_start_date, agreement_expiry_date
       };
 
@@ -315,8 +328,8 @@ export function setupFormSubmitHandlers() {
       const { data: lastBills } = await client.from('bills')
         .select('*').eq('renter_id', renter_id).is('deleted_at', null).order('created_at', { ascending: false }).limit(1);
 
-      let prev_eb = tenant.initial_eb || 0;
-      let prev_water = tenant.initial_water || 0;
+      let prev_eb = tenant.initial_eb_reading ?? tenant.initial_eb ?? 0;
+      let prev_water = tenant.initial_water_reading ?? tenant.initial_water ?? 0;
 
       if (lastBills && lastBills.length > 0) {
         const lastBill = lastBills[0];
@@ -324,22 +337,33 @@ export function setupFormSubmitHandlers() {
 
         const ebResetDate = tenant.eb_reset_at ? new Date(tenant.eb_reset_at) : null;
         if (!ebResetDate || ebResetDate <= lastBillDate) {
-          prev_eb = lastBill.curr_eb_reading ?? tenant.initial_eb ?? 0;
+          prev_eb = lastBill.curr_eb_reading ?? tenant.initial_eb_reading ?? tenant.initial_eb ?? 0;
         }
 
         const waterResetDate = tenant.water_reset_at ? new Date(tenant.water_reset_at) : null;
         if (!waterResetDate || waterResetDate <= lastBillDate) {
-          prev_water = lastBill.curr_water_reading ?? tenant.initial_water ?? 0;
+          prev_water = lastBill.curr_water_reading ?? tenant.initial_water_reading ?? tenant.initial_water ?? 0;
         }
       }
 
       const eb_units = Math.max(0, curr_eb - prev_eb);
-      const eb_amount = eb_units * (tenant.eb_unit_price || 0);
+      const ebUnitPricePaise = (tenant.eb_per_unit_price !== undefined && tenant.eb_per_unit_price !== null)
+        ? Math.round(parseFloat(tenant.eb_per_unit_price) * 100)
+        : (tenant.eb_unit_price || 800);
+      const eb_amount = eb_units * ebUnitPricePaise;
 
-      let water_amount = tenant.water_fixed_charge || 0;
+      const waterUnitPricePaise = (tenant.water_per_unit_price !== undefined && tenant.water_per_unit_price !== null)
+        ? Math.round(parseFloat(tenant.water_per_unit_price) * 100)
+        : (tenant.water_unit_price || 0);
+
+      const waterFixedPaise = (tenant.water_fixed_charge !== undefined && tenant.water_fixed_charge !== null)
+        ? (tenant.water_fixed_charge > 500 ? tenant.water_fixed_charge : Math.round(tenant.water_fixed_charge * 100))
+        : 0;
+
+      let water_amount = waterFixedPaise;
       if (tenant.water_calc_mode === 'METERED') {
         const water_units = Math.max(0, curr_water - prev_water);
-        water_amount = water_units * (tenant.water_unit_price || 0);
+        water_amount = water_units * waterUnitPricePaise;
       }
 
       const inputRentRupees = parseFloat(document.getElementById('bill-rent-amount')?.value || '0');

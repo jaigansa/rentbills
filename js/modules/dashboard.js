@@ -60,10 +60,11 @@ export async function loadDashboard() {
 
       if (myLease) {
         if (myLease.unit_id) {
-          const { data: unitData } = await supabaseClient.from('units').select('unit_name, property_id').eq('id', myLease.unit_id).maybeSingle();
+          const { data: unitData } = await supabaseClient.from('units').select('*').eq('id', myLease.unit_id).maybeSingle();
           if (unitData) {
             const { data: propData } = await supabaseClient.from('properties').select('name').eq('id', unitData.property_id).maybeSingle();
-            unitLabel = `${unitData.unit_name} — ${propData ? propData.name : 'Property'}`;
+            const uName = unitData.unit_name || unitData.unit_number || 'Unit';
+            unitLabel = `${uName} — ${propData ? propData.name : 'Property'}`;
           }
         }
 

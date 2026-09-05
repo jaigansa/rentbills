@@ -54,7 +54,7 @@ export async function loadMaintenancePage() {
 
     // Fetch related maps for display
     const { data: rentersData } = await supabaseClient.from('renters').select('id, name, unit_id, property_id');
-    const { data: unitsData } = await supabaseClient.from('units').select('id, unit_name, property_id');
+    const { data: unitsData } = await supabaseClient.from('units').select('*');
     const { data: propsData } = await supabaseClient.from('properties').select('id, name');
 
     const renterMap = {}; (rentersData || []).forEach(r => { renterMap[r.id] = r; });
@@ -69,7 +69,7 @@ export async function loadMaintenancePage() {
       return {
         ...t,
         renter_name: renter ? renter.name : (t.renter_id ? `Tenant #${t.renter_id}` : '-'),
-        unit_name: unit ? unit.unit_name : '-',
+        unit_name: unit ? (unit.unit_name || unit.unit_number || '-') : '-',
         property_name: propName
       };
     });
