@@ -14,7 +14,8 @@ export async function populateOwnerSelects() {
     withdrawalSelect.innerHTML = '<option value="">Select Owner *</option>';
     (owners || []).forEach(o => {
       const opt = document.createElement('option');
-      opt.value = o.name;
+      opt.value = o.id;
+      opt.dataset.name = o.name;
       opt.textContent = `${o.name} ${o.bank_name ? `(${o.bank_name})` : ''}`;
       withdrawalSelect.appendChild(opt);
     });

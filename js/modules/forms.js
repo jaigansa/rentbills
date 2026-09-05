@@ -602,8 +602,10 @@ export function setupFormSubmitHandlers() {
       const amount = Math.round(parseFloat(document.getElementById('expense-amount').value || '0') * 100);
       const date = document.getElementById('expense-date').value;
       const notes = document.getElementById('expense-notes').value;
+      const expense_date = date || new Date().toISOString().split('T')[0];
+      const description = notes || null;
 
-      const { error } = await safeInsert(client, 'expenses', [{ category, amount, date, notes }]);
+      const { error } = await safeInsert(client, 'expenses', [{ category, amount, expense_date, description }]);
       if (error) alert('Error logging expense: ' + error.message);
       else {
         formAddExpense.reset();
@@ -622,12 +624,18 @@ export function setupFormSubmitHandlers() {
       const client = getSupabaseClient();
       if (!client) return;
 
-      const owner_name = document.getElementById('withdrawal-owner-name').value;
+      const ownerSelect = document.getElementById('withdrawal-owner-name');
+      const owner_id = parseInt(ownerSelect?.value, 10);
+      if (!owner_id) {
+        alert('Please select an owner');
+        return;
+      }
       const amount = Math.round(parseFloat(document.getElementById('withdrawal-amount').value || '0') * 100);
       const date = document.getElementById('withdrawal-date').value;
-      const notes = document.getElementById('withdrawal-notes').value;
+      const notes = document.getElementById('withdrawal-notes').value || null;
+      const withdrawal_date = date || new Date().toISOString().split('T')[0];
 
-      const { error } = await safeInsert(client, 'owner_withdrawals', [{ owner_name, amount, date, notes }]);
+      const { error } = await safeInsert(client, 'owner_withdrawals', [{ owner_id, amount, withdrawal_date, notes }]);
       if (error) alert('Error recording withdrawal: ' + error.message);
       else {
         formAddWithdrawal.reset();

@@ -53,7 +53,7 @@ export async function loadMaintenancePage() {
     if (error) throw error;
 
     // Fetch related maps for display
-    const { data: rentersData } = await supabaseClient.from('renters').select('id, name, unit_id, property_id');
+    const { data: rentersData } = await supabaseClient.from('renters').select('id, name, unit_id');
     const { data: unitsData } = await supabaseClient.from('units').select('*');
     const { data: propsData } = await supabaseClient.from('properties').select('id, name');
 
@@ -62,12 +62,26 @@ export async function loadMaintenancePage() {
     const propMap = {}; (propsData || []).forEach(p => { propMap[p.id] = p.name; });
 
     maintenanceCache = (tasks || []).map(t => {
+      let cat = t.category;
+      let cleanDesc = t.description || '';
+      if (cleanDesc.startsWith('[')) {
+        const m = cleanDesc.match(/^\[([A-Za-z0-9_]+)\]\s*/);
+        if (m) {
+          cat = m[1];
+          cleanDesc = cleanDesc.substring(m[0].length);
+        }
+      }
+      cat = cat || 'GENERAL';
+
       const renter = renterMap[t.renter_id];
       const unit = unitMap[t.unit_id] || (renter ? unitMap[renter.unit_id] : null);
       const propName = propMap[t.property_id] || (unit ? propMap[unit.property_id] : '-');
 
       return {
         ...t,
+        category: cat,
+        clean_description: cleanDesc,
+        due_date: t.due_date || t.scheduled_date,
         renter_name: renter ? renter.name : (t.renter_id ? `Tenant #${t.renter_id}` : '-'),
         unit_name: unit ? (unit.unit_name || unit.unit_number || '-') : '-',
         property_name: propName
@@ -105,7 +119,7 @@ function renderMaintenanceTable(tasks) {
 
     let priorityBadge = 'badge-info';
     if (t.priority === 'HIGH') priorityBadge = 'badge-warning';
-    if (t.priority === 'URGENT') priorityBadge = 'badge-danger';
+    if (t.priority === 'URGENT' || t.priority === 'EMERGENCY') priorityBadge = 'badge-danger';
     if (t.priority === 'LOW') priorityBadge = 'badge-secondary';
 
     let statusBadge = 'badge-warning';
@@ -127,7 +141,8 @@ function renderMaintenanceTable(tasks) {
     const estCost = t.estimated_cost ? formatCurrency(t.estimated_cost) : '-';
     const actCost = t.actual_cost ? formatCurrency(t.actual_cost) : '-';
 
-    const descSnippet = t.description ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeStr(t.description.length > 60 ? t.description.substring(0, 60) + '...' : t.description)}</div>` : '';
+    const descText = t.clean_description || t.description || '';
+    const descSnippet = descText ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${escapeStr(descText.length > 60 ? descText.substring(0, 60) + '...' : descText)}</div>` : '';
 
     const quickActionsHtml = `
       <div class="maint-mobile-quick-actions mobile-only">
@@ -165,7 +180,7 @@ function renderMaintenanceTable(tasks) {
       </td>
       <td data-label="Assigned Tech / Scheduled" class="maint-desktop-col">
         <div>${escapeStr(t.assigned_to || 'Unassigned')}</div>
-        <div style="font-size: 11px; color: var(--text-muted);">${t.scheduled_date ? `Scheduled: ${t.scheduled_date}` : 'Not scheduled'}</div>
+        <div style="font-size: 11px; color: var(--text-muted);">${(t.due_date || t.scheduled_date) ? `Scheduled: ${t.due_date || t.scheduled_date}` : 'Not scheduled'}</div>
       </td>
       <td data-label="Est. / Actual Cost">
         <div class="maint-desktop-col">
@@ -233,7 +248,9 @@ export function filterMaintenanceTable() {
                       (t.unit_name || '').toLowerCase().includes(searchVal) ||
                       (t.assigned_to || '').toLowerCase().includes(searchVal);
 
-    const statusMatch = statusFilter === 'ALL' || t.status === statusFilter;
+    const statusMatch = statusFilter === 'ALL' || t.status === statusFilter ||
+                        (statusFilter === 'OPEN' && t.status === 'PENDING') ||
+                        (statusFilter === 'PENDING' && t.status === 'OPEN');
     const categoryMatch = categoryFilter === 'ALL' || t.category === categoryFilter;
 
     return textMatch && statusMatch && categoryMatch;
@@ -253,13 +270,13 @@ export function triggerEditMaintenance(taskId) {
 
   setVal('edit-maint-id', task.id);
   setVal('maint-title', task.title);
-  setVal('maint-category', task.category);
-  setVal('maint-priority', task.priority);
+  setVal('maint-category', task.category || 'GENERAL');
+  setVal('maint-priority', task.priority === 'URGENT' ? 'EMERGENCY' : (task.priority || 'MEDIUM'));
   setVal('maint-renter-id', task.renter_id);
   setVal('maint-assigned-to', task.assigned_to);
-  setVal('maint-scheduled-date', task.scheduled_date);
+  setVal('maint-scheduled-date', task.due_date || task.scheduled_date);
   setVal('maint-est-cost', task.estimated_cost ? (task.estimated_cost / 100).toFixed(2) : '');
-  setVal('maint-description', task.description);
+  setVal('maint-description', task.clean_description !== undefined ? task.clean_description : task.description);
 
   const titleEl = document.getElementById('modal-maint-title');
   if (titleEl) titleEl.textContent = 'Edit Maintenance Task';
@@ -276,8 +293,11 @@ export function triggerUpdateMaintenanceStatus(taskId) {
 
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
 
+  let currentStatus = task.status;
+  if (currentStatus === 'PENDING') currentStatus = 'OPEN';
+
   setVal('status-maint-id', task.id);
-  setVal('maint-update-status', task.status);
+  setVal('maint-update-status', currentStatus || 'OPEN');
   setVal('maint-actual-cost', task.actual_cost ? (task.actual_cost / 100).toFixed(2) : '');
   setVal('maint-completion-notes', task.notes || '');
 
@@ -364,27 +384,34 @@ export async function submitMaintenanceForm(e) {
   let property_id = null;
 
   if (renter_id) {
-    const { data: renter } = await client.from('renters').select('unit_id, property_id').eq('id', renter_id).single();
-    if (renter) {
-      unit_id = renter.unit_id || null;
-      property_id = renter.property_id || null;
-      if (unit_id && !property_id) {
-        const { data: unit } = await client.from('units').select('property_id').eq('id', unit_id).single();
-        if (unit) property_id = unit.property_id || null;
-      }
+    const { data: renter } = await client.from('renters').select('unit_id').eq('id', renter_id).single();
+    if (renter && renter.unit_id) {
+      unit_id = renter.unit_id;
+      const { data: unit } = await client.from('units').select('property_id').eq('id', unit_id).single();
+      if (unit) property_id = unit.property_id || null;
     }
   }
 
+  const normalizedPriority = priority === 'URGENT' ? 'EMERGENCY' : (priority || 'MEDIUM');
+  const fullDescription = category ? `[${category}] ${description || ''}`.trim() : (description || null);
+
   const payload = {
-    title, category, priority, renter_id, unit_id, property_id,
-    assigned_to, scheduled_date, estimated_cost, description
+    title,
+    priority: normalizedPriority,
+    renter_id: renter_id ? parseInt(renter_id, 10) : null,
+    unit_id: unit_id ? parseInt(unit_id, 10) : null,
+    property_id: property_id ? parseInt(property_id, 10) : null,
+    assigned_to: assigned_to || null,
+    due_date: scheduled_date || null,
+    estimated_cost: estimated_cost || 0,
+    description: fullDescription
   };
 
   let result;
   if (editId) {
     result = await safeUpdate(client, 'maintenance_tasks', payload, 'id', editId);
   } else {
-    payload.status = 'PENDING';
+    payload.status = 'OPEN';
     result = await safeInsert(client, 'maintenance_tasks', [payload]);
   }
 
@@ -410,7 +437,8 @@ export async function submitMaintenanceStatusForm(e) {
   const taskId = document.getElementById('status-maint-id')?.value;
   if (!taskId) return;
 
-  const status = document.getElementById('maint-update-status')?.value || 'PENDING';
+  let status = document.getElementById('maint-update-status')?.value || 'OPEN';
+  if (status === 'PENDING') status = 'OPEN';
   const actual_cost = Math.round(parseFloat(document.getElementById('maint-actual-cost')?.value || '0') * 100);
   const notes = document.getElementById('maint-completion-notes')?.value || null;
 

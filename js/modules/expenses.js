@@ -11,7 +11,7 @@ export async function loadExpensesPage() {
     await populateOwnerSelects();
 
     // 1. Load Operating Expenses
-    const { data: expenses } = await supabaseClient.from('expenses').select('*').is('deleted_at', null).order('date', { ascending: false });
+    const { data: expenses } = await supabaseClient.from('expenses').select('*').is('deleted_at', null).order('expense_date', { ascending: false });
     const tbodyExpenses = document.getElementById('table-body-expenses');
     if (tbodyExpenses) {
       tbodyExpenses.innerHTML = '';
@@ -19,6 +19,8 @@ export async function loadExpensesPage() {
         tbodyExpenses.innerHTML = renderEmptyState(5, 'No operating expenses logged yet');
       } else {
         expenses.forEach(e => {
+          const expenseDate = e.expense_date || e.date || '-';
+          const expenseNotes = e.description || e.notes || '-';
           const tr = document.createElement('tr');
           tr.className = 'expense-card-row';
           tr.innerHTML = `
@@ -28,15 +30,15 @@ export async function loadExpensesPage() {
                   <i data-lucide="receipt" class="mobile-only"></i>
                   <strong>${escapeStr(e.category)}</strong>
                 </div>
-                <div class="expense-date-tag mobile-only">${e.date || '-'}</div>
+                <div class="expense-date-tag mobile-only">${expenseDate}</div>
               </div>
             </td>
             <td data-label="Amount">
               <span class="expense-amount-val">-${formatCurrency(e.amount)}</span>
             </td>
-            <td data-label="Date" class="expense-desktop-col">${e.date || '-'}</td>
+            <td data-label="Date" class="expense-desktop-col">${expenseDate}</td>
             <td data-label="Notes">
-              <span class="expense-notes-text">${escapeStr(e.notes || '-')}</span>
+              <span class="expense-notes-text">${escapeStr(expenseNotes)}</span>
             </td>
             <td data-label="Actions">
               <div class="dropdown">
@@ -58,7 +60,11 @@ export async function loadExpensesPage() {
     }
 
     // 2. Load Owner Withdrawals
-    const { data: withdrawals } = await supabaseClient.from('owner_withdrawals').select('*').is('deleted_at', null).order('date', { ascending: false });
+    const { data: withdrawals } = await supabaseClient.from('owner_withdrawals').select('*').is('deleted_at', null).order('withdrawal_date', { ascending: false });
+    const { data: ownersData } = await supabaseClient.from('owners').select('id, name');
+    const ownerMap = {};
+    (ownersData || []).forEach(o => { ownerMap[o.id] = o.name; });
+
     const tbodyWithdrawals = document.getElementById('table-body-withdrawals');
     if (tbodyWithdrawals) {
       tbodyWithdrawals.innerHTML = '';
@@ -66,6 +72,8 @@ export async function loadExpensesPage() {
         tbodyWithdrawals.innerHTML = renderEmptyState(5, 'No owner withdrawals recorded yet');
       } else {
         withdrawals.forEach(w => {
+          const ownerName = ownerMap[w.owner_id] || w.owner_name || (w.owner_id ? `Owner #${w.owner_id}` : '-');
+          const withdrawalDate = w.withdrawal_date || w.date || '-';
           const tr = document.createElement('tr');
           tr.className = 'withdrawal-card-row';
           tr.innerHTML = `
@@ -73,15 +81,15 @@ export async function loadExpensesPage() {
               <div class="withdrawal-mobile-header">
                 <div class="withdrawal-name-wrap">
                   <i data-lucide="user-check" class="mobile-only"></i>
-                  <strong>${escapeStr(w.owner_name)}</strong>
+                  <strong>${escapeStr(ownerName)}</strong>
                 </div>
-                <div class="withdrawal-date-tag mobile-only">${w.date || '-'}</div>
+                <div class="withdrawal-date-tag mobile-only">${withdrawalDate}</div>
               </div>
             </td>
             <td data-label="Amount">
               <span class="withdrawal-amount-val">-${formatCurrency(w.amount)}</span>
             </td>
-            <td data-label="Date" class="expense-desktop-col">${w.date || '-'}</td>
+            <td data-label="Date" class="expense-desktop-col">${withdrawalDate}</td>
             <td data-label="Notes">
               <span class="withdrawal-notes-text">${escapeStr(w.notes || '-')}</span>
             </td>
@@ -89,11 +97,11 @@ export async function loadExpensesPage() {
               <div class="dropdown">
                 <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
                 <div class="dropdown-menu">
-                  <button class="dropdown-item danger" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(w.owner_name)}')"><i data-lucide="trash-2"></i> Delete Withdrawal</button>
+                  <button class="dropdown-item danger" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(ownerName)}')"><i data-lucide="trash-2"></i> Delete Withdrawal</button>
                 </div>
               </div>
               <div class="expense-mobile-quick-actions mobile-only">
-                <button type="button" class="btn-quick-action action-delete" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(w.owner_name)}')">
+                <button type="button" class="btn-quick-action action-delete" onclick="triggerDeleteWithdrawal(${w.id}, '${escapeStr(ownerName)}')">
                   <i data-lucide="trash-2"></i> Delete
                 </button>
               </div>

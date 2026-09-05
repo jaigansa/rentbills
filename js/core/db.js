@@ -21,6 +21,7 @@ const INTEGER_COLUMNS = {
   ]),
   payments: new Set(['bill_id', 'renter_id', 'amount']),
   expenses: new Set(['property_id', 'amount']),
+  maintenance_tasks: new Set(['property_id', 'unit_id', 'renter_id', 'estimated_cost', 'actual_cost']),
   maintenance_tickets: new Set(['property_id', 'unit_id', 'renter_id', 'estimated_cost', 'actual_cost']),
   owner_withdrawals: new Set(['owner_id', 'amount'])
 };
