@@ -71,7 +71,8 @@ import {
   triggerDeleteBill,
   shareInvoiceWhatsApp,
   copyInvoiceToClipboard,
-  sendOverdueReminderWhatsApp
+  sendOverdueReminderWhatsApp,
+  sharePaymentReceiptWhatsApp
 } from './modules/bills.js';
 import { loadPaymentsPage, filterPaymentsTable, triggerDeletePayment, printReceipt, printPaidReceipt, triggerApprovePaymentProof, triggerRejectPaymentProof, viewPaymentProofImage } from './modules/payments.js';
 import { loadExpensesPage, triggerDeleteExpense, triggerDeleteWithdrawal } from './modules/expenses.js';
@@ -154,6 +155,7 @@ window.exportExpensesCSV = exportExpensesCSV;
 window.shareInvoiceWhatsApp = shareInvoiceWhatsApp;
 window.copyInvoiceToClipboard = copyInvoiceToClipboard;
 window.sendOverdueReminderWhatsApp = sendOverdueReminderWhatsApp;
+window.sharePaymentReceiptWhatsApp = sharePaymentReceiptWhatsApp;
 window.triggerSeedSampleData = triggerSeedSampleData;
 window.openAddDocumentModal = openAddDocumentModal;
 window.populateDocEntitySelect = populateDocEntitySelect;

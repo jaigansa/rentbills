@@ -2,7 +2,7 @@
 import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
-import { formatCurrency, formatInvoiceNumber, escapeStr, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
+import { formatCurrency, formatInvoiceNumber, numberToWordsINR, escapeStr, renderEmptyState, openModal, refreshLucideIcons } from '../core/ui.js';
 import { loadDashboard } from './dashboard.js';
 
 export function populateBillingPeriods() {
@@ -656,6 +656,7 @@ export function formatBillInvoiceMessage(b, t, unitName = '-', ownerObj = null) 
 `
 ━━━━━━━━━━━━━━━━━━━━
 💰 *Total Net Amount:* ${netRupees}
+🗣️ *In Words:* ${numberToWordsINR(b.net_amount || 0)}
 ${statusSection}` +
 paymentDetails +
 `
@@ -757,12 +758,55 @@ This is a reminder that your rent payment for *${stayPeriodStr}* (Unit: *${unitN
 `
 ━━━━━━━━━━━━━━━━━━━━
 💰 *Net Invoice:* ${netRupees}
-🚨 *Outstanding Balance Due:* ${dueRupees}` +
+🚨 *Outstanding Balance Due:* ${dueRupees}
+🗣️ *In Words:* ${numberToWordsINR(duePaise > 0 ? duePaise : (b.net_amount || 0))}` +
 paymentDetails +
 `
 📸 *Please share payment screenshot / transaction reference after paying.*
 
 Please complete your payment immediately to avoid late penalties. Thank you!`
+  );
+}
+
+/**
+ * Generates a clean, professional payment receipt message with amount in words
+ */
+export function formatPaymentReceiptMessage(p, b, t, unitName = '-', ownerObj = null) {
+  const receiptNo = p?.id ? `RCP-${p.id}` : `RCP-${b?.id || '1001'}`;
+  const invoiceNo = formatInvoiceNumber(b);
+  const amountPaise = p?.amount || b?.paid_amount || b?.net_amount || 0;
+  const amountRupees = formatCurrency(amountPaise);
+  const words = numberToWordsINR(amountPaise);
+
+  const balancePaise = Math.max(0, ((b?.net_amount || 0) - (b?.paid_amount || 0)));
+  const balanceRupees = formatCurrency(balancePaise);
+  const balanceStatus = balancePaise === 0 ? 'PAID IN FULL (CLEARED)' : `PARTIAL PAYMENT (Balance: ${balanceRupees})`;
+
+  const payDateStr = p?.payment_date 
+    ? (typeof p.payment_date === 'string' && p.payment_date.includes('T') ? p.payment_date.split('T')[0] : String(p.payment_date))
+    : (p?.created_at ? new Date(p.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+
+  const beneficiaryName = ownerObj?.name || ownerObj?.account_holder || 'Property Management';
+
+  return (
+`🧾 *RENT PAYMENT RECEIPT — ${receiptNo}*
+━━━━━━━━━━━━━━━━━━━━
+👤 *Tenant:* ${t?.name || '-'}
+🏢 *Unit:* ${unitName}
+📋 *Invoice Ref:* ${invoiceNo}
+📅 *Billing Period:* ${b?.billing_period || '-'}
+🗓️ *Payment Date:* ${payDateStr}
+💳 *Payment Mode:* ${p?.payment_method || 'ONLINE / DIRECT'}
+🔖 *Transaction Ref / UTR:* ${p?.transaction_reference || 'N/A'}
+━━━━━━━━━━━━━━━━━━━━
+💵 *Amount Received:* ${amountRupees}
+🗣️ *In Words:* ${words}
+📊 *Status:* ${balanceStatus}
+${balancePaise > 0 ? `🚨 *Remaining Due:* ${balanceRupees}\n` : ''}
+👤 *Beneficiary:* ${beneficiaryName}
+
+━━━━━━━━━━━━━━━━━━━━
+✅ *Payment successfully acknowledged. Thank you!*`
   );
 }
 
@@ -891,3 +935,29 @@ export async function sendOverdueReminderWhatsApp(billId) {
     alert('Failed to send overdue reminder: ' + err.message);
   }
 }
+
+/**
+ * Shares official payment receipt on WhatsApp
+ */
+export async function sharePaymentReceiptWhatsApp(paymentId) {
+  try {
+    const supabaseClient = getSupabaseClient();
+    if (!supabaseClient) throw new Error('Supabase client not initialized');
+
+    const { data: p, error: pErr } = await supabaseClient.from('payments').select('*').eq('id', paymentId).single();
+    if (pErr || !p) throw new Error('Payment record not found');
+
+    const { bill, tenant, unitName, owner } = await fetchBillContext(p.bill_id);
+    const message = formatPaymentReceiptMessage(p, bill, tenant, unitName, owner);
+
+    const encodedMsg = encodeURIComponent(message);
+    const mobileNo = tenant.mobile_number ? tenant.mobile_number.replace(/[^0-9]/g, '') : '';
+    const phoneParam = mobileNo.length >= 10 ? `phone=91${mobileNo.slice(-10)}&` : '';
+
+    const waUrl = `https://api.whatsapp.com/send?${phoneParam}text=${encodedMsg}`;
+    window.open(waUrl, '_blank');
+  } catch (err) {
+    alert('Failed to generate WhatsApp payment receipt: ' + err.message);
+  }
+}
+

@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../core/config.js';
 import { safeUpdate, safeDelete } from '../core/db.js';
 import { getCurrentUser } from '../core/state.js';
 import { formatCurrency, formatInvoiceNumber, numberToWordsINR, renderEmptyState, openModal, refreshLucideIcons, escapeStr } from '../core/ui.js';
-import { loadBillsPage, shareInvoiceWhatsApp, copyInvoiceToClipboard } from './bills.js';
+import { loadBillsPage, shareInvoiceWhatsApp, copyInvoiceToClipboard, sharePaymentReceiptWhatsApp } from './bills.js';
 import { loadDashboard } from './dashboard.js';
 
 export async function loadPaymentsPage() {
@@ -87,6 +87,7 @@ export async function loadPaymentsPage() {
                   ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item success" onclick="triggerApprovePaymentProof(${p.id}, ${p.bill_id})"><i data-lucide="check-circle"></i> Approve Proof</button>` : ''}
                   ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item danger" onclick="triggerRejectPaymentProof(${p.id})"><i data-lucide="x-circle"></i> Reject Proof</button>` : ''}
                   <button class="dropdown-item" onclick="printPaidReceipt(${p.bill_id}, ${p.id})"><i data-lucide="printer"></i> Print Payment Receipt</button>
+                  <button class="dropdown-item" onclick="sharePaymentReceiptWhatsApp(${p.id})"><i data-lucide="message-circle"></i> WhatsApp Receipt</button>
                   <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${p.bill_id})"><i data-lucide="message-square"></i> WhatsApp Invoice</button>
                   <button class="dropdown-item" onclick="copyInvoiceToClipboard(${p.bill_id})"><i data-lucide="copy"></i> Copy Invoice Text</button>
                   ${currentUser && currentUser.role !== 'TENANT' ? `<button class="dropdown-item danger" onclick="triggerDeletePayment(${p.id}, ${p.bill_id})"><i data-lucide="trash-2"></i> Delete Payment</button>` : ''}

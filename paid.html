@@ -1054,11 +1054,13 @@
   <script type="module">
     import { initSupabaseClient, getSupabaseClient } from './js/core/config.js';
     import { formatCurrency, formatInvoiceNumber, numberToWordsINR } from './js/core/ui.js';
+    import { formatPaymentReceiptMessage } from './js/modules/bills.js';
 
     let currentBillData = null;
     let currentTenantData = null;
     let currentOwnerData = null;
     let currentPaymentData = null;
+    let currentUnitName = '-';
 
     /* ============================================================
        LOAD AND RENDER PAYMENT RECEIPT
@@ -1148,6 +1150,7 @@
             }
           }
         }
+        currentUnitName = unitName;
 
         /* Document Title & Page Title */
         document.title = `Payment Receipt - ${formatInvoiceNumber(b)} - ${tenantName}`;
@@ -1271,31 +1274,7 @@
       const p = currentPaymentData;
       const o = currentOwnerData;
 
-      const invoiceNo = formatInvoiceNumber(b);
-      const receiptNo = p ? `RCP-${p.id}` : `RCP-${b.id}`;
-      const receivedRupees = (((p?.amount) || b.paid_amount || b.net_amount || 0) / 100).toFixed(2);
-      const balanceRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
-
-      let msg = `*RENTBILL PRO — OFFICIAL PAYMENT RECEIPT*\n`;
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Receipt No: ${receiptNo}\n`;
-      msg += `Invoice Ref: ${invoiceNo}\n`;
-      msg += `Tenant: ${t.name}\n`;
-      msg += `Billing Period: ${b.billing_period || '-'}\n`;
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Payment Mode: ${p?.payment_method || 'ONLINE / DIRECT'}\n`;
-      msg += `Transaction Ref: ${p?.transaction_reference || 'N/A'}\n`;
-      msg += `Amount Received: INR ${receivedRupees}\n`;
-      msg += `Status: ${balanceRupees === '0.00' ? 'PAID IN FULL (CLEARED)' : 'PARTIAL PAYMENT'}\n`;
-      msg += `Remaining Balance: INR ${balanceRupees}\n`;
-
-      if (o?.name) {
-        msg += `Beneficiary: ${o.name}\n`;
-      }
-
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Notice: Thank you for your payment. This message serves as your official payment receipt acknowledgment.`;
-
+      const msg = formatPaymentReceiptMessage(p, b, t, currentUnitName || '-', o);
       const encoded = encodeURIComponent(msg);
       const cleanPhone = (t.mobile_number || '').replace(/[^0-9]/g, '');
       const waUrl = cleanPhone.length >= 10 ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
@@ -1311,17 +1290,13 @@
       const b = currentBillData;
       const t = currentTenantData;
       const p = currentPaymentData;
+      const o = currentOwnerData;
 
-      const invoiceNo = formatInvoiceNumber(b);
-      const receiptNo = p ? `RCP-${p.id}` : `RCP-${b.id}`;
-      const receivedRupees = (((p?.amount) || b.paid_amount || b.net_amount || 0) / 100).toFixed(2);
-      const balanceRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
-
-      const text = `OFFICIAL PAYMENT RECEIPT\nReceipt No: ${receiptNo}\nInvoice Ref: ${invoiceNo}\nTenant: ${t.name}\n` +
-        `Period: ${b.billing_period || '-'}\nAmount Received: INR ${receivedRupees}\nRemaining Balance: INR ${balanceRupees}\nStatus: VERIFIED & ACKNOWLEDGED`;
-
+      const text = formatPaymentReceiptMessage(p, b, t, currentUnitName || '-', o);
       navigator.clipboard.writeText(text).then(() => {
-        alert('Payment receipt summary copied to clipboard!');
+        alert('Official payment receipt copied to clipboard!');
+      }).catch(() => {
+        alert('Failed to copy to clipboard');
       });
     };
 

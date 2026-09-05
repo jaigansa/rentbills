@@ -14,7 +14,7 @@ import {
   parseFloorValue
 } from '../js/core/format.js';
 import { cleanPayload } from '../js/core/db.js';
-import { formatBillInvoiceMessage, formatOverdueReminderMessage } from '../js/modules/bills.js';
+import { formatBillInvoiceMessage, formatOverdueReminderMessage, formatPaymentReceiptMessage } from '../js/modules/bills.js';
 
 test('formatCurrency converts paise to INR rupees', () => {
   assert.equal(formatCurrency(0), '₹0.00');
@@ -256,9 +256,10 @@ test('formatBillInvoiceMessage includes meter breakdown, avoids @ 0.00/u, and fo
   assert.match(msg, /• IFSC: SBIN0001234/);
   assert.match(msg, /• UPI ID: 9876543210@upi/);
   assert.match(msg, /💰 \*Total Net Amount:\* ₹12,310\.00/);
+  assert.match(msg, /🗣️ \*In Words:\* Twelve Thousand Three Hundred Ten Rupees Only/);
 });
 
-test('formatOverdueReminderMessage includes meter details and payment transfer info', () => {
+test('formatOverdueReminderMessage includes meter details, payment transfer info, and amount in words', () => {
   const bill = {
     id: 3,
     invoice_no: 'INV-1003',
@@ -284,6 +285,35 @@ test('formatOverdueReminderMessage includes meter details and payment transfer i
   assert.match(overdue, /⚡ Electricity \(EB\):/);
   assert.match(overdue, /• Bank: HDFC Bank/);
   assert.match(overdue, /• UPI ID: priya@upi/);
+  assert.match(overdue, /🗣️ \*In Words:\* Five Thousand Eight Hundred Twenty Rupees Only/);
+});
+
+test('formatPaymentReceiptMessage includes amount in words, receipt no, and status', () => {
+  const payment = {
+    id: 105,
+    amount: 1231000,
+    payment_method: 'UPI',
+    transaction_reference: 'UPI12345678',
+    payment_date: '2026-09-05'
+  };
+  const bill = {
+    id: 2,
+    invoice_no: 'INV-1002',
+    billing_period: '2026-08',
+    net_amount: 1231000,
+    paid_amount: 1231000
+  };
+  const tenant = { name: 'Mugindh' };
+  const owner = { name: 'Rajesh Kumar' };
+
+  const receiptMsg = formatPaymentReceiptMessage(payment, bill, tenant, 'Room 1', owner);
+  assert.match(receiptMsg, /🧾 \*RENT PAYMENT RECEIPT — RCP-105\*/);
+  assert.match(receiptMsg, /👤 \*Tenant:\* Mugindh/);
+  assert.match(receiptMsg, /🏢 \*Unit:\* Room 1/);
+  assert.match(receiptMsg, /💵 \*Amount Received:\* ₹12,310\.00/);
+  assert.match(receiptMsg, /🗣️ \*In Words:\* Twelve Thousand Three Hundred Ten Rupees Only/);
+  assert.match(receiptMsg, /PAID IN FULL \(CLEARED\)/);
+  assert.match(receiptMsg, /👤 \*Beneficiary:\* Rajesh Kumar/);
 });
 
 
