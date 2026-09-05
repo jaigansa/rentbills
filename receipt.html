@@ -1148,10 +1148,12 @@
   <script type="module">
     import { initSupabaseClient, getSupabaseClient } from './js/core/config.js';
     import { formatCurrency, formatInvoiceNumber, numberToWordsINR } from './js/core/ui.js';
+    import { formatBillInvoiceMessage } from './js/modules/bills.js';
 
     let currentBillData = null;
     let currentTenantData = null;
     let currentOwnerData = null;
+    let currentUnitName = '-';
 
     /* ============================================================
        LOAD AND RENDER INVOICE
@@ -1211,6 +1213,7 @@
             }
           }
         }
+        currentUnitName = unitName;
 
         /* --------------------------------------------------------
            4. FETCH LATEST PAYMENT
@@ -1429,7 +1432,7 @@
     }
 
     /* ============================================================
-       EXECUTIVE WHATSAPP SHARE GENERATOR (NO EMOJIS)
+       WHATSAPP SHARE GENERATOR & INVOICE TEXT COPY
        ============================================================ */
 
     window.shareReceiptWhatsApp = function () {
@@ -1438,88 +1441,24 @@
       const t = currentTenantData;
       const o = currentOwnerData;
 
-      const invoiceNo = formatInvoiceNumber(b);
-      const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
-      const paidRupees = ((b.paid_amount || 0) / 100).toFixed(2);
-      const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
-
-      let msg = `*RENTBILL PRO — INVOICE STATEMENT*\n`;
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Invoice No: ${invoiceNo}\n`;
-      msg += `Tenant: ${t.name}\n`;
-      msg += `Billing Period: ${b.billing_period || '-'}\n`;
-
-      if (b.period_start_date && b.period_end_date) {
-        msg += `Stay Duration: ${b.period_start_date} to ${b.period_end_date}\n`;
-      }
-
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Monthly Rent: INR ${((b.rent_amount || 0) / 100).toFixed(2)}\n`;
-
-      if (b.maint_amount > 0) {
-        msg += `Maintenance: INR ${(b.maint_amount / 100).toFixed(2)}\n`;
-      }
-
-      if (b.water_amount > 0) {
-        msg += `Water Utility: INR ${(b.water_amount / 100).toFixed(2)}\n`;
-      }
-
-      if (b.eb_amount > 0) {
-        const units = Math.max(0, (Number(b.curr_eb_reading) || 0) - (Number(b.prev_eb_reading) || 0));
-        msg += `Electricity: INR ${(b.eb_amount / 100).toFixed(2)} (${units} units)\n`;
-      }
-
-      if (b.arrears_included > 0) {
-        msg += `Prior Arrears: INR ${(b.arrears_included / 100).toFixed(2)}\n`;
-      }
-
-      if (b.late_fee > 0) {
-        msg += `Late Fee: INR ${(b.late_fee / 100).toFixed(2)}\n`;
-      }
-
-      if (b.discount_amount > 0) {
-        msg += `Discount Applied: -INR ${(b.discount_amount / 100).toFixed(2)}\n`;
-      }
-
-      msg += `━━━━━━━━━━━━━━━━━━━━\n`;
-      msg += `Total Invoice: INR ${netRupees}\n`;
-      msg += `Amount Paid: INR ${paidRupees}\n`;
-      msg += `Balance Due: INR ${dueRupees}\n`;
-
-      if (o?.upi_id && Number(dueRupees) > 0) {
-        msg += `\n*PAYMENT DETAILS*\n`;
-        msg += `UPI ID: ${o.upi_id}\n`;
-        if (o.bank_name) {
-          msg += `Bank: ${o.bank_name} | Account: ${o.account_number || '-'}\n`;
-        }
-      }
-
-      msg += `\nNotice: Please share payment confirmation UTR after transfer.`;
-
+      const msg = formatBillInvoiceMessage(b, t, currentUnitName || '-', o);
       const encoded = encodeURIComponent(msg);
       const cleanPhone = (t.mobile_number || '').replace(/[^0-9]/g, '');
       const waUrl = cleanPhone.length >= 10 ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
       window.open(waUrl, '_blank');
     };
 
-    /* ============================================================
-       COPY INVOICE TEXT
-       ============================================================ */
-
     window.copyReceiptText = function () {
       if (!currentBillData || !currentTenantData) return;
       const b = currentBillData;
       const t = currentTenantData;
-      const invoiceNo = formatInvoiceNumber(b);
-      const netRupees = ((b.net_amount || 0) / 100).toFixed(2);
-      const paidRupees = ((b.paid_amount || 0) / 100).toFixed(2);
-      const dueRupees = Math.max(0, ((b.net_amount || 0) - (b.paid_amount || 0)) / 100).toFixed(2);
+      const o = currentOwnerData;
 
-      const text = `RENT INVOICE\nInvoice: ${invoiceNo}\nTenant: ${t.name}\nPeriod: ${b.billing_period || '-'}` +
-        `\nTotal: INR ${netRupees}\nPaid: INR ${paidRupees}\nBalance Due: INR ${dueRupees}`;
-
+      const text = formatBillInvoiceMessage(b, t, currentUnitName || '-', o);
       navigator.clipboard.writeText(text).then(() => {
-        alert('Invoice summary copied to clipboard!');
+        alert('Complete bill invoice text copied to clipboard!');
+      }).catch(() => {
+        alert('Failed to copy to clipboard');
       });
     };
 
