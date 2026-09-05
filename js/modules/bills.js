@@ -871,21 +871,102 @@ async function fetchBillContext(billId) {
 }
 
 /**
- * Shares the minimal, itemized bill invoice directly on WhatsApp
+ * Universal Share Engine:
+ * 1. Primary: Native Web Share API (navigator.share) supporting WhatsApp, SMS, Signal,
+ *    Email, Telegram, and any installed app on mobile & modern desktop browsers.
+ * 2. Fallback: URL schemes (whatsapp:// / https://api.whatsapp.com, sms:, mailto:)
+ *    with interactive chooser dialog when native share is unavailable.
+ */
+export async function shareMessage({ title, text, phone = '', email = '' }) {
+  // 1. Primary: Native Web Share API
+  if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+    try {
+      const shareData = { title: title || 'RentBill Pro', text };
+      if (!navigator.canShare || navigator.canShare(shareData)) {
+        await navigator.share(shareData);
+        return { success: true, method: 'native' };
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        // User dismissed native share sheet - graceful exit
+        return { success: false, aborted: true };
+      }
+      console.warn('Native navigator.share failed, falling back to URL schemes:', err);
+    }
+  }
+
+  // 2. URL Fallback Schemes
+  const cleanPhone = phone ? String(phone).replace(/[^0-9]/g, '') : '';
+  const intlPhone = cleanPhone.length >= 10 ? `91${cleanPhone.slice(-10)}` : cleanPhone;
+  const encodedText = encodeURIComponent(text);
+  const encodedTitle = encodeURIComponent(title || 'RentBill Pro Notification');
+
+  const waUrl = intlPhone 
+    ? `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+  const smsUri = cleanPhone ? `sms:${cleanPhone}?body=${encodedText}` : `sms:?body=${encodedText}`;
+  const mailtoUri = email 
+    ? `mailto:${email}?subject=${encodedTitle}&body=${encodedText}`
+    : `mailto:?subject=${encodedTitle}&body=${encodedText}`;
+
+  // Check if share chooser modal exists in DOM
+  const shareModal = typeof document !== 'undefined' ? document.getElementById('modal-share-chooser') : null;
+  if (shareModal) {
+    const titleEl = document.getElementById('share-modal-title');
+    if (titleEl) titleEl.textContent = title || 'Share Document';
+
+    const waBtn = document.getElementById('share-btn-whatsapp');
+    if (waBtn) waBtn.href = waUrl;
+
+    const smsBtn = document.getElementById('share-btn-sms');
+    if (smsBtn) smsBtn.href = smsUri;
+
+    const mailBtn = document.getElementById('share-btn-email');
+    if (mailBtn) mailBtn.href = mailtoUri;
+
+    const copyBtn = document.getElementById('share-btn-copy');
+    if (copyBtn) {
+      copyBtn.onclick = async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          alert('📋 Complete message copied to clipboard!');
+        } catch {
+          alert('Failed to copy to clipboard');
+        }
+      };
+    }
+
+    if (typeof openModal === 'function') {
+      openModal('modal-share-chooser');
+      refreshLucideIcons();
+      return { success: true, method: 'chooser' };
+    }
+  }
+
+  // Direct URL fallback if no modal in DOM (e.g. standalone print view)
+  if (typeof window !== 'undefined') {
+    window.open(waUrl, '_blank');
+  }
+  return { success: true, method: 'whatsapp' };
+}
+
+/**
+ * Shares the itemized bill invoice via Web Share API or WhatsApp / SMS / Email URL schemes
  */
 export async function shareInvoiceWhatsApp(billId) {
   try {
     const { bill, tenant, unitName, owner } = await fetchBillContext(billId);
     const message = formatBillInvoiceMessage(bill, tenant, unitName, owner);
+    const invoiceNo = formatInvoiceNumber(bill);
 
-    const encodedMsg = encodeURIComponent(message);
-    const mobileNo = tenant.mobile_number ? tenant.mobile_number.replace(/[^0-9]/g, '') : '';
-    const phoneParam = mobileNo.length >= 10 ? `phone=91${mobileNo.slice(-10)}&` : '';
-
-    const waUrl = `https://api.whatsapp.com/send?${phoneParam}text=${encodedMsg}`;
-    window.open(waUrl, '_blank');
+    await shareMessage({
+      title: `Rent Invoice — ${invoiceNo} (${tenant.name || 'Tenant'})`,
+      text: message,
+      phone: tenant.mobile_number || '',
+      email: tenant.email || ''
+    });
   } catch (err) {
-    alert('Failed to generate WhatsApp invoice: ' + err.message);
+    alert('Failed to share invoice: ' + err.message);
   }
 }
 
@@ -918,26 +999,27 @@ export async function copyInvoiceToClipboard(billId) {
 }
 
 /**
- * Sends urgent overdue reminder notice on WhatsApp
+ * Sends urgent overdue reminder notice via Web Share API or WhatsApp / SMS / Email URL schemes
  */
 export async function sendOverdueReminderWhatsApp(billId) {
   try {
     const { bill, tenant, unitName, owner } = await fetchBillContext(billId);
     const message = formatOverdueReminderMessage(bill, tenant, unitName, owner);
+    const invoiceNo = formatInvoiceNumber(bill);
 
-    const encodedMsg = encodeURIComponent(message);
-    const mobileNo = tenant.mobile_number ? tenant.mobile_number.replace(/[^0-9]/g, '') : '';
-    const phoneParam = mobileNo.length >= 10 ? `phone=91${mobileNo.slice(-10)}&` : '';
-
-    const waUrl = `https://api.whatsapp.com/send?${phoneParam}text=${encodedMsg}`;
-    window.open(waUrl, '_blank');
+    await shareMessage({
+      title: `⚠️ Rent Overdue Notice — ${invoiceNo} (${tenant.name || 'Tenant'})`,
+      text: message,
+      phone: tenant.mobile_number || '',
+      email: tenant.email || ''
+    });
   } catch (err) {
     alert('Failed to send overdue reminder: ' + err.message);
   }
 }
 
 /**
- * Shares official payment receipt on WhatsApp
+ * Shares official payment receipt via Web Share API or WhatsApp / SMS / Email URL schemes
  */
 export async function sharePaymentReceiptWhatsApp(paymentId) {
   try {
@@ -949,15 +1031,16 @@ export async function sharePaymentReceiptWhatsApp(paymentId) {
 
     const { bill, tenant, unitName, owner } = await fetchBillContext(p.bill_id);
     const message = formatPaymentReceiptMessage(p, bill, tenant, unitName, owner);
+    const receiptNo = p?.id ? `RCP-${p.id}` : `RCP-${bill?.id || '1001'}`;
 
-    const encodedMsg = encodeURIComponent(message);
-    const mobileNo = tenant.mobile_number ? tenant.mobile_number.replace(/[^0-9]/g, '') : '';
-    const phoneParam = mobileNo.length >= 10 ? `phone=91${mobileNo.slice(-10)}&` : '';
-
-    const waUrl = `https://api.whatsapp.com/send?${phoneParam}text=${encodedMsg}`;
-    window.open(waUrl, '_blank');
+    await shareMessage({
+      title: `Payment Receipt — ${receiptNo} (${tenant.name || 'Tenant'})`,
+      text: message,
+      phone: tenant.mobile_number || '',
+      email: tenant.email || ''
+    });
   } catch (err) {
-    alert('Failed to generate WhatsApp payment receipt: ' + err.message);
+    alert('Failed to share payment receipt: ' + err.message);
   }
 }
 

@@ -1148,7 +1148,7 @@
   <script type="module">
     import { initSupabaseClient, getSupabaseClient } from './js/core/config.js';
     import { formatCurrency, formatInvoiceNumber, numberToWordsINR } from './js/core/ui.js';
-    import { formatBillInvoiceMessage } from './js/modules/bills.js';
+    import { formatBillInvoiceMessage, shareMessage } from './js/modules/bills.js';
 
     let currentBillData = null;
     let currentTenantData = null;
@@ -1435,17 +1435,20 @@
        WHATSAPP SHARE GENERATOR & INVOICE TEXT COPY
        ============================================================ */
 
-    window.shareReceiptWhatsApp = function () {
+    window.shareReceiptWhatsApp = async function () {
       if (!currentBillData || !currentTenantData) return;
       const b = currentBillData;
       const t = currentTenantData;
       const o = currentOwnerData;
 
       const msg = formatBillInvoiceMessage(b, t, currentUnitName || '-', o);
-      const encoded = encodeURIComponent(msg);
-      const cleanPhone = (t.mobile_number || '').replace(/[^0-9]/g, '');
-      const waUrl = cleanPhone.length >= 10 ? `https://wa.me/91${cleanPhone.slice(-10)}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
-      window.open(waUrl, '_blank');
+      const invNum = formatInvoiceNumber(b);
+      await shareMessage({
+        title: `Rent Invoice — ${invNum} (${t.name || 'Tenant'})`,
+        text: msg,
+        phone: t.mobile_number || '',
+        email: t.email || ''
+      });
     };
 
     window.copyReceiptText = function () {

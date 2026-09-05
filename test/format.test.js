@@ -14,7 +14,7 @@ import {
   parseFloorValue
 } from '../js/core/format.js';
 import { cleanPayload } from '../js/core/db.js';
-import { formatBillInvoiceMessage, formatOverdueReminderMessage, formatPaymentReceiptMessage } from '../js/modules/bills.js';
+import { formatBillInvoiceMessage, formatOverdueReminderMessage, formatPaymentReceiptMessage, shareMessage } from '../js/modules/bills.js';
 
 test('formatCurrency converts paise to INR rupees', () => {
   assert.equal(formatCurrency(0), '₹0.00');
@@ -314,6 +314,103 @@ test('formatPaymentReceiptMessage includes amount in words, receipt no, and stat
   assert.match(receiptMsg, /🗣️ \*In Words:\* Twelve Thousand Three Hundred Ten Rupees Only/);
   assert.match(receiptMsg, /PAID IN FULL \(CLEARED\)/);
   assert.match(receiptMsg, /👤 \*Beneficiary:\* Rajesh Kumar/);
+});
+
+test('shareMessage utilizes Web Share API when navigator.share is supported', async () => {
+  let sharedPayload = null;
+  const originalNavDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        share: async (data) => {
+          sharedPayload = data;
+        },
+        canShare: () => true
+      },
+      configurable: true,
+      writable: true
+    });
+
+    const res = await shareMessage({
+      title: 'Rent Invoice INV-1001',
+      text: 'Test Invoice Message',
+      phone: '9876543210',
+      email: 'tenant@example.com'
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.method, 'native');
+    assert.equal(sharedPayload.title, 'Rent Invoice INV-1001');
+    assert.equal(sharedPayload.text, 'Test Invoice Message');
+  } finally {
+    if (originalNavDesc) {
+      Object.defineProperty(globalThis, 'navigator', originalNavDesc);
+    }
+  }
+});
+
+test('shareMessage handles Web Share API AbortError gracefully without throwing', async () => {
+  const originalNavDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  try {
+    const abortErr = new Error('Share canceled');
+    abortErr.name = 'AbortError';
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {
+        share: async () => {
+          throw abortErr;
+        }
+      },
+      configurable: true,
+      writable: true
+    });
+
+    const res = await shareMessage({
+      title: 'Rent Invoice',
+      text: 'Test',
+      phone: '9876543210'
+    });
+
+    assert.equal(res.success, false);
+    assert.equal(res.aborted, true);
+  } finally {
+    if (originalNavDesc) {
+      Object.defineProperty(globalThis, 'navigator', originalNavDesc);
+    }
+  }
+});
+
+test('shareMessage falls back to URL scheme/fallback when navigator.share is unavailable', async () => {
+  const originalNavDesc = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  const originalWindow = globalThis.window;
+  let openedUrl = null;
+  try {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: {},
+      configurable: true,
+      writable: true
+    });
+    globalThis.window = {
+      open: (url) => {
+        openedUrl = url;
+      }
+    };
+
+    const res = await shareMessage({
+      title: 'Rent Invoice',
+      text: 'Hello World',
+      phone: '9876543210',
+      email: 'tenant@test.com'
+    });
+
+    assert.equal(res.success, true);
+    assert.equal(res.method, 'whatsapp');
+    assert.match(openedUrl, /https:\/\/api\.whatsapp\.com\/send\?phone=919876543210&text=Hello%20World/);
+  } finally {
+    if (originalNavDesc) {
+      Object.defineProperty(globalThis, 'navigator', originalNavDesc);
+    }
+    globalThis.window = originalWindow;
+  }
 });
 
 

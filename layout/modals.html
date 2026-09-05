@@ -763,3 +763,40 @@
       </form>
     </div>
   </div>
+
+  <!-- Share Chooser Fallback Modal (WhatsApp, SMS, Email, Installed Apps) -->
+  <div id="modal-share-chooser" class="modal-overlay">
+    <div class="modal-content" style="max-width: 460px;">
+      <div class="modal-header">
+        <h2 id="share-modal-title">Share Document</h2>
+        <button class="close-btn" onclick="closeModal('modal-share-chooser')" aria-label="Close modal"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+          Native Web Share is not supported on this browser. Choose your preferred app or action below:
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- 1. WhatsApp Scheme -->
+          <a id="share-btn-whatsapp" href="#" target="_blank" class="btn btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 8px; background: #25D366; border-color: #25D366; color: #fff; text-decoration: none; padding: 10px 16px; font-weight: 600;">
+            <i data-lucide="message-circle"></i> Share on WhatsApp (Web / App)
+          </a>
+          <!-- 2. SMS Scheme -->
+          <a id="share-btn-sms" href="#" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 10px 16px;">
+            <i data-lucide="smartphone"></i> Send via SMS / Messages
+          </a>
+          <!-- 3. Email Scheme -->
+          <a id="share-btn-email" href="#" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 10px 16px;">
+            <i data-lucide="mail"></i> Send via Email
+          </a>
+          <!-- 4. Clipboard -->
+          <button type="button" id="share-btn-copy" class="btn btn-secondary" style="display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px;">
+            <i data-lucide="copy"></i> Copy Full Message Text
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('modal-share-chooser')">Close</button>
+      </div>
+    </div>
+  </div>
+
