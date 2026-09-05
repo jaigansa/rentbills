@@ -141,7 +141,7 @@ export async function loadBillsPage() {
               <button class="dropdown-btn" onclick="toggleDropdown(event, this)">⋮</button>
               <div class="dropdown-menu">
                 <button class="dropdown-item" onclick="printReceipt(${b.id})"><i data-lucide="printer"></i> View & Print Invoice</button>
-                <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${b.id})"><i data-lucide="message-square"></i> Share on WhatsApp</button>
+                <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${b.id})"><i data-lucide="share-2"></i> Share Invoice</button>
                 <button class="dropdown-item" onclick="copyInvoiceToClipboard(${b.id})"><i data-lucide="copy"></i> Copy Invoice Text</button>
                 ${b.status !== 'PAID' && b.status !== 'VOID' && currentUser.role !== 'TENANT' ? `<button class="dropdown-item" style="color: #d97706;" onclick="sendOverdueReminderWhatsApp(${b.id})"><i data-lucide="alert-triangle"></i> Overdue Reminder</button>` : ''}
                 ${b.status !== 'PAID' && b.status !== 'VOID' ? `<button class="dropdown-item" onclick="openPaymentModal(${b.id}, ${due})"><i data-lucide="${currentUser.role === 'TENANT' ? 'upload-cloud' : 'credit-card'}"></i> ${currentUser.role === 'TENANT' ? 'Submit Payment Proof' : 'Record Payment'}</button>` : ''}

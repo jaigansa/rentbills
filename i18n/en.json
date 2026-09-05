@@ -60,7 +60,8 @@
   "btn_edit": "Edit",
   "btn_delete": "Delete",
   "btn_print": "Print Receipt",
-  "btn_whatsapp": "Share on WhatsApp",
+  "btn_whatsapp": "Share",
+  "btn_share": "Share",
   "btn_copy": "Copy Summary",
 
   "msg_login_title": "RentBill Pro Login",

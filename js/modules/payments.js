@@ -87,8 +87,8 @@ export async function loadPaymentsPage() {
                   ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item success" onclick="triggerApprovePaymentProof(${p.id}, ${p.bill_id})"><i data-lucide="check-circle"></i> Approve Proof</button>` : ''}
                   ${currentUser && currentUser.role !== 'TENANT' && p.proof_status === 'PENDING' ? `<button class="dropdown-item danger" onclick="triggerRejectPaymentProof(${p.id})"><i data-lucide="x-circle"></i> Reject Proof</button>` : ''}
                   <button class="dropdown-item" onclick="printPaidReceipt(${p.bill_id}, ${p.id})"><i data-lucide="printer"></i> Print Payment Receipt</button>
-                  <button class="dropdown-item" onclick="sharePaymentReceiptWhatsApp(${p.id})"><i data-lucide="message-circle"></i> WhatsApp Receipt</button>
-                  <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${p.bill_id})"><i data-lucide="message-square"></i> WhatsApp Invoice</button>
+                  <button class="dropdown-item" onclick="sharePaymentReceiptWhatsApp(${p.id})"><i data-lucide="share-2"></i> Share Receipt</button>
+                  <button class="dropdown-item" onclick="shareInvoiceWhatsApp(${p.bill_id})"><i data-lucide="share-2"></i> Share Invoice</button>
                   <button class="dropdown-item" onclick="copyInvoiceToClipboard(${p.bill_id})"><i data-lucide="copy"></i> Copy Invoice Text</button>
                   ${currentUser && currentUser.role !== 'TENANT' ? `<button class="dropdown-item danger" onclick="triggerDeletePayment(${p.id}, ${p.bill_id})"><i data-lucide="trash-2"></i> Delete Payment</button>` : ''}
                 </div>
